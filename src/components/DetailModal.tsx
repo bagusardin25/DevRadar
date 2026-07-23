@@ -149,9 +149,9 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
                       Key Dates & Deadlines
                     </h5>
                     <div className="space-y-1 text-[#1C1B18] dark:text-[#D6DCE5] font-bold">
-                      <div>Registration Opens: <strong className="text-[#1C1B18] dark:text-white font-extrabold">{new Date(hackathon!.registrationOpenAt).toLocaleDateString()}</strong></div>
-                      <div>Registration Deadline: <strong className="text-[#059669] font-extrabold">{new Date(hackathon!.registrationDeadline).toLocaleDateString()}</strong></div>
-                      <div>Submission Deadline: <strong className="text-[#FF5A36] font-extrabold">{new Date(hackathon!.submissionDeadline).toLocaleDateString()}</strong></div>
+                      <div>Registration Opens: <strong className="text-[#1C1B18] dark:text-white font-extrabold">{new Date(hackathon!.registrationOpenAt).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}</strong></div>
+                      <div>Registration Deadline: <strong className="text-[#059669] font-extrabold">{new Date(hackathon!.registrationDeadline).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}</strong></div>
+                      <div>Submission Deadline: <strong className="text-[#FF5A36] font-extrabold">{new Date(hackathon!.submissionDeadline).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}</strong></div>
                     </div>
                   </div>
 

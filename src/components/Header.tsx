@@ -90,7 +90,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-start">
             <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setFilters(f => ({ ...f, activeModule: 'hackathon' }))}>
               <div className="relative flex items-center justify-center w-10 h-10 rounded-2xl bg-white dark:bg-[#131A29] border-[1.5px] border-[#1C1B18] text-[#FF5A36] shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5] group-hover:scale-105 transition-all">
-                <Radar className="w-6 h-6 text-[#FF5A36]" />
+                <img src="/logomark.png" alt="DevRadar Logo" className="w-8 h-8 object-contain" />
               </div>
               <div>
                 <div className="flex items-center gap-2">

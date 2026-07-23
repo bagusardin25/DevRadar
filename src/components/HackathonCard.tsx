@@ -40,7 +40,7 @@ export const HackathonCard: React.FC<HackathonCardProps> = ({
 
   const handleDownloadMD = (e: React.MouseEvent, hackathon: Hackathon) => {
     e.stopPropagation();
-    const mdContent = `# ${hackathon.title}\n\n**Organizer:** ${hackathon.organizer}\n**Prize Pool:** $${hackathon.prizeValue.toLocaleString()} ${hackathon.prizeCurrency}\n**Registration Deadline:** ${new Date(hackathon.registrationDeadline).toLocaleDateString()}\n**Submission Deadline:** ${new Date(hackathon.submissionDeadline).toLocaleDateString()}\n\n## Description\n${hackathon.description}\n\n## Technologies\n${hackathon.technologies.join(', ')}\n\n## Official Link\n[${hackathon.officialUrl}](${hackathon.officialUrl})\n\n## Verification Notes\n${hackathon.audit?.verifierNotes || 'N/A'}\n`;
+    const mdContent = `# ${hackathon.title}\n\n**Organizer:** ${hackathon.organizer}\n**Prize Pool:** $${hackathon.prizeValue.toLocaleString()} ${hackathon.prizeCurrency}\n**Registration Deadline:** ${new Date(hackathon.registrationDeadline).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}\n**Submission Deadline:** ${new Date(hackathon.submissionDeadline).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}\n\n## Description\n${hackathon.description}\n\n## Technologies\n${hackathon.technologies.join(', ')}\n\n## Official Link\n[${hackathon.officialUrl}](${hackathon.officialUrl})\n\n## Verification Notes\n${hackathon.audit?.verifierNotes || 'N/A'}\n`;
     
     const blob = new Blob([mdContent], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);

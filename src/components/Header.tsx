@@ -192,7 +192,7 @@ export const Header: React.FC<HeaderProps> = ({
 
             {/* GitHub Repo */}
             <a
-              href="https://github.com/Andy00L/sharetopus.git"
+              href="https://github.com/bagusardin25/DevRadar.git"
               target="_blank"
               rel="noreferrer"
               title="GitHub Open Source Repository"

@@ -1,0 +1,311 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&family=JetBrains+Mono:ital,wght@0,400..700;1,400..700&display=swap');
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Sharetopus Neo-Brutalist Design Tokens */
+:root {
+  --bg-warm: #F3F4EF;
+  --bg-card: #FFFFFF;
+  --bg-card-alt: #F8F9F4;
+  --bg-header: #F3F4EF;
+  
+  --ink-primary: #1C1B18;
+  --ink-secondary: #4A4845;
+  --ink-muted: #736F66;
+  
+  --border-dark: #1C1B18;
+  --line-subtle: #D6D5CF;
+  
+  --accent-orange: #FF5A36;
+  --accent-orange-hover: #E84A26;
+  --accent-cyan: #0284C7;
+  --accent-emerald: #059669;
+  --accent-purple: #7C3AED;
+  
+  --shadow-neo: 4px 4px 0 0 #1C1B18;
+  --shadow-neo-lg: 6px 6px 0 0 #1C1B18;
+  --shadow-neo-sm: 2px 2px 0 0 #1C1B18;
+
+  --accent: #FF5A36;
+  --accent-bg: rgba(255, 90, 54, 0.08);
+  --accent-border: rgba(255, 90, 54, 0.3);
+
+  --font-display: 'DM Sans', 'Plus Jakarta Sans', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+/* Dark Mode Theme Variables */
+.dark-theme {
+  --bg-warm: #090C15;
+  --bg-card: #131A29;
+  --bg-card-alt: #1A2336;
+  --bg-header: #0D121F;
+  
+  --ink-primary: #F8FAF9;
+  --ink-secondary: #CBD5E1;
+  --ink-muted: #94A3B8;
+  
+  --border-dark: #D6DCE5;
+  --line-subtle: #1E293B;
+  
+  --shadow-neo: 4px 4px 0 0 #D6DCE5;
+  --shadow-neo-lg: 6px 6px 0 0 #D6DCE5;
+  --shadow-neo-sm: 2px 2px 0 0 #D6DCE5;
+
+  --accent: #D6DCE5;
+  --accent-bg: rgba(214, 220, 229, 0.08);
+  --accent-border: rgba(214, 220, 229, 0.3);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--bg-warm);
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+  color: var(--ink-primary);
+  font-family: var(--font-display);
+  min-height: 100vh;
+  overflow-x: hidden;
+  line-height: 1.5;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-warm);
+  border-left: 1.5px solid var(--border-dark);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--accent-orange);
+  border: 1.5px solid var(--border-dark);
+  border-radius: 0px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-orange-hover);
+}
+
+/* Sharetopus Card Style */
+.sharetopus-card {
+  background: var(--bg-card);
+  border: 1.5px solid var(--border-dark);
+  border-radius: 24px;
+  box-shadow: var(--shadow-neo);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sharetopus-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-neo-lg);
+}
+
+.sharetopus-card-alt {
+  background: var(--bg-card-alt);
+  border: 1.5px solid var(--border-dark);
+  border-radius: 24px;
+  box-shadow: var(--shadow-neo);
+}
+
+/* Sharetopus Button Styles */
+.btn-sharetopus-primary {
+  background-color: var(--accent-orange);
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-weight: 700;
+  padding: 10px 22px;
+  border-radius: 9999px;
+  border: 1.5px solid var(--border-dark);
+  box-shadow: 2px 2px 0 0 var(--border-dark);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.15s ease-out;
+}
+
+.btn-sharetopus-primary:hover {
+  background-color: var(--accent-orange-hover);
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 0 var(--border-dark);
+}
+
+.btn-sharetopus-primary:active {
+  transform: translate(2px, 2px) !important;
+  box-shadow: 0px 0px 0 0 transparent !important;
+}
+
+.btn-sharetopus-secondary {
+  background-color: var(--bg-card);
+  color: var(--ink-primary);
+  font-family: var(--font-display);
+  font-weight: 700;
+  padding: 10px 20px;
+  border-radius: 9999px;
+  border: 1.5px solid var(--border-dark);
+  box-shadow: 2px 2px 0 0 var(--border-dark);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.15s ease-out;
+}
+
+.btn-sharetopus-secondary:hover {
+  background-color: var(--ink-primary);
+  color: var(--bg-warm);
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 0 var(--border-dark);
+}
+
+.btn-sharetopus-secondary:active {
+  transform: translate(2px, 2px) !important;
+  box-shadow: 0px 0px 0 0 transparent !important;
+}
+
+/* Global button active effect for brutalist shadow buttons */
+button[class*="shadow-"]:active, a[class*="shadow-"]:active {
+  transform: translate(2px, 2px) !important;
+  box-shadow: 0px 0px 0 0 transparent !important;
+}
+
+/* Sharetopus Pill Tags */
+.sharetopus-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 14px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1.5px solid var(--border-dark);
+  background: var(--bg-card);
+  color: var(--ink-primary);
+  box-shadow: 1.5px 1.5px 0 0 var(--border-dark);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* Ticker Marquee Animation */
+@keyframes marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  display: flex;
+  width: 200%;
+  animation: marquee 35s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* =========================================
+   Missing Class Definitions Fix
+   ========================================= */
+
+/* Glass Panel — Dark-themed container for Pipeline/Admin/Extension views */
+.glass-panel {
+  background: #0F172A;
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  backdrop-filter: blur(12px);
+  transition: background-color 0.25s ease, border-color 0.25s ease;
+}
+
+.dark-theme .glass-panel {
+  background: rgba(15, 23, 42, 0.8);
+  border-color: rgba(148, 163, 184, 0.1);
+}
+
+/* Tier Badges — Source credibility indicators */
+.tier-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 12px;
+  border-radius: 9999px;
+  font-weight: 700;
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+}
+
+.tier-1 {
+  background: rgba(214, 220, 229, 0.15);
+  color: #D6DCE5;
+  border: 1px solid rgba(214, 220, 229, 0.3);
+}
+
+.tier-2 {
+  background: rgba(168, 85, 247, 0.15);
+  color: #A855F7;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.tier-3 {
+  background: rgba(245, 158, 11, 0.15);
+  color: #F59E0B;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+/* Status Badges — Verification state indicators */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 12px;
+  border-radius: 9999px;
+  font-weight: 700;
+  font-size: 0.65rem;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.status-badge-review {
+  background: rgba(245, 158, 11, 0.15);
+  color: #F59E0B;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.status-badge-verified {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10B981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+/* Primary Button — Action button for dark-themed views */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-family: var(--font-display);
+  color: #ffffff;
+  background: #0284C7;
+  border: 1.5px solid #0369A1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+  background: #0369A1;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

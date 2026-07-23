@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="public/logomark_text.png" alt="DevRadar Logo" width="450" />
+</div>
+
 # 🛰️ DevRadar — Developer Opportunity Intelligence Platform
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)

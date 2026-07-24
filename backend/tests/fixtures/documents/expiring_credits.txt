@@ -1,0 +1,7 @@
+CloudLLM Developer Credits Promo
+
+CloudLLM is giving $200 free credits for startups and students.
+Offer starts 2026-09-01 and expires 2026-12-31T00:00:00Z.
+Promo code available after signup. Regions: United States, Europe.
+Claim URL: https://cloudllm.example/credits/claim
+Terms: https://cloudllm.example/terms

@@ -13,7 +13,7 @@ import {
   GraduationCap,
   Zap,
   CreditCard,
-  Infinity,
+  Infinity as InfinityIcon,
   Brain
 } from 'lucide-react';
 import type { FilterState } from '../types';
@@ -45,7 +45,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   ] : [
     { label: 'All AI Deals', icon: Zap, apply: () => setFilters(f => ({ ...f, searchQuery: '', offerType: '', verificationStatus: '' })) },
     { label: 'No Credit Card / Free Credits', icon: CreditCard, apply: () => setFilters(f => ({ ...f, offerType: 'free_credits' })) },
-    { label: 'Permanent Free Tier', icon: Infinity, apply: () => setFilters(f => ({ ...f, offerType: 'free_tier' })) },
+    { label: 'Permanent Free Tier', icon: InfinityIcon, apply: () => setFilters(f => ({ ...f, offerType: 'free_tier' })) },
     { label: 'Student Packs', icon: GraduationCap, apply: () => setFilters(f => ({ ...f, offerType: 'student_program' })) },
     { label: 'Free Open Models / Price Drops', icon: Brain, apply: () => setFilters(f => ({ ...f, offerType: 'free_model' })) }
   ];

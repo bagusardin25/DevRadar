@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Header } from './components/Header';
 import { HeroSection } from './components/HeroSection';
 import { StatsOverview } from './components/StatsOverview';
@@ -12,24 +12,40 @@ import { CompareModal } from './components/CompareModal';
 import { SubmitModal } from './components/SubmitModal';
 import { BookmarksDrawer } from './components/BookmarksDrawer';
 
-import { MOCK_HACKATHONS, MOCK_AI_DEALS, MOCK_UNVERIFIED_SIGNALS } from './data/mockData';
-import type { FilterState, Hackathon, AIDeal, UnverifiedSignal } from './types';
-import { FilterX } from 'lucide-react';
+import type { FilterState, Hackathon, AIDeal } from './types';
+import {
+  ApiError,
+  type AdminMe,
+  type CatalogueStats,
+  type ReviewItem,
+  adminLogout,
+  approveReviewItem,
+  fetchAIOffers,
+  fetchAdminMe,
+  fetchCatalogueStats,
+  fetchHackathons,
+  fetchReviewItems,
+  loadAlertIds,
+  loadBookmarkIds,
+  rejectReviewItem,
+  saveAlertIds,
+  saveBookmarkIds,
+  startAdminGithubLogin,
+  startLiveDiscovery,
+  toggleId,
+  waitForDiscovery,
+} from './api';
+import { FilterX, Loader2, AlertCircle } from 'lucide-react';
 
 const STORAGE_KEYS = {
-  BOOKMARKS: 'devradar_bookmarks_v1',
   LAYOUT: 'devradar_layout_v1',
   THEME: 'devradar_theme_v1',
-  HACKATHONS: 'devradar_hackathons_v1',
-  DEALS: 'devradar_deals_v1',
-  SIGNALS: 'devradar_signals_v1'
 };
 
 export function App() {
-  // Theme state (Sharetopus Warm Light vs Cyber Dark)
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.THEME);
-    return (saved === 'dark' || saved === 'light') ? saved : 'light';
+    return saved === 'dark' || saved === 'light' ? saved : 'light';
   });
 
   useEffect(() => {
@@ -54,274 +70,377 @@ export function App() {
     onlyClosingSoon: false,
     onlyBigPrizes: false,
     onlyFreeNoCard: false,
-    searchExecutionMode: 'indexed'
+    searchExecutionMode: 'indexed',
   });
 
-  // LocalStorage layout preference
+  // Debounced catalogue query (ignore UI-only fields like activeModule / layout).
+  const [queryFilters, setQueryFilters] = useState(filters);
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      setQueryFilters((prev) => {
+        const next: FilterState = {
+          ...prev,
+          searchQuery: filters.searchQuery,
+          mode: filters.mode,
+          region: filters.region,
+          eligibility: filters.eligibility,
+          technology: filters.technology,
+          offerType: filters.offerType,
+          verificationStatus: filters.verificationStatus,
+          onlyClosingSoon: filters.onlyClosingSoon,
+          onlyBigPrizes: filters.onlyBigPrizes,
+          onlyFreeNoCard: filters.onlyFreeNoCard,
+        };
+        const same =
+          prev.searchQuery === next.searchQuery &&
+          prev.mode === next.mode &&
+          prev.region === next.region &&
+          prev.eligibility === next.eligibility &&
+          prev.technology === next.technology &&
+          prev.offerType === next.offerType &&
+          prev.verificationStatus === next.verificationStatus &&
+          prev.onlyClosingSoon === next.onlyClosingSoon &&
+          prev.onlyBigPrizes === next.onlyBigPrizes &&
+          prev.onlyFreeNoCard === next.onlyFreeNoCard;
+        return same ? prev : next;
+      });
+    }, 300);
+    return () => window.clearTimeout(t);
+  }, [
+    filters.searchQuery,
+    filters.mode,
+    filters.region,
+    filters.eligibility,
+    filters.technology,
+    filters.offerType,
+    filters.verificationStatus,
+    filters.onlyClosingSoon,
+    filters.onlyBigPrizes,
+    filters.onlyFreeNoCard,
+  ]);
+
   const [viewLayout, setViewLayout] = useState<'grid' | 'compact'>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.LAYOUT);
-    return (saved === 'compact' || saved === 'grid') ? saved : 'grid';
+    return saved === 'compact' || saved === 'grid' ? saved : 'grid';
   });
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.LAYOUT, viewLayout);
   }, [viewLayout]);
 
-  // LocalStorage hackathons & bookmarks persistence
-  const [hackathons, setHackathons] = useState<Hackathon[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.HACKATHONS);
-    return saved ? JSON.parse(saved) : MOCK_HACKATHONS;
-  });
-
-  const [aiDeals, setAiDeals] = useState<AIDeal[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.DEALS);
-    return saved ? JSON.parse(saved) : MOCK_AI_DEALS;
-  });
-
-  const [unverifiedSignals, setUnverifiedSignals] = useState<UnverifiedSignal[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.SIGNALS);
-    return saved ? JSON.parse(saved) : MOCK_UNVERIFIED_SIGNALS;
-  });
+  const [bookmarkIds, setBookmarkIds] = useState<Set<string>>(() => loadBookmarkIds());
+  const [alertIds, setAlertIds] = useState<Set<string>>(() => loadAlertIds());
+  /** Cache of bookmarked entities so the drawer works when filters change. */
+  const [bookmarkCache, setBookmarkCache] = useState<{
+    hackathons: Record<string, Hackathon>;
+    deals: Record<string, AIDeal>;
+  }>({ hackathons: {}, deals: {} });
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.HACKATHONS, JSON.stringify(hackathons));
-  }, [hackathons]);
+    saveBookmarkIds(bookmarkIds);
+  }, [bookmarkIds]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.DEALS, JSON.stringify(aiDeals));
-  }, [aiDeals]);
+    saveAlertIds(alertIds);
+  }, [alertIds]);
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.SIGNALS, JSON.stringify(unverifiedSignals));
-  }, [unverifiedSignals]);
-  
+  const [hackathons, setHackathons] = useState<Hackathon[]>([]);
+  const [aiDeals, setAiDeals] = useState<AIDeal[]>([]);
+  const [hackTotal, setHackTotal] = useState(0);
+  const [dealTotal, setDealTotal] = useState(0);
+  const [stats, setStats] = useState<CatalogueStats | null>(null);
+
+  const [catalogueLoading, setCatalogueLoading] = useState(true);
+  const [catalogueError, setCatalogueError] = useState<string | null>(null);
+
   const [selectedItem, setSelectedItem] = useState<Hackathon | AIDeal | null>(null);
   const [compareItems, setCompareItems] = useState<Hackathon[]>([]);
-  
+
   const [isBookmarksOpen, setIsBookmarksOpen] = useState(false);
   const [isSubmitOpen, setIsSubmitOpen] = useState(false);
   const [isExtensionOpen, setIsExtensionOpen] = useState(false);
   const [isSearchingLive, setIsSearchingLive] = useState(false);
+  const [liveDiscoveryMessage, setLiveDiscoveryMessage] = useState<string | null>(null);
 
-  // Calculate stats summary values
-  const totalPrizePoolValue = useMemo(() => {
-    return hackathons.reduce((sum, h) => sum + h.prizeValue, 0);
-  }, [hackathons]);
+  // Admin review state
+  const [admin, setAdmin] = useState<AdminMe | null>(null);
+  const [reviewItems, setReviewItems] = useState<ReviewItem[]>([]);
+  const [reviewTotal, setReviewTotal] = useState(0);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
 
-  // Trigger Live Web Discovery Pipeline Simulation
-  const handleTriggerLiveDiscovery = () => {
-    setIsSearchingLive(true);
-    setTimeout(() => {
-      setIsSearchingLive(false);
-      const newDiscoveredHack: Hackathon = {
-        id: `hack-live-${Date.now()}`,
-        title: 'Live Discovered: DeepSeek & Vercel AI Challenge',
-        organizer: 'DeepSeek & Vercel',
-        description: 'Newly discovered on X! Build ultra-fast reasoning bots with DeepSeek-v4-Pro and Flash models hosted on Vercel AI SDK.',
-        registrationOpenAt: new Date().toISOString(),
-        registrationDeadline: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-        submissionDeadline: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
-        mode: 'online',
-        eligibleCountries: ['Worldwide'],
-        eligibility: ['Developer', 'Student'],
-        teamMin: 1,
-        teamMax: 4,
-        prizeValue: 35000,
-        prizeCurrency: 'USD',
-        technologies: ['DeepSeek', 'Vercel', 'AI', 'Next.js'],
-        officialUrl: 'https://vercel.com/events/deepseek-challenge-2026',
-        discoverySources: [
-          {
-            type: 'official_site',
-            url: 'https://vercel.com/events/deepseek-challenge-2026',
-            fetchedAt: new Date().toISOString(),
-            tier: 'Tier 1 (Official)'
-          },
-          {
-            type: 'x',
-            url: 'https://x.com/deepseek_ai/status/1899990192',
-            author: '@deepseek_ai',
-            fetchedAt: new Date().toISOString(),
-            tier: 'Tier 3 (Discovery Signal)'
-          }
-        ],
-        verificationStatus: 'verified_active',
-        confidenceScore: 0.96,
-        lastCheckedAt: new Date().toISOString(),
-        suitableReasons: [
-          'Freshly discovered live signal',
-          'High Prize Pool ($35,000 USD)',
-          'Free DeepSeek API credits'
-        ],
-        effortEstimate: '1-2 Weeks',
-        audit: {
-          lastCheckedAt: new Date().toISOString(),
-          confidenceScore: 0.96,
-          scoreBreakdown: {
-            statusAndDeadline: 35,
-            keywordMatch: 25,
-            sourceCredibility: 18,
-            freshness: 14,
-            completeness: 4
-          },
-          verifierNotes: 'Verified live HTTP 200 response on official Vercel terms page.',
-          checkedUrls: ['https://vercel.com/events/deepseek-challenge-2026'],
-          pipelineStep: 'verified'
+  const hackAbort = useRef<AbortController | null>(null);
+  const dealAbort = useRef<AbortController | null>(null);
+
+  const applyLocalFlags = useCallback(
+    <T extends { id: string }>(items: T[]): (T & { bookmarked: boolean; alertEnabled: boolean })[] =>
+      items.map((item) => ({
+        ...item,
+        bookmarked: bookmarkIds.has(item.id),
+        alertEnabled: alertIds.has(item.id),
+      })),
+    [bookmarkIds, alertIds],
+  );
+
+  const loadCatalogue = useCallback(async () => {
+    setCatalogueLoading(true);
+    setCatalogueError(null);
+
+    hackAbort.current?.abort();
+    dealAbort.current?.abort();
+    const hCtrl = new AbortController();
+    const dCtrl = new AbortController();
+    hackAbort.current = hCtrl;
+    dealAbort.current = dCtrl;
+
+    // Read prefs at call time so toggling bookmarks does not re-bind this callback.
+    const bookmarks = loadBookmarkIds();
+    const alerts = loadAlertIds();
+
+    try {
+      const [hackPage, dealPage, statsRes] = await Promise.all([
+        fetchHackathons(queryFilters, {
+          limit: 50,
+          bookmarks,
+          alerts,
+          signal: hCtrl.signal,
+        }),
+        fetchAIOffers(queryFilters, {
+          limit: 50,
+          bookmarks,
+          alerts,
+          signal: dCtrl.signal,
+        }),
+        fetchCatalogueStats(hCtrl.signal).catch(() => null),
+      ]);
+
+      setHackathons(hackPage.items);
+      setHackTotal(hackPage.totalEstimate);
+      setAiDeals(dealPage.items);
+      setDealTotal(dealPage.totalEstimate);
+      if (statsRes) setStats(statsRes);
+      // Refresh bookmark cache from freshly loaded rows that are still bookmarked.
+      setBookmarkCache((prev) => {
+        const nextH = { ...prev.hackathons };
+        const nextD = { ...prev.deals };
+        for (const h of hackPage.items) {
+          if (bookmarks.has(h.id)) nextH[h.id] = h;
         }
-      };
+        for (const d of dealPage.items) {
+          if (bookmarks.has(d.id)) nextD[d.id] = d;
+        }
+        return { hackathons: nextH, deals: nextD };
+      });
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      const message =
+        err instanceof ApiError
+          ? err.detail
+          : err instanceof Error
+            ? err.message
+            : 'Failed to load catalogue';
+      setCatalogueError(message);
+      setHackathons([]);
+      setAiDeals([]);
+    } finally {
+      setCatalogueLoading(false);
+    }
+  }, [queryFilters]);
 
-      setHackathons(prev => [newDiscoveredHack, ...prev]);
-    }, 2000);
+  useEffect(() => {
+    void loadCatalogue();
+  }, [loadCatalogue]);
+
+  // Re-apply bookmark/alert flags without refetch when only local prefs change
+  useEffect(() => {
+    setHackathons((prev) => applyLocalFlags(prev));
+    setAiDeals((prev) => applyLocalFlags(prev));
+  }, [bookmarkIds, alertIds, applyLocalFlags]);
+  const loadAdminSession = useCallback(async () => {
+    try {
+      const me = await fetchAdminMe();
+      setAdmin(me);
+      return me;
+    } catch {
+      setAdmin(null);
+      return null;
+    }
+  }, []);
+
+  const loadReviewQueue = useCallback(async () => {
+    setReviewLoading(true);
+    setReviewError(null);
+    try {
+      const me = admin ?? (await loadAdminSession());
+      if (!me) {
+        setReviewItems([]);
+        setReviewTotal(0);
+        setReviewError(null);
+        return;
+      }
+      const data = await fetchReviewItems({ state: 'open', limit: 50 });
+      setReviewItems(data.items);
+      setReviewTotal(data.total);
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? err.detail
+          : err instanceof Error
+            ? err.message
+            : 'Failed to load review queue';
+      setReviewError(message);
+      setReviewItems([]);
+      setReviewTotal(0);
+    } finally {
+      setReviewLoading(false);
+    }
+  }, [admin, loadAdminSession]);
+
+  useEffect(() => {
+    if (filters.activeModule === 'admin_queue') {
+      void loadReviewQueue();
+    }
+  }, [filters.activeModule, loadReviewQueue]);
+
+  // After GitHub OAuth redirect
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('admin_auth') === 'ok') {
+      void loadAdminSession().then(() => {
+        setFilters((f) => ({ ...f, activeModule: 'admin_queue' }));
+        window.history.replaceState({}, '', window.location.pathname);
+      });
+    }
+  }, [loadAdminSession]);
+
+  const handleTriggerLiveDiscovery = async () => {
+    const q = filters.searchQuery.trim() || 'AI hackathon';
+    setIsSearchingLive(true);
+    setLiveDiscoveryMessage(null);
+    try {
+      const receipt = await startLiveDiscovery({
+        query: q,
+        connectors: ['devpost'],
+        resultCap: 10,
+      });
+      setLiveDiscoveryMessage(receipt.message || `Discovery started (${receipt.status})`);
+      await waitForDiscovery(receipt.id, { timeoutMs: 45_000 });
+      await loadCatalogue();
+      setLiveDiscoveryMessage('Live discovery finished — catalogue refreshed.');
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? err.detail
+          : err instanceof Error
+            ? err.message
+            : 'Live discovery failed';
+      setLiveDiscoveryMessage(message);
+    } finally {
+      setIsSearchingLive(false);
+    }
   };
 
   const handleToggleBookmark = (id: string) => {
-    setHackathons(prev => prev.map(h => h.id === id ? { ...h, bookmarked: !h.bookmarked } : h));
-    setAiDeals(prev => prev.map(d => d.id === id ? { ...d, bookmarked: !d.bookmarked } : d));
+    setBookmarkIds((prev) => {
+      const next = toggleId(prev, id);
+      setBookmarkCache((cache) => {
+        const hackathonsMap = { ...cache.hackathons };
+        const dealsMap = { ...cache.deals };
+        if (next.has(id)) {
+          const h = hackathons.find((x) => x.id === id);
+          const d = aiDeals.find((x) => x.id === id);
+          if (h) hackathonsMap[id] = { ...h, bookmarked: true };
+          if (d) dealsMap[id] = { ...d, bookmarked: true };
+        } else {
+          delete hackathonsMap[id];
+          delete dealsMap[id];
+        }
+        return { hackathons: hackathonsMap, deals: dealsMap };
+      });
+      return next;
+    });
   };
 
   const handleToggleAlert = (id: string) => {
-    setHackathons(prev => prev.map(h => h.id === id ? { ...h, alertEnabled: !h.alertEnabled } : h));
-    setAiDeals(prev => prev.map(d => d.id === id ? { ...d, alertEnabled: !d.alertEnabled } : d));
+    setAlertIds((prev) => toggleId(prev, id));
   };
 
   const handleToggleCompare = (hack: Hackathon) => {
-    if (compareItems.some(i => i.id === hack.id)) {
-      setCompareItems(prev => prev.filter(i => i.id !== hack.id));
+    if (compareItems.some((i) => i.id === hack.id)) {
+      setCompareItems((prev) => prev.filter((i) => i.id !== hack.id));
     } else {
       if (compareItems.length >= 3) {
         alert('You can compare up to 3 hackathons side-by-side.');
         return;
       }
-      setCompareItems(prev => [...prev, hack]);
+      setCompareItems((prev) => [...prev, hack]);
     }
   };
 
-  const handleAdminApprove = (signalId: string) => {
-    const signal = unverifiedSignals.find(s => s.id === signalId);
-    if (!signal) return;
-
-    if (signal.candidateType === 'hackathon') {
-      const ext = signal.extractedInfo as Partial<Hackathon>;
-      const newHack: Hackathon = {
-        id: `hack-approved-${Date.now()}`,
-        title: ext.title || 'Approved Hackathon',
-        organizer: ext.organizer || 'Ecosystem Partner',
-        description: signal.rawText,
-        registrationOpenAt: new Date().toISOString(),
-        registrationDeadline: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000).toISOString(),
-        submissionDeadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        mode: ext.mode || 'online',
-        eligibleCountries: ['Worldwide'],
-        eligibility: ['Developer'],
-        teamMin: 1,
-        teamMax: 4,
-        prizeValue: ext.prizeValue || 10000,
-        prizeCurrency: 'USD',
-        technologies: ext.technologies || ['AI', 'Web'],
-        officialUrl: signal.discoveredUrls[0] || 'https://devpost.com',
-        discoverySources: [
-          {
-            type: 'x',
-            url: `https://x.com/status/${signal.postId}`,
-            author: signal.author,
-            fetchedAt: new Date().toISOString(),
-            tier: 'Tier 3 (Discovery Signal)'
-          }
-        ],
-        verificationStatus: 'verified_active',
-        confidenceScore: 0.92,
-        lastCheckedAt: new Date().toISOString(),
-        suitableReasons: [
-          'Verified by DevRadar Admin Team',
-          'Online Participation'
-        ],
-        effortEstimate: '1 Week',
-        audit: {
-          lastCheckedAt: new Date().toISOString(),
-          confidenceScore: 0.92,
-          scoreBreakdown: { statusAndDeadline: 35, keywordMatch: 23, sourceCredibility: 16, freshness: 14, completeness: 4 },
-          verifierNotes: 'Manually verified target domain SSL and rules page by admin.',
-          checkedUrls: signal.discoveredUrls,
-          pipelineStep: 'verified'
-        }
-      };
-      setHackathons(prev => [newHack, ...prev]);
+  const handleAdminLogin = async () => {
+    try {
+      const url = await startAdminGithubLogin();
+      window.location.href = url;
+    } catch (err) {
+      setReviewError(err instanceof Error ? err.message : 'Login start failed');
     }
-    setUnverifiedSignals(prev => prev.filter(s => s.id !== signalId));
   };
 
-  const handleAdminReject = (signalId: string) => {
-    setUnverifiedSignals(prev => prev.filter(s => s.id !== signalId));
+  const handleAdminLogout = async () => {
+    if (!admin) return;
+    try {
+      await adminLogout(admin.csrfToken);
+    } catch {
+      /* still clear local session view */
+    }
+    setAdmin(null);
+    setReviewItems([]);
+    setReviewTotal(0);
   };
 
-  const handleCommunitySubmit = (title: string, url: string, type: 'hackathon' | 'ai_deal') => {
-    const newSig: UnverifiedSignal = {
-      id: `sig-comm-${Date.now()}`,
-      sourceType: 'x_post',
-      postId: `comm-${Date.now()}`,
-      author: '@community_member',
-      rawText: `Community submission for ${title}: ${url}`,
-      createdAt: new Date().toISOString(),
-      discoveredUrls: [url],
-      candidateType: type,
-      extractedInfo: { title },
-      verificationStatus: 'needs_review',
-      confidenceScore: 0.65
-    };
-    setUnverifiedSignals(prev => [newSig, ...prev]);
+  const handleApprove = async (item: ReviewItem) => {
+    if (!admin) throw new Error('Not signed in');
+    await approveReviewItem(item.id, item.version, admin.csrfToken);
+    await loadReviewQueue();
+    await loadCatalogue();
   };
 
-  // Filter Logic
-  const filteredHackathons = useMemo(() => {
-    return hackathons.filter(h => {
-      if (filters.searchQuery) {
-        const q = filters.searchQuery.toLowerCase();
-        const matchesTitle = h.title.toLowerCase().includes(q);
-        const matchesOrg = h.organizer.toLowerCase().includes(q);
-        const matchesTech = h.technologies.some(t => t.toLowerCase().includes(q));
-        if (!matchesTitle && !matchesOrg && !matchesTech) return false;
-      }
-      if (filters.mode !== 'all' && h.mode !== filters.mode) return false;
-      if (filters.technology && !h.technologies.includes(filters.technology)) return false;
-      if (filters.eligibility && !h.eligibility.includes(filters.eligibility)) return false;
-      if (filters.verificationStatus && h.verificationStatus !== filters.verificationStatus) return false;
-      if (filters.onlyBigPrizes && h.prizeValue < 10000) return false;
-      if (filters.onlyClosingSoon) {
-        const daysLeft = (new Date(h.registrationDeadline).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24);
-        if (daysLeft > 14) return false;
-      }
-      return true;
-    });
-  }, [hackathons, filters]);
+  const handleReject = async (item: ReviewItem) => {
+    if (!admin) throw new Error('Not signed in');
+    await rejectReviewItem(item.id, item.version, 'Rejected via admin UI', admin.csrfToken);
+    await loadReviewQueue();
+  };
 
-  const filteredDeals = useMemo(() => {
-    return aiDeals.filter(d => {
-      if (filters.searchQuery) {
-        const q = filters.searchQuery.toLowerCase();
-        const matchesName = d.productName.toLowerCase().includes(q);
-        const matchesProvider = d.provider.toLowerCase().includes(q);
-        const matchesTags = d.tags.some(t => t.toLowerCase().includes(q));
-        if (!matchesName && !matchesProvider && !matchesTags) return false;
-      }
-      if (filters.offerType && d.offerType !== filters.offerType) return false;
-      if (filters.verificationStatus && d.verificationStatus !== filters.verificationStatus) return false;
-      return true;
-    });
-  }, [aiDeals, filters]);
+  const totalPrizePoolValue = useMemo(() => {
+    return hackathons.reduce((sum, h) => sum + (Number.isFinite(h.prizeValue) ? h.prizeValue : 0), 0);
+  }, [hackathons]);
 
-  const bookmarkedHackathons = hackathons.filter(h => h.bookmarked);
-  const bookmarkedDeals = aiDeals.filter(d => d.bookmarked);
-  const totalBookmarks = bookmarkedHackathons.length + bookmarkedDeals.length;
+  const bookmarkedHackathons = useMemo(() => {
+    return [...bookmarkIds]
+      .map((id) => bookmarkCache.hackathons[id] ?? hackathons.find((h) => h.id === id))
+      .filter((h): h is Hackathon => Boolean(h))
+      .map((h) => ({ ...h, bookmarked: true, alertEnabled: alertIds.has(h.id) }));
+  }, [bookmarkIds, bookmarkCache.hackathons, hackathons, alertIds]);
+
+  const bookmarkedDeals = useMemo(() => {
+    return [...bookmarkIds]
+      .map((id) => bookmarkCache.deals[id] ?? aiDeals.find((d) => d.id === id))
+      .filter((d): d is AIDeal => Boolean(d))
+      .map((d) => ({ ...d, bookmarked: true, alertEnabled: alertIds.has(d.id) }));
+  }, [bookmarkIds, bookmarkCache.deals, aiDeals, alertIds]);
+
+  const totalBookmarks = bookmarkIds.size;
+
+  const displayHackCount = stats?.hackathonsActive ?? hackTotal;
+  const displayDealCount = stats?.aiOffersActive ?? dealTotal;
 
   return (
     <div className="min-h-screen flex flex-col font-sans transition-colors duration-250 bg-[#F3F4EF] dark:bg-[#090C15] text-[#1C1B18] dark:text-[#F8FAF9]">
-      
-      {/* Top Header */}
       <Header
         filters={filters}
         setFilters={setFilters}
         bookmarkCount={totalBookmarks}
-        unverifiedCount={unverifiedSignals.length}
+        unverifiedCount={reviewTotal}
         onOpenBookmarks={() => setIsBookmarksOpen(true)}
         onOpenSubmit={() => setIsSubmitOpen(true)}
         onOpenExtensionPanel={() => setIsExtensionOpen(true)}
@@ -331,44 +450,91 @@ export function App() {
         setTheme={setTheme}
       />
 
-      {/* Main Content Area */}
       <main className="flex-1 pb-16">
-        
-        {/* Stats Overview Banner */}
         <StatsOverview
           totalPrizeValue={totalPrizePoolValue}
-          totalHackathons={hackathons.length}
-          totalDeals={aiDeals.length}
-          unverifiedCount={unverifiedSignals.length}
+          totalHackathons={displayHackCount}
+          totalDeals={displayDealCount}
+          unverifiedCount={reviewTotal}
         />
 
-        {/* Module Switch: Search Hero & Radar Grid */}
+        {catalogueError && filters.activeModule !== 'admin_queue' && filters.activeModule !== 'pipeline' && (
+          <div className="max-w-6xl mx-auto px-4 lg:px-8 pt-4">
+            <div className="sharetopus-card p-4 rounded-2xl border-[1.5px] border-[#FF5A36] bg-[#FF5A36]/10 flex items-start gap-3 text-xs font-bold">
+              <AlertCircle className="w-5 h-5 text-[#FF5A36] shrink-0" />
+              <div>
+                <div className="font-extrabold">Could not load catalogue from API</div>
+                <p className="mt-1 opacity-90">{catalogueError}</p>
+                <p className="mt-1 text-[11px] font-mono opacity-70">
+                  Ensure the backend is running and Vite proxy targets it (default http://127.0.0.1:8000).
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void loadCatalogue()}
+                  className="btn-sharetopus-secondary text-xs py-1.5 px-3 mt-2 font-bold"
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {liveDiscoveryMessage && (
+          <div className="max-w-6xl mx-auto px-4 lg:px-8 pt-3">
+            <div className="text-xs font-bold font-mono px-3 py-2 rounded-xl bg-white dark:bg-[#131A29] border border-[#1C1B18] dark:border-[#D6DCE5]">
+              {liveDiscoveryMessage}
+            </div>
+          </div>
+        )}
+
         {filters.activeModule === 'hackathon' && (
           <div>
             <HeroSection
               filters={filters}
               setFilters={setFilters}
-              totalResults={filteredHackathons.length}
-              onTriggerLiveDiscovery={handleTriggerLiveDiscovery}
+              totalResults={hackTotal || hackathons.length}
+              onTriggerLiveDiscovery={() => void handleTriggerLiveDiscovery()}
               isSearchingLive={isSearchingLive}
             />
 
             <div className="max-w-6xl mx-auto px-4 lg:px-8 pt-8">
-              {filteredHackathons.length === 0 ? (
+              {catalogueLoading ? (
+                <div className="sharetopus-card p-12 text-center rounded-[24px] bg-white dark:bg-[#131A29]">
+                  <Loader2 className="w-8 h-8 animate-spin text-[#FF5A36] mx-auto mb-3" />
+                  <p className="text-xs font-bold">Loading verified hackathons…</p>
+                </div>
+              ) : hackathons.length === 0 ? (
                 <div className="sharetopus-card p-12 text-center rounded-[24px] space-y-3 bg-white dark:bg-[#131A29] text-[#1C1B18] dark:text-white">
                   <FilterX className="w-10 h-10 text-[#FF5A36] mx-auto" />
                   <h3 className="text-lg font-extrabold">No Hackathons Matched Your Filter</h3>
-                  <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Try resetting filters or switching search execution mode.</p>
-                  <button 
-                    onClick={() => setFilters(f => ({ ...f, searchQuery: '', mode: 'all', technology: '', onlyClosingSoon: false, onlyBigPrizes: false }))}
+                  <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Try resetting filters, or wait until listings are approved in the review queue.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFilters((f) => ({
+                        ...f,
+                        searchQuery: '',
+                        mode: 'all',
+                        technology: '',
+                        onlyClosingSoon: false,
+                        onlyBigPrizes: false,
+                      }))
+                    }
                     className="btn-sharetopus-secondary text-xs py-2 px-4 font-bold"
                   >
                     Reset All Filters
                   </button>
                 </div>
               ) : (
-                <div className={viewLayout === 'grid' ? "grid grid-cols-1 md:grid-cols-2 gap-6" : "space-y-4"}>
-                  {filteredHackathons.map((hackathon) => (
+                <div
+                  className={
+                    viewLayout === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-6' : 'space-y-4'
+                  }
+                >
+                  {hackathons.map((hackathon) => (
                     <HackathonCard
                       key={hackathon.id}
                       hackathon={hackathon}
@@ -376,7 +542,7 @@ export function App() {
                       onToggleBookmark={handleToggleBookmark}
                       onToggleAlert={handleToggleAlert}
                       onToggleCompare={handleToggleCompare}
-                      isCompared={compareItems.some(i => i.id === hackathon.id)}
+                      isCompared={compareItems.some((i) => i.id === hackathon.id)}
                       viewLayout={viewLayout}
                     />
                   ))}
@@ -386,27 +552,37 @@ export function App() {
           </div>
         )}
 
-        {/* AI Deal Module */}
         {filters.activeModule === 'ai_deal' && (
           <div>
             <HeroSection
               filters={filters}
               setFilters={setFilters}
-              totalResults={filteredDeals.length}
-              onTriggerLiveDiscovery={handleTriggerLiveDiscovery}
+              totalResults={dealTotal || aiDeals.length}
+              onTriggerLiveDiscovery={() => void handleTriggerLiveDiscovery()}
               isSearchingLive={isSearchingLive}
             />
 
             <div className="max-w-6xl mx-auto px-4 lg:px-8 pt-8">
-              {filteredDeals.length === 0 ? (
+              {catalogueLoading ? (
+                <div className="sharetopus-card p-12 text-center rounded-[24px] bg-white dark:bg-[#131A29]">
+                  <Loader2 className="w-8 h-8 animate-spin text-[#7C3AED] mx-auto mb-3" />
+                  <p className="text-xs font-bold">Loading AI offers…</p>
+                </div>
+              ) : aiDeals.length === 0 ? (
                 <div className="sharetopus-card p-12 text-center rounded-[24px] space-y-3 bg-white dark:bg-[#131A29] text-[#1C1B18] dark:text-white">
                   <FilterX className="w-10 h-10 text-[#FF5A36] mx-auto" />
                   <h3 className="text-lg font-extrabold">No AI Deals Matched Your Filter</h3>
-                  <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Try selecting all offer types.</p>
+                  <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Try selecting all offer types or clearing search.
+                  </p>
                 </div>
               ) : (
-                <div className={viewLayout === 'grid' ? "grid grid-cols-1 md:grid-cols-2 gap-6" : "space-y-4"}>
-                  {filteredDeals.map((deal) => (
+                <div
+                  className={
+                    viewLayout === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-6' : 'space-y-4'
+                  }
+                >
+                  {aiDeals.map((deal) => (
                     <AIDealCard
                       key={deal.id}
                       deal={deal}
@@ -422,35 +598,39 @@ export function App() {
           </div>
         )}
 
-        {/* Pipeline Atlas */}
-        {filters.activeModule === 'pipeline' && (
-          <PipelineViewer />
-        )}
+        {filters.activeModule === 'pipeline' && <PipelineViewer />}
 
-        {/* Admin Review Queue */}
         {filters.activeModule === 'admin_queue' && (
           <AdminQueue
-            signals={unverifiedSignals}
-            onApprove={handleAdminApprove}
-            onReject={handleAdminReject}
+            items={reviewItems}
+            total={reviewTotal}
+            admin={admin}
+            loading={reviewLoading}
+            error={reviewError}
+            onRefresh={() => void loadReviewQueue()}
+            onLogin={() => void handleAdminLogin()}
+            onLogout={() => void handleAdminLogout()}
+            onApprove={handleApprove}
+            onReject={handleReject}
           />
         )}
-
       </main>
 
-      {/* Floating Comparison Bar */}
       {compareItems.length > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 sharetopus-card px-6 py-3.5 rounded-full border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] text-[#1C1B18] dark:text-white shadow-[4px_4px_0_0_#1C1B18] dark:shadow-[4px_4px_0_0_#D6DCE5] flex items-center gap-4 text-xs font-mono font-extrabold">
           <span className="text-[#7C3AED] font-extrabold">
-            Comparing {compareItems.length} Opportunity ({compareItems.map(i => i.title.substring(0, 15)).join(', ')}...)
+            Comparing {compareItems.length} Opportunity (
+            {compareItems.map((i) => i.title.substring(0, 15)).join(', ')}...)
           </span>
           <button
+            type="button"
             onClick={() => setSelectedItem(compareItems[0])}
             className="btn-sharetopus-primary text-xs py-1.5 px-4 font-extrabold"
           >
             Open Side-by-Side Table
           </button>
           <button
+            type="button"
             onClick={() => setCompareItems([])}
             className="text-[#1C1B18] hover:text-[#FF5A36] dark:text-white font-extrabold"
           >
@@ -459,16 +639,12 @@ export function App() {
         </div>
       )}
 
-      {/* Modals & Drawers */}
-      <DetailModal
-        item={selectedItem}
-        onClose={() => setSelectedItem(null)}
-      />
+      <DetailModal item={selectedItem} onClose={() => setSelectedItem(null)} />
 
       <CompareModal
         items={compareItems}
         onClose={() => setCompareItems([])}
-        onRemove={(id) => setCompareItems(prev => prev.filter(i => i.id !== id))}
+        onRemove={(id) => setCompareItems((prev) => prev.filter((i) => i.id !== id))}
       />
 
       <ChromeExtensionSidePanel
@@ -479,7 +655,9 @@ export function App() {
       <SubmitModal
         isOpen={isSubmitOpen}
         onClose={() => setIsSubmitOpen(false)}
-        onSubmit={handleCommunitySubmit}
+        onSubmitted={() => {
+          if (filters.activeModule === 'admin_queue') void loadReviewQueue();
+        }}
       />
 
       <BookmarksDrawer
@@ -491,19 +669,19 @@ export function App() {
         onToggleAlert={handleToggleAlert}
       />
 
-      {/* Sharetopus Styled Footer */}
       <footer className="border-t border-[#D6D5CF] dark:border-slate-800 bg-[#E5E6DF] dark:bg-[#090C15] py-8 px-4 lg:px-8 text-xs font-mono text-[#1C1B18] dark:text-slate-200 font-bold">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <span className="font-extrabold text-[#1C1B18] dark:text-white text-sm tracking-tight">DevRadar Intelligence</span>
+            <span className="font-extrabold text-[#1C1B18] dark:text-white text-sm tracking-tight">
+              DevRadar Intelligence
+            </span>
             <span>• 100% Open Source (MIT) • No Login • Frictionless</span>
           </div>
           <div>
-            Data Provenance: Tier 1 Official Domains + Tier 2 Aggregators + Tier 3 X Recent Search API
+            Data: live API · Tier 1 Official Domains + Tier 2 Aggregators + Tier 3 Discovery
           </div>
         </div>
       </footer>
-
     </div>
   );
 }

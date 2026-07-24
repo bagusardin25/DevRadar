@@ -1,0 +1,467 @@
+#!/usr/bin/env python3
+"""Seed catalogue rows from the X MCP manual collection.
+
+Source of truth:
+  ../../data/manual-collection/seed_listings.json
+
+Usage (from backend/):
+  uv run python scripts/seed_x_mcp_collection.py
+  uv run python scripts/seed_x_mcp_collection.py --dry-run
+  uv run python scripts/seed_x_mcp_collection.py --json-path ../data/manual-collection/seed_listings.json
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import json
+import sys
+from datetime import UTC, datetime
+from decimal import Decimal
+from pathlib import Path
+from typing import Any
+
+from sqlalchemy import select
+
+# Ensure `app` is importable when run as a script.
+_BACKEND_ROOT = Path(__file__).resolve().parents[1]
+if str(_BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(_BACKEND_ROOT))
+
+from app.catalog.enums import (  # noqa: E402
+    ConnectorType,
+    EffortEstimate,
+    HackathonMode,
+    ListingKind,
+    OfferType,
+    SourceTier,
+    VerificationStatus,
+)
+from app.catalog.repository import ListingRepository  # noqa: E402
+from app.catalog.schemas import (  # noqa: E402
+    AIOfferCreateSchema,
+    HackathonCreateSchema,
+    ListingCreateSchema,
+)
+from app.config import get_settings  # noqa: E402
+from app.db import create_engine, create_session_maker  # noqa: E402
+from app.ingestion.models import DiscoverySignal, ListingSource, VerificationEvent  # noqa: E402
+from app.sources.models import Source  # noqa: E402
+
+DEFAULT_JSON = (
+    Path(__file__).resolve().parents[2]
+    / "data"
+    / "manual-collection"
+    / "seed_listings.json"
+)
+
+SCORE_DEFAULT = {
+    "statusAndDeadline": 30,
+    "keywordMatch": 22,
+    "sourceCredibility": 16,
+    "freshness": 13,
+    "completeness": 4,
+}
+
+
+def _parse_dt(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def _effort(value: str | None) -> EffortEstimate:
+    if value and value in {e.value for e in EffortEstimate}:
+        return EffortEstimate(value)
+    return EffortEstimate.WEEKS_1_2
+
+
+def _status(value: str) -> VerificationStatus:
+    return VerificationStatus(value)
+
+
+def _mode(value: str) -> HackathonMode:
+    return HackathonMode(value)
+
+
+def _offer_type(value: str) -> OfferType:
+    return OfferType(value)
+
+
+async def _get_or_create_source(
+    session: Any,
+    *,
+    name: str,
+    connector: ConnectorType,
+    tier: SourceTier,
+    base_url: str | None,
+    notes: str,
+) -> Source:
+    result = await session.execute(select(Source).where(Source.name == name))
+    existing = result.scalar_one_or_none()
+    if existing is not None:
+        return existing
+    source = Source(
+        name=name,
+        connector_type=connector,
+        trust_tier=tier,
+        base_url=base_url,
+        enabled=True,
+        notes=notes,
+    )
+    session.add(source)
+    await session.flush()
+    return source
+
+
+async def _ensure_sources(session: Any) -> tuple[Source, Source]:
+    official = await _get_or_create_source(
+        session,
+        name="X MCP seed — official sites",
+        connector=ConnectorType.OFFICIAL_SITE,
+        tier=SourceTier.TIER_1,
+        base_url=None,
+        notes="Primary official URLs curated from X MCP discovery (2026-07-24).",
+    )
+    x_src = await _get_or_create_source(
+        session,
+        name="X MCP manual discovery",
+        connector=ConnectorType.X_RECENT_SEARCH,
+        tier=SourceTier.TIER_3,
+        base_url="https://x.com",
+        notes="Tier-3 discovery signals from hosted X MCP searches. Post text not stored.",
+    )
+    return official, x_src
+
+
+async def _seed_hackathon(
+    session: Any,
+    repo: ListingRepository,
+    item: dict[str, Any],
+    official_src: Source,
+    x_src: Source,
+    *,
+    dry_run: bool,
+) -> str:
+    slug = item["slug"]
+    existing = await repo.get_by_slug(slug)
+    if existing is not None:
+        return f"skip  hackathon {slug} (exists)"
+
+    if dry_run:
+        return f"dry   hackathon {slug}"
+
+    now = datetime.now(UTC)
+    status = _status(item["status"])
+    score = Decimal(str(item.get("confidence_score", 0.85)))
+    breakdown = dict(SCORE_DEFAULT)
+
+    listing = await repo.create_hackathon(
+        ListingCreateSchema(
+            kind=ListingKind.HACKATHON,
+            slug=slug,
+            title=item["title"],
+            description=item.get("description", ""),
+            verification_status=status,
+            confidence_score=score,
+            score_breakdown=breakdown,
+            published_at=now
+            if status
+            in {
+                VerificationStatus.VERIFIED_ACTIVE,
+                VerificationStatus.LIKELY_ACTIVE,
+                VerificationStatus.REGISTRATION_CLOSED,
+            }
+            else None,
+            last_checked_at=now,
+            first_seen_at=now,
+        ),
+        HackathonCreateSchema(
+            organizer=item["organizer"],
+            registration_open_at=_parse_dt(item.get("registration_open_at")),
+            registration_deadline=_parse_dt(item.get("registration_deadline")),
+            submission_deadline=_parse_dt(item.get("submission_deadline")),
+            mode=_mode(item.get("mode", "online")),
+            location=item.get("location"),
+            eligible_countries=list(item.get("eligible_countries") or ["Worldwide"]),
+            eligibility=list(item.get("eligibility") or ["Developer"]),
+            team_min=int(item.get("team_min") or 1),
+            team_max=int(item.get("team_max") or 4),
+            prize_value=Decimal(str(item.get("prize_value") or 0)),
+            prize_currency=item.get("prize_currency") or "USD",
+            technologies=list(item.get("technologies") or ["AI"]),
+            official_url=item["official_url"],
+            suitable_reasons=list(item.get("suitable_reasons") or []),
+            effort_estimate=_effort(item.get("effort_estimate")),
+        ),
+    )
+
+    official_url = item["official_url"]
+    session.add(
+        ListingSource(
+            listing_id=listing.id,
+            source_id=official_src.id,
+            source_url=official_url,
+            is_primary=True,
+            observed_fields={
+                "title": item["title"],
+                "seed": "x_mcp_collection",
+            },
+        )
+    )
+
+    for post in item.get("x_posts") or []:
+        post_url = post["post_url"]
+        post_id = post["post_id"]
+        author = post.get("author")
+        session.add(
+            ListingSource(
+                listing_id=listing.id,
+                source_id=x_src.id,
+                source_url=post_url,
+                is_primary=False,
+                observed_fields={
+                    "postId": post_id,
+                    "author": author,
+                    "seed": "x_mcp_collection",
+                },
+            )
+        )
+        # Discovery signal (no post text).
+        existing_sig = await session.execute(
+            select(DiscoverySignal).where(
+                DiscoverySignal.source_id == x_src.id,
+                DiscoverySignal.external_id == post_id,
+            )
+        )
+        if existing_sig.scalar_one_or_none() is None:
+            session.add(
+                DiscoverySignal(
+                    source_id=x_src.id,
+                    external_id=post_id,
+                    url=post_url,
+                    author=f"@{author}" if author and not str(author).startswith("@") else author,
+                    signal_created_at=now,
+                    discovered_urls=[official_url] if official_url else [],
+                    extracted_information={
+                        "candidateType": "hackathon",
+                        "slug": slug,
+                        "title": item["title"],
+                    },
+                    review_state=status.value,
+                    last_checked_at=now,
+                )
+            )
+
+    session.add(
+        VerificationEvent(
+            listing_id=listing.id,
+            event_type="seed_publish",
+            previous_status=VerificationStatus.NEEDS_REVIEW,
+            new_status=status,
+            checked_urls=[official_url],
+            score_breakdown=breakdown,
+            notes="Seeded from X MCP manual collection (2026-07-24).",
+        )
+    )
+    await session.flush()
+    return f"add   hackathon {slug}"
+
+
+async def _seed_ai_offer(
+    session: Any,
+    repo: ListingRepository,
+    item: dict[str, Any],
+    official_src: Source,
+    x_src: Source,
+    *,
+    dry_run: bool,
+) -> str:
+    slug = item["slug"]
+    existing = await repo.get_by_slug(slug)
+    if existing is not None:
+        return f"skip  ai_offer  {slug} (exists)"
+
+    if dry_run:
+        return f"dry   ai_offer  {slug}"
+
+    now = datetime.now(UTC)
+    status = _status(item["status"])
+    score = Decimal(str(item.get("confidence_score", 0.85)))
+    breakdown = dict(SCORE_DEFAULT)
+    expires = _parse_dt(item.get("expires_at")) if item.get("expires_at") else None
+
+    listing = await repo.create_ai_offer(
+        ListingCreateSchema(
+            kind=ListingKind.AI_OFFER,
+            slug=slug,
+            title=item["title"],
+            description=item.get("description", ""),
+            verification_status=status,
+            confidence_score=score,
+            score_breakdown=breakdown,
+            published_at=now
+            if status
+            in {
+                VerificationStatus.VERIFIED_ACTIVE,
+                VerificationStatus.LIKELY_ACTIVE,
+            }
+            else None,
+            last_checked_at=now,
+            first_seen_at=now,
+        ),
+        AIOfferCreateSchema(
+            product_name=item["product_name"],
+            provider=item["provider"],
+            offer_type=_offer_type(item.get("offer_type", "free_tier")),
+            offer_value=item.get("offer_value") or "",
+            target_users=list(item.get("target_users") or ["Developer"]),
+            requirements=list(item.get("requirements") or []),
+            starts_at=now,
+            expires_at=expires,
+            supported_regions=list(item.get("supported_regions") or ["Worldwide"]),
+            official_terms_url=item["official_terms_url"],
+            claim_url=item["claim_url"],
+            tags=list(item.get("tags") or ["free", "ai"]),
+            suitable_reasons=list(item.get("suitable_reasons") or []),
+        ),
+    )
+
+    terms = item["official_terms_url"]
+    session.add(
+        ListingSource(
+            listing_id=listing.id,
+            source_id=official_src.id,
+            source_url=terms,
+            is_primary=True,
+            observed_fields={"productName": item["product_name"], "seed": "x_mcp_collection"},
+        )
+    )
+
+    for post in item.get("x_posts") or []:
+        post_url = post["post_url"]
+        post_id = post["post_id"]
+        author = post.get("author")
+        session.add(
+            ListingSource(
+                listing_id=listing.id,
+                source_id=x_src.id,
+                source_url=post_url,
+                is_primary=False,
+                observed_fields={
+                    "postId": post_id,
+                    "author": author,
+                    "seed": "x_mcp_collection",
+                },
+            )
+        )
+        existing_sig = await session.execute(
+            select(DiscoverySignal).where(
+                DiscoverySignal.source_id == x_src.id,
+                DiscoverySignal.external_id == post_id,
+            )
+        )
+        if existing_sig.scalar_one_or_none() is None:
+            session.add(
+                DiscoverySignal(
+                    source_id=x_src.id,
+                    external_id=post_id,
+                    url=post_url,
+                    author=f"@{author}" if author and not str(author).startswith("@") else author,
+                    signal_created_at=now,
+                    discovered_urls=[terms],
+                    extracted_information={
+                        "candidateType": "ai_offer",
+                        "slug": slug,
+                        "productName": item["product_name"],
+                    },
+                    review_state=status.value,
+                    last_checked_at=now,
+                )
+            )
+
+    session.add(
+        VerificationEvent(
+            listing_id=listing.id,
+            event_type="seed_publish",
+            previous_status=VerificationStatus.NEEDS_REVIEW,
+            new_status=status,
+            checked_urls=[terms, item.get("claim_url") or terms],
+            score_breakdown=breakdown,
+            notes="Seeded from X MCP manual collection (2026-07-24).",
+        )
+    )
+    await session.flush()
+    return f"add   ai_offer  {slug}"
+
+
+async def run(json_path: Path, *, dry_run: bool) -> int:
+    if not json_path.is_file():
+        print(f"ERROR: seed file not found: {json_path}", file=sys.stderr)
+        return 1
+
+    payload = json.loads(json_path.read_text(encoding="utf-8"))
+    hackathons = list(payload.get("hackathons") or [])
+    offers = list(payload.get("ai_offers") or [])
+    print(f"Loaded {len(hackathons)} hackathons + {len(offers)} AI offers from {json_path}")
+
+    if dry_run:
+        print("Dry-run mode — no database writes.")
+        for h in hackathons:
+            print(f"  would seed hackathon: {h['slug']}")
+        for o in offers:
+            print(f"  would seed ai_offer:  {o['slug']}")
+        return 0
+
+    settings = get_settings()
+    engine = create_engine(settings)
+    session_maker = create_session_maker(engine)
+
+    lines: list[str] = []
+    try:
+        async with session_maker() as session:
+            official_src, x_src = await _ensure_sources(session)
+            repo = ListingRepository(session)
+            for item in hackathons:
+                lines.append(
+                    await _seed_hackathon(
+                        session, repo, item, official_src, x_src, dry_run=False
+                    )
+                )
+            for item in offers:
+                lines.append(
+                    await _seed_ai_offer(
+                        session, repo, item, official_src, x_src, dry_run=False
+                    )
+                )
+            await session.commit()
+    finally:
+        await engine.dispose()
+
+    added = sum(1 for line in lines if line.startswith("add"))
+    skipped = sum(1 for line in lines if line.startswith("skip"))
+    for line in lines:
+        print(line)
+    print(f"Done. added={added} skipped={skipped} total={len(lines)}")
+    return 0
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Seed catalogue from X MCP collection JSON")
+    parser.add_argument(
+        "--json-path",
+        type=Path,
+        default=DEFAULT_JSON,
+        help=f"Path to seed_listings.json (default: {DEFAULT_JSON})",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print planned inserts without writing to the database",
+    )
+    args = parser.parse_args()
+    raise SystemExit(asyncio.run(run(args.json_path, dry_run=args.dry_run)))
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,7 @@
+Weekend Code Jam
+
+Organized by DevClub. Hybrid event in Jakarta.
+Registration deadline 2026-11-30. Submission deadline 2026-11-01.
+(Note: intentionally conflicting — registration after submission.)
+Prize pool $5,000 USD. Teams of 2-5. Technologies: Python, React.
+Official: https://devclub.example/jam

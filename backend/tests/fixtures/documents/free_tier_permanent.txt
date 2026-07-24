@@ -1,0 +1,8 @@
+AcmeAI Free Tier
+
+AcmeAI offers an always free tier for developers. No credit card required.
+Use the free model endpoints worldwide. Permanent free tier — no expiry date.
+Product: AcmeAI Studio
+Provider: AcmeAI
+Claim at https://acmeai.example/signup
+Terms: https://acmeai.example/pricing

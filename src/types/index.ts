@@ -21,6 +21,13 @@ export type OfferType =
   | 'free_model'
   | 'self_hosted_weights';
 
+export type EffortEstimate =
+  | '1-2 Days'
+  | '1 Week'
+  | '1-2 Weeks'
+  | '2-3 Weeks'
+  | '1 Month+';
+
 export interface DiscoverySource {
   type: 'x' | 'devpost' | 'mlh' | 'official_site' | 'reddit' | 'github';
   url: string;
@@ -69,7 +76,7 @@ export interface Hackathon {
   confidenceScore: number;
   lastCheckedAt: string;
   suitableReasons: string[];
-  effortEstimate: '1-2 Days' | '1 Week' | '1-2 Weeks' | '2-3 Weeks' | '1 Month+';
+  effortEstimate: EffortEstimate;
   audit: VerificationAudit;
   bookmarked?: boolean;
   alertEnabled?: boolean;

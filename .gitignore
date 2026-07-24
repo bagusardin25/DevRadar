@@ -26,7 +26,14 @@ backend/data/
 *.njsproj
 *.sln
 *.sw?
-# Markdown: allow project docs; ignore random local notes if any
+# Local / internal documentation (not published with the open-source tree)
+docs/
+
+# Markdown: allow a few root docs only; ignore other local notes
 *.md
 !**/README.md
-!docs/**/*.md
+!CONTRIBUTING.md
+!SECURITY.md
+!CODE_OF_CONDUCT.md
+!CHANGELOG.md
+!LICENSE

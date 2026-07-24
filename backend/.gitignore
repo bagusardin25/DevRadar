@@ -27,3 +27,6 @@ coverage.xml
 
 # Local tooling
 .python-version
+
+# Local raw document storage
+data/

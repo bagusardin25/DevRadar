@@ -22,11 +22,19 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
 
     # Object Storage
+    # backend: local | s3 | memory
+    object_storage_backend: str = "local"
+    object_storage_local_path: str = "./data/raw"
     object_storage_endpoint: str = "http://localhost:9000"
     object_storage_bucket: str = "devradar-raw"
     object_storage_access_key: str = "local-development-only"
     object_storage_secret_key: str = "local-development-only"
     object_storage_region: str = "us-east-1"
+
+    # Fetch policy defaults
+    fetch_timeout_seconds: float = 20.0
+    fetch_max_bytes: int = 5_242_880  # 5 MiB
+    fetch_max_redirects: int = 5
 
     # Security
     session_secret: str = "replace-with-at-least-32-random-bytes"

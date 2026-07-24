@@ -1,6 +1,7 @@
 """Import all ORM models so metadata is complete for Alembic and tests."""
 
 from app.alerts.models import AlertSubscription, NotificationDelivery
+from app.discovery.models import LiveDiscoveryRun
 from app.audit.models import AdminAuditLog
 from app.auth.models import AdminUser
 from app.catalog.models import AIOffer, Hackathon, Listing
@@ -29,6 +30,7 @@ __all__ = [
     "Hackathon",
     "Listing",
     "ListingSource",
+    "LiveDiscoveryRun",
     "RawDocument",
     "ReviewItem",
     "Source",

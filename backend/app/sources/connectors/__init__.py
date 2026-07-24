@@ -7,6 +7,7 @@ from app.sources.connectors.mlh import MLHConnector
 from app.sources.connectors.official_site import OfficialSiteConnector
 from app.sources.connectors.rss import RSSConnector
 
+# x_recent_search requires an XApiClient — construct via XRecentSearchConnector(...)
 CONNECTOR_TYPES = {
     "devpost": DevpostConnector,
     "mlh": MLHConnector,

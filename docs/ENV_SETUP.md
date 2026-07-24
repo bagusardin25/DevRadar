@@ -165,21 +165,35 @@ Konfirmasi alert butuh `SESSION_SECRET` + encryption keys (sudah di bagian 2).
 
 ---
 
-## 7. LLM extraction (Task 7+)
+## 7. LLM extraction (structured fields only — **bukan** web search)
+
+OpenAI dipakai **hanya** untuk mengisi field kosong setelah fetch+parse halaman (rule-first).  
+Search catalogue tetap dari **PostgreSQL**, bukan live OpenAI web_search.
 
 ```
-LLM_PROVIDER=disabled
-LLM_MODEL=
-LLM_API_KEY=
+LLM_PROVIDER=openai
+LLM_MODEL=gpt-4o-mini
+LLM_API_KEY=sk-...
+# Alias opsional (jika LLM_API_KEY kosong):
+# OPENAI_API_KEY=sk-...
 ```
 
-| Isi | Kapan |
+| Isi `LLM_PROVIDER` | Perilaku |
 |---|---|
-| `disabled` | **Sekarang** — extraction rule-based saja |
-| Provider + model + key | Setelah Anda pilih vendor (OpenAI, dll.) dan pasang adapter |
+| `disabled` / kosong | Rule-based saja, **tidak** call API |
+| `openai` | Chat Completions `response_format=json_object` setelah fetch |
 
-**Cara dapat API key:** dashboard vendor LLM → create secret key → paste ke `LLM_API_KEY`.  
-Jangan commit key.
+### Cara setup OpenAI
+1. Buka [OpenAI API keys](https://platform.openai.com/api-keys) → **Create new secret key**.
+2. Pastikan akun punya **billing** aktif (pay-as-you-go).
+3. Paste key ke `LLM_API_KEY` di `backend/.env` (atau `OPENAI_API_KEY`).
+4. Model default: `gpt-4o-mini` (murah, cocok extraction).
+5. Restart API/Celery worker agar env ter-load.
+
+### Catatan
+- Tanpa key + `LLM_PROVIDER=openai` → otomatis fallback **disabled** (log warning).
+- Jangan commit `.env` / key.
+- Worker Celery (`fetch` queue) yang menjalankan extract; pastikan worker dijalankan di folder `backend` dengan `.env` yang sama.
 
 ---
 

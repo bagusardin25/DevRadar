@@ -358,9 +358,12 @@ class Extractor:
         llm_attempted = False
         merged = dict(raw_rules)
 
-        # Optionally ask LLM to fill gaps
-        missing_critical = _missing_critical(kind, merged)
-        if missing_critical and not isinstance(self._llm, DisabledLLMProvider):
+        # When LLM is enabled: fill empty fields only (rules already set win).
+        # Disabled provider: only rules (and tests use Echo for gap scenarios).
+        use_llm = not isinstance(self._llm, DisabledLLMProvider)
+        if use_llm and (
+            _missing_critical(kind, merged) or _has_fillable_gaps(kind, merged)
+        ):
             llm_attempted = True
             try:
                 req = ExtractionRequest(
@@ -377,9 +380,12 @@ class Extractor:
                 merged = _merge_fields(
                     merged, llm_fields, sources=field_sources, extra_source="llm"
                 )
-                method = "hybrid" if before else "llm"
-                if any(k not in before for k in field_sources):
+                if before and any(k not in before for k in field_sources):
                     method = "hybrid"
+                elif not before and field_sources:
+                    method = "llm"
+                else:
+                    method = "hybrid" if before else "rules"
             except Exception as exc:  # schema or provider failure
                 errors.append(f"llm_rejected: {type(exc).__name__}: {exc}")
 
@@ -418,6 +424,37 @@ def _missing_critical(kind: ListingKind, fields: dict[str, Any]) -> bool:
     if kind == ListingKind.HACKATHON:
         return not fields.get("title") or not fields.get("submission_deadline")
     return not fields.get("product_name") and not fields.get("title")
+
+
+def _has_fillable_gaps(kind: ListingKind, fields: dict[str, Any]) -> bool:
+    """True when useful fields are still empty (LLM may fill them)."""
+    if kind == ListingKind.HACKATHON:
+        keys = (
+            "title",
+            "organizer",
+            "submission_deadline",
+            "registration_deadline",
+            "mode",
+            "prize_value",
+            "official_url",
+            "technologies",
+        )
+    else:
+        keys = (
+            "title",
+            "product_name",
+            "provider",
+            "offer_type",
+            "expires_at",
+            "claim_url",
+            "official_terms_url",
+            "offer_value",
+        )
+    for key in keys:
+        value = fields.get(key)
+        if value is None or value == "" or value == []:
+            return True
+    return False
 
 
 def _prepare_for_validate(data: dict[str, Any]) -> dict[str, Any]:

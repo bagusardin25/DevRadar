@@ -74,13 +74,14 @@ Register that URL on the GitHub OAuth App.
 | `EMAIL_PROVIDER` | `console` | `console` logs only; swap for SES/etc later |
 | `EMAIL_FROM` | `alerts@example.test` | From address |
 
-### LLM extraction (Task 7 — later)
+### LLM extraction (structured fields only — not web search)
 
 | Variable | Default | Notes |
 |---|---|---|
-| `LLM_PROVIDER` | `disabled` | Keep disabled until extractors land |
-| `LLM_MODEL` | _(empty)_ | Model id when enabled |
-| `LLM_API_KEY` | _(empty)_ | **Secret** |
+| `LLM_PROVIDER` | `disabled` | `openai` enables Chat Completions fill-in after rules |
+| `LLM_MODEL` | `gpt-4o-mini` | OpenAI model id |
+| `LLM_API_KEY` | _(empty)_ | **Secret**; `OPENAI_API_KEY` accepted as alias |
+| `OPENAI_API_KEY` | _(empty)_ | Alias for `LLM_API_KEY` if that is empty |
 
 ### X / Twitter discovery (Task 11 — later)
 

@@ -1,8 +1,11 @@
 """Typed environment configuration using pydantic-settings."""
 
-from typing import Any
+from __future__ import annotations
 
-from pydantic import field_validator
+import os
+from typing import Any, Self
+
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -50,10 +53,11 @@ class Settings(BaseSettings):
     email_provider: str = "console"
     email_from: str = "alerts@example.test"
 
-    # LLM
+    # LLM (structured extraction only — not OpenAI web_search)
+    # LLM_PROVIDER=openai | disabled
     llm_provider: str = "disabled"
-    llm_model: str = ""
-    llm_api_key: str = ""
+    llm_model: str = "gpt-4o-mini"
+    llm_api_key: str = ""  # or set OPENAI_API_KEY (see validator)
 
     # X/Twitter
     x_bearer_token: str = ""
@@ -73,6 +77,15 @@ class Settings(BaseSettings):
         if isinstance(v, list):
             return [str(item) for item in v]
         return []
+
+    @model_validator(mode="after")
+    def fill_openai_api_key_alias(self) -> Self:
+        """Allow OPENAI_API_KEY as an alias for LLM_API_KEY."""
+        if not (self.llm_api_key or "").strip():
+            alias = os.environ.get("OPENAI_API_KEY", "").strip()
+            if alias:
+                self.llm_api_key = alias
+        return self
 
 
 def get_settings() -> Settings:

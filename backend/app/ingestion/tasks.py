@@ -6,9 +6,11 @@ import asyncio
 import logging
 from typing import Any
 
+from app.catalog.enums import ListingKind
 from app.config import get_settings
 from app.ingestion.browser import should_use_browser
 from app.ingestion.fetcher import FetchError, FetchPolicy, fetch_url
+from app.ingestion.llm_provider import create_extractor
 from app.ingestion.parser import parse_document
 from app.ingestion.ssrf import SSRFError
 from app.ingestion.storage import DocumentStorage, build_document_storage
@@ -28,6 +30,8 @@ async def _fetch_and_store(
     policy: FetchPolicy | None = None,
     etag: str | None = None,
     if_modified_since: str | None = None,
+    listing_kind: str = "hackathon",
+    run_extract: bool = True,
 ) -> dict[str, Any]:
     policy = policy or FetchPolicy()
     if etag:
@@ -59,6 +63,27 @@ async def _fetch_and_store(
     parsed = parse_document(doc.body, url=doc.final_url, content_type=doc.content_type)
     needs_browser = should_use_browser(doc, policy)
 
+    extraction: dict[str, Any] | None = None
+    if run_extract:
+        settings = get_settings()
+        extractor = create_extractor(settings)
+        try:
+            kind = ListingKind(listing_kind)
+        except ValueError:
+            kind = ListingKind.HACKATHON
+        result = await extractor.extract(parsed, kind)
+        extraction = {
+            "method": result.method,
+            "llm_attempted": result.llm_attempted,
+            "errors": result.errors,
+            "field_sources": result.field_sources,
+            "fields": {
+                k: (v.isoformat() if hasattr(v, "isoformat") else v)
+                for k, v in result.fields.items()
+            },
+            "title": result.fields.get("title") or parsed.title,
+        }
+
     return {
         "ok": True,
         "not_modified": False,
@@ -73,11 +98,13 @@ async def _fetch_and_store(
         "etag": doc.etag,
         "last_modified": doc.last_modified,
         "parser_version": parsed.parser_version,
-        "title": parsed.title,
+        "title": (extraction or {}).get("title") or parsed.title,
         "text_length": len(parsed.text),
         "link_count": len(parsed.links),
         "needs_browser": needs_browser,
         "redirect_chain": doc.redirect_chain,
+        "extraction": extraction,
+        "listing_kind": listing_kind,
     }
 
 
@@ -100,6 +127,8 @@ def fetch_document(self: Any, request: dict[str, Any]) -> dict[str, Any]:
             storage=storage,
             etag=request.get("etag"),
             if_modified_since=request.get("if_modified_since"),
+            listing_kind=str(request.get("listing_kind") or "hackathon"),
+            run_extract=bool(request.get("run_extract", True)),
         )
     )
     result["source_id"] = request.get("source_id")

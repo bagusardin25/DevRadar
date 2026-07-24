@@ -1,9 +1,12 @@
 {
   "meta": {
     "source": "x_mcp",
-    "collected_at": "2026-07-24T12:00:00+00:00",
-    "description": "Curated, deduplicated listings from X MCP search (online AI hackathons + free AI). Official URLs preferred; X posts are Tier-3 provenance only.",
-    "candidates_file": "data/manual-collection/candidates.jsonl"
+    "collected_at": "2026-07-25T18:00:00+00:00",
+    "description": "Curated, deduplicated listings from X MCP + built-in X search (online/virtual AI & Web3 hackathons + free AI). Official URLs preferred; X posts are Tier-3 provenance only. Wave-2 refresh 2026-07-25. Wave B: stronger official URLs, completeness-oriented AI offers, honest closed statuses.",
+    "candidates_file": "data/manual-collection/candidates.jsonl",
+    "wave_b_at": "2026-07-24T19:13:48.662700+00:00",
+    "ai_offers_refreshed_at": "2026-07-24T19:19:55.687940+00:00",
+    "ai_offers_notes": "Refreshed 2026-07-25 from official pricing/docs + curated X signals. Removed unverified third-party free sites. Prefer official URLs."
   },
   "hackathons": [
     {
@@ -18,11 +21,22 @@
       "registration_open_at": "2026-07-01T00:00:00+00:00",
       "registration_deadline": "2026-08-03T00:00:00+00:00",
       "submission_deadline": "2026-08-10T23:59:59+00:00",
-      "eligible_countries": ["Worldwide"],
-      "eligibility": ["Developer", "No-code", "Student"],
+      "eligible_countries": [
+        "Worldwide"
+      ],
+      "eligibility": [
+        "Developer",
+        "No-code",
+        "Student"
+      ],
       "team_min": 1,
       "team_max": 5,
-      "technologies": ["AI", "No-code", "Native.builder", "LLM"],
+      "technologies": [
+        "AI",
+        "No-code",
+        "Native.builder",
+        "LLM"
+      ],
       "suitable_reasons": [
         "Free to join, fully online",
         "Free platform credits",
@@ -37,7 +51,8 @@
           "post_url": "https://x.com/lablabai/status/2079501875645210675",
           "author": "lablabai"
         }
-      ]
+      ],
+      "prize_label": "TBA · free entry + platform credits"
     },
     {
       "slug": "knotic-amd-ai-hackathon-2026",
@@ -51,11 +66,21 @@
       "registration_open_at": "2026-07-01T00:00:00+00:00",
       "registration_deadline": "2026-08-06T23:59:59+00:00",
       "submission_deadline": "2026-08-06T23:59:59+00:00",
-      "eligible_countries": ["Worldwide"],
-      "eligibility": ["Developer"],
+      "eligible_countries": [
+        "Worldwide"
+      ],
+      "eligibility": [
+        "Developer"
+      ],
       "team_min": 1,
       "team_max": 3,
-      "technologies": ["AI", "Agentic AI", "Multimodal", "Physical AI", "AMD"],
+      "technologies": [
+        "AI",
+        "Agentic AI",
+        "Multimodal",
+        "Physical AI",
+        "AMD"
+      ],
       "suitable_reasons": [
         "Fully online",
         "$30K prize pool",
@@ -70,7 +95,8 @@
           "post_url": "https://x.com/knotichq/status/2079456401844498620",
           "author": "knotichq"
         }
-      ]
+      ],
+      "prize_label": "$30,000 + free AMD GPU access"
     },
     {
       "slug": "victoria-vr-ai-builder-hackathon-2026",
@@ -84,11 +110,22 @@
       "registration_open_at": "2026-07-01T00:00:00+00:00",
       "registration_deadline": "2026-08-31T23:59:59+00:00",
       "submission_deadline": "2026-08-31T23:59:59+00:00",
-      "eligible_countries": ["Worldwide"],
-      "eligibility": ["Developer", "3D Creator"],
+      "eligible_countries": [
+        "Worldwide"
+      ],
+      "eligibility": [
+        "Developer",
+        "3D Creator"
+      ],
       "team_min": 1,
       "team_max": 5,
-      "technologies": ["AI", "3D", "VR", "Browser", "Web3"],
+      "technologies": [
+        "AI",
+        "3D",
+        "VR",
+        "Browser",
+        "Web3"
+      ],
       "suitable_reasons": [
         "Fully online",
         "€20,000 prize pool",
@@ -103,25 +140,35 @@
           "post_url": "https://x.com/VictoriaVR/status/2079907174864634179",
           "author": "VictoriaVR"
         }
-      ]
+      ],
+      "prize_label": "€20,000 prize pool"
     },
     {
       "slug": "ai-builders-hackathon-osc-2026",
       "title": "AI Builders Hackathon 2026",
       "organizer": "OSC",
       "description": "Online AI hackathon: build a real AI product (agents, multi-agent systems, developer tools, workflow automation). Working products only — no pitch decks or wrapper spam. Single prize $4,000 Best SaaS. Deadline 2026-08-25.",
-      "official_url": "https://x.com/jinamcapital/status/2080503151376175214",
+      "official_url": "https://www.osc.community/",
       "mode": "online",
       "prize_value": 4000,
       "prize_currency": "USD",
       "registration_open_at": "2026-07-01T00:00:00+00:00",
       "registration_deadline": "2026-08-25T23:59:59+00:00",
       "submission_deadline": "2026-08-25T23:59:59+00:00",
-      "eligible_countries": ["Worldwide"],
-      "eligibility": ["Developer"],
+      "eligible_countries": [
+        "Worldwide"
+      ],
+      "eligibility": [
+        "Developer"
+      ],
       "team_min": 1,
       "team_max": 4,
-      "technologies": ["AI", "Agents", "SaaS", "Automation"],
+      "technologies": [
+        "AI",
+        "Agents",
+        "SaaS",
+        "Automation"
+      ],
       "suitable_reasons": [
         "Online",
         "Working product requirement",
@@ -136,25 +183,38 @@
           "post_url": "https://x.com/jinamcapital/status/2080503151376175214",
           "author": "jinamcapital"
         }
-      ]
+      ],
+      "prize_label": "$4,000 Best SaaS product"
     },
     {
       "slug": "future-caribbean-agentic-ai-buildathon-2026",
       "title": "Future Caribbean — Global Agentic AI Buildathon",
       "organizer": "Future Caribbean",
       "description": "Global agentic AI buildathon for deployable solutions (tourism, finance, healthcare, climate, energy, ocean). Top 40 teams get NVIDIA H200-class GPU; finals at NYSE. Prize pool $70,000+.",
-      "official_url": "https://x.com/FutureCaribb",
+      "official_url": "https://www.futurecaribbean.ai/",
       "mode": "online",
       "prize_value": 70000,
       "prize_currency": "USD",
       "registration_open_at": "2026-06-01T00:00:00+00:00",
       "registration_deadline": "2026-07-24T23:59:59+00:00",
       "submission_deadline": "2026-08-15T23:59:59+00:00",
-      "eligible_countries": ["Worldwide", "Caribbean"],
-      "eligibility": ["Developer", "Startup"],
+      "eligible_countries": [
+        "Worldwide",
+        "Caribbean"
+      ],
+      "eligibility": [
+        "Developer",
+        "Startup"
+      ],
       "team_min": 1,
       "team_max": 6,
-      "technologies": ["AI", "Agentic AI", "GPU", "Climate", "Finance"],
+      "technologies": [
+        "AI",
+        "Agentic AI",
+        "GPU",
+        "Climate",
+        "Finance"
+      ],
       "suitable_reasons": [
         "Large prize pool ($70K+)",
         "H200 compute for finalists",
@@ -162,7 +222,7 @@
       ],
       "effort_estimate": "1 Month+",
       "confidence_score": 0.72,
-      "status": "likely_active",
+      "status": "registration_closed",
       "x_posts": [
         {
           "post_id": "2079555246075052263",
@@ -174,25 +234,36 @@
           "post_url": "https://x.com/WBteamz/status/2080454036529332473",
           "author": "WBteamz"
         }
-      ]
+      ],
+      "prize_label": "$70,000+ · top 40 get H200 GPU"
     },
     {
       "slug": "elevate-women-global-hackathon-2026",
       "title": "Elevate Women Global Hackathon",
       "organizer": "Elevate Women",
       "description": "Free online hackathon for women learning to build with AI. Learning week Sep 14–18, hackathon weekend Sep 19–20, Demo Day Sep 25. No coding background required.",
-      "official_url": "https://x.com/avgaydashenko/status/2076024726992961941",
+      "official_url": "https://www.elevatewomen.co/",
       "mode": "online",
       "prize_value": 0,
       "prize_currency": "USD",
       "registration_open_at": "2026-07-01T00:00:00+00:00",
       "registration_deadline": "2026-09-14T00:00:00+00:00",
       "submission_deadline": "2026-09-20T23:59:59+00:00",
-      "eligible_countries": ["Worldwide"],
-      "eligibility": ["Women", "Beginner", "No-code"],
+      "eligible_countries": [
+        "Worldwide"
+      ],
+      "eligibility": [
+        "Women",
+        "Beginner",
+        "No-code"
+      ],
       "team_min": 1,
       "team_max": 4,
-      "technologies": ["AI", "No-code", "Automation"],
+      "technologies": [
+        "AI",
+        "No-code",
+        "Automation"
+      ],
       "suitable_reasons": [
         "Free online",
         "Workshops before hack weekend",
@@ -207,25 +278,36 @@
           "post_url": "https://x.com/avgaydashenko/status/2076024726992961941",
           "author": "avgaydashenko"
         }
-      ]
+      ],
+      "prize_label": "Free · workshops + demo day"
     },
     {
       "slug": "signoz-ai-agent-observability-hackathon",
       "title": "SigNoz AI Agent Observability Hackathon",
       "organizer": "SigNoz",
       "description": "Build tools that monitor, debug, and understand AI agents using SigNoz — not another chatbot wrapper. $20k+ prizes, Apple devices for winning teams, interview opportunities, blog and social rewards.",
-      "official_url": "https://signoz.io/",
+      "official_url": "https://signoz.io/blog/",
       "mode": "online",
       "prize_value": 20000,
       "prize_currency": "USD",
       "registration_open_at": "2026-07-01T00:00:00+00:00",
       "registration_deadline": "2026-08-15T23:59:59+00:00",
       "submission_deadline": "2026-08-22T23:59:59+00:00",
-      "eligible_countries": ["Worldwide"],
-      "eligibility": ["Developer"],
+      "eligible_countries": [
+        "Worldwide"
+      ],
+      "eligibility": [
+        "Developer"
+      ],
       "team_min": 1,
       "team_max": 4,
-      "technologies": ["AI", "Agents", "Observability", "SigNoz", "OpenTelemetry"],
+      "technologies": [
+        "AI",
+        "Agents",
+        "Observability",
+        "SigNoz",
+        "OpenTelemetry"
+      ],
       "suitable_reasons": [
         "Distinct agent-monitoring theme",
         "$20k+ prizes",
@@ -240,7 +322,8 @@
           "post_url": "https://x.com/khushiirl/status/2079071678098002240",
           "author": "khushiirl"
         }
-      ]
+      ],
+      "prize_label": "$20,000+ · devices + interviews"
     },
     {
       "slug": "openai-codex-namastedev-hackathon-2026",
@@ -254,11 +337,22 @@
       "registration_open_at": "2026-07-01T00:00:00+00:00",
       "registration_deadline": "2026-07-15T00:00:00+00:00",
       "submission_deadline": "2026-07-19T23:59:59+00:00",
-      "eligible_countries": ["Worldwide", "India"],
-      "eligibility": ["Developer", "Student"],
+      "eligible_countries": [
+        "Worldwide",
+        "India"
+      ],
+      "eligibility": [
+        "Developer",
+        "Student"
+      ],
       "team_min": 1,
       "team_max": 3,
-      "technologies": ["AI", "OpenAI", "Codex", "LLM"],
+      "technologies": [
+        "AI",
+        "OpenAI",
+        "Codex",
+        "LLM"
+      ],
       "suitable_reasons": [
         "Fully online",
         "Large prize pool",
@@ -273,7 +367,8 @@
           "post_url": "https://x.com/akshaymarch7/status/2077264396078682590",
           "author": "akshaymarch7"
         }
-      ]
+      ],
+      "prize_label": "₹10,00,000+ (~$12k USD)"
     },
     {
       "slug": "techex-amsterdam-hackathon-2026",
@@ -288,11 +383,22 @@
       "registration_open_at": "2026-07-01T00:00:00+00:00",
       "registration_deadline": "2026-10-19T00:00:00+00:00",
       "submission_deadline": "2026-10-20T23:59:59+00:00",
-      "eligible_countries": ["Worldwide", "Europe"],
-      "eligibility": ["Developer"],
+      "eligible_countries": [
+        "Worldwide",
+        "Europe"
+      ],
+      "eligibility": [
+        "Developer"
+      ],
       "team_min": 1,
       "team_max": 5,
-      "technologies": ["AI", "Cloud", "IoT", "Cybersecurity", "Edge"],
+      "technologies": [
+        "AI",
+        "Cloud",
+        "IoT",
+        "Cybersecurity",
+        "Edge"
+      ],
       "suitable_reasons": [
         "Hybrid big-stage event",
         "Industry expo audience",
@@ -307,7 +413,8 @@
           "post_url": "https://x.com/lablabai/status/2078072402261532892",
           "author": "lablabai"
         }
-      ]
+      ],
+      "prize_label": "Prize TBA · hybrid expo event"
     },
     {
       "slug": "ai-infra-summit-hackathon-2026",
@@ -322,11 +429,22 @@
       "registration_open_at": "2026-07-01T00:00:00+00:00",
       "registration_deadline": "2026-09-15T00:00:00+00:00",
       "submission_deadline": "2026-09-17T23:59:59+00:00",
-      "eligible_countries": ["Worldwide", "United States"],
-      "eligibility": ["Developer", "Infrastructure Engineer"],
+      "eligible_countries": [
+        "Worldwide",
+        "United States"
+      ],
+      "eligibility": [
+        "Developer",
+        "Infrastructure Engineer"
+      ],
       "team_min": 1,
       "team_max": 5,
-      "technologies": ["AI", "Infrastructure", "Compute", "Physical AI"],
+      "technologies": [
+        "AI",
+        "Infrastructure",
+        "Compute",
+        "Physical AI"
+      ],
       "suitable_reasons": [
         "Hybrid format",
         "Industry summit access",
@@ -341,7 +459,8 @@
           "post_url": "https://x.com/lablabai/status/2078072399849812451",
           "author": "lablabai"
         }
-      ]
+      ],
+      "prize_label": "Prize TBA · hybrid summit"
     },
     {
       "slug": "hackyard-virtual-ai-hackathon",
@@ -355,11 +474,18 @@
       "registration_open_at": "2026-07-01T00:00:00+00:00",
       "registration_deadline": "2026-12-31T23:59:59+00:00",
       "submission_deadline": "2026-12-31T23:59:59+00:00",
-      "eligible_countries": ["Worldwide"],
-      "eligibility": ["Developer"],
+      "eligible_countries": [
+        "Worldwide"
+      ],
+      "eligibility": [
+        "Developer"
+      ],
       "team_min": 1,
       "team_max": 4,
-      "technologies": ["AI", "Community"],
+      "technologies": [
+        "AI",
+        "Community"
+      ],
       "suitable_reasons": [
         "Fully virtual",
         "Community-driven"
@@ -373,191 +499,1226 @@
           "post_url": "https://x.com/HackyardSocial/status/2080287726595625131",
           "author": "HackyardSocial"
         }
-      ]
+      ],
+      "prize_label": "Upcoming · prize TBA"
+    },
+    {
+      "slug": "prava-openai-visa-agentic-commerce-2026",
+      "title": "Prava × OpenAI × Visa — Agentic Commerce Hackathon",
+      "organizer": "Prava Payments × OpenAI × Visa",
+      "description": "Fully online 48-hour hackathon (~Jul 31–Aug 2 2026). Build AI agents that discover, decide, and complete real transactions (shopping, travel booking, subscriptions, procurement, reservations). Open worldwide. ~$70k cash + OpenAI credits. Judges include MIT / Visa agentic commerce / YC founders. Apply by 26 Jul (rolling review; 1500+ applications reported).",
+      "official_url": "https://devfolio.co/hackathons",
+      "mode": "online",
+      "prize_value": 70000,
+      "prize_currency": "USD",
+      "registration_open_at": "2026-07-15T00:00:00+00:00",
+      "registration_deadline": "2026-07-26T23:59:59+00:00",
+      "submission_deadline": "2026-08-02T23:59:59+00:00",
+      "eligible_countries": [
+        "Worldwide"
+      ],
+      "eligibility": [
+        "Developer",
+        "Student",
+        "Founder",
+        "Designer",
+        "Researcher"
+      ],
+      "team_min": 1,
+      "team_max": 5,
+      "technologies": [
+        "AI",
+        "Agents",
+        "Agentic Commerce",
+        "Payments",
+        "OpenAI",
+        "Prava"
+      ],
+      "suitable_reasons": [
+        "Fully online, open worldwide",
+        "~$70k cash + OpenAI credits",
+        "Action-taking agents beyond chat"
+      ],
+      "effort_estimate": "1-2 Days",
+      "confidence_score": 0.88,
+      "status": "likely_active",
+      "x_posts": [
+        {
+          "post_id": "2080646683117957377",
+          "post_url": "https://x.com/suraj_sharma14/status/2080646683117957377",
+          "author": "suraj_sharma14"
+        },
+        {
+          "post_id": "2080303157515809186",
+          "post_url": "https://x.com/sushantpandey_/status/2080303157515809186",
+          "author": "sushantpandey_"
+        }
+      ],
+      "prize_label": "~$70,000 cash + OpenAI credits"
+    },
+    {
+      "slug": "videodb-global-online-hackathon-jul-2026",
+      "title": "VideoDB Global Online Hackathon",
+      "organizer": "VideoDB",
+      "description": "48-hour global online hackathon (Jul 25–27 2026): build an agent that turns archived video or audio into structured, searchable, actionable intelligence. Portal includes submission dashboard and judging criteria.",
+      "official_url": "https://hackday.videodb.io/",
+      "mode": "online",
+      "prize_value": 0,
+      "prize_currency": "USD",
+      "registration_open_at": "2026-07-10T00:00:00+00:00",
+      "registration_deadline": "2026-07-25T12:00:00+00:00",
+      "submission_deadline": "2026-07-27T23:59:59+00:00",
+      "eligible_countries": [
+        "Worldwide"
+      ],
+      "eligibility": [
+        "Developer"
+      ],
+      "team_min": 1,
+      "team_max": 5,
+      "technologies": [
+        "AI",
+        "Agents",
+        "Video",
+        "Audio",
+        "VideoDB"
+      ],
+      "suitable_reasons": [
+        "Fully online 48h sprint",
+        "Media-perception agent focus",
+        "Live portal for submit/judge"
+      ],
+      "effort_estimate": "1-2 Days",
+      "confidence_score": 0.9,
+      "status": "registration_closed",
+      "x_posts": [
+        {
+          "post_id": "2080210870324564331",
+          "post_url": "https://x.com/videodb_io/status/2080210870324564331",
+          "author": "videodb_io"
+        },
+        {
+          "post_id": "2077688246759489616",
+          "post_url": "https://x.com/videodb_io/status/2077688246759489616",
+          "author": "videodb_io"
+        }
+      ],
+      "prize_label": "Prize TBA · see hackday.videodb.io"
+    },
+    {
+      "slug": "cruzhacks-google-gemma-summer-2026",
+      "title": "CruzHacks × Google Gemma — Summer Virtual Hackathon",
+      "organizer": "CruzHacks × Google DeepMind (Gemma)",
+      "description": "One-day virtual hackathon on July 26 2026. Build with Google Gemma. Sign up via Luma.",
+      "official_url": "https://luma.com/nypg13dg",
+      "mode": "online",
+      "prize_value": 0,
+      "prize_currency": "USD",
+      "registration_open_at": "2026-07-15T00:00:00+00:00",
+      "registration_deadline": "2026-07-26T08:00:00+00:00",
+      "submission_deadline": "2026-07-26T23:59:59+00:00",
+      "eligible_countries": [
+        "Worldwide"
+      ],
+      "eligibility": [
+        "Developer",
+        "Student"
+      ],
+      "team_min": 1,
+      "team_max": 4,
+      "technologies": [
+        "AI",
+        "Gemma",
+        "Google DeepMind",
+        "LLM"
+      ],
+      "suitable_reasons": [
+        "One-day virtual format",
+        "Gemma / DeepMind stack",
+        "Easy Luma signup"
+      ],
+      "effort_estimate": "1-2 Days",
+      "confidence_score": 0.82,
+      "status": "registration_closed",
+      "x_posts": [
+        {
+          "post_id": "2079934237910733186",
+          "post_url": "https://x.com/aprabou/status/2079934237910733186",
+          "author": "aprabou"
+        }
+      ],
+      "prize_label": "Prize TBA · 1-day Gemma build"
+    },
+    {
+      "slug": "datahub-agent-hackathon-2026",
+      "title": "DataHub Agent Hackathon",
+      "organizer": "DataHub",
+      "description": "Build with DataHub open source across four challenge categories. Submissions open through August 10 2026. $20,500 in prizes on Devpost.",
+      "official_url": "https://datahub.devpost.com/",
+      "mode": "online",
+      "prize_value": 20500,
+      "prize_currency": "USD",
+      "registration_open_at": "2026-07-06T00:00:00+00:00",
+      "registration_deadline": "2026-08-10T23:59:59+00:00",
+      "submission_deadline": "2026-08-10T23:59:59+00:00",
+      "eligible_countries": [
+        "Worldwide"
+      ],
+      "eligibility": [
+        "Developer"
+      ],
+      "team_min": 1,
+      "team_max": 5,
+      "technologies": [
+        "AI",
+        "Agents",
+        "DataHub",
+        "Data Governance",
+        "Open Source"
+      ],
+      "suitable_reasons": [
+        "Online Devpost submission",
+        "$20,500 prize pool",
+        "Four challenge tracks"
+      ],
+      "effort_estimate": "1-2 Weeks",
+      "confidence_score": 0.93,
+      "status": "verified_active",
+      "x_posts": [
+        {
+          "post_id": "2080384710258090394",
+          "post_url": "https://x.com/DataHubCloud/status/2080384710258090394",
+          "author": "DataHubCloud"
+        }
+      ],
+      "prize_label": "$20,500 across 4 tracks"
+    },
+    {
+      "slug": "gemini-xprize-build-2026",
+      "title": "Build with Gemini XPRIZE",
+      "organizer": "XPRIZE × Gemini",
+      "description": "Major online build challenge on Devpost. $2,000,000 prize pool. Closes August 17 2026. Frequently listed as S-tier opportunity in July 2026 builder roundups on X.",
+      "official_url": "https://xprize.devpost.com/",
+      "mode": "online",
+      "prize_value": 2000000,
+      "prize_currency": "USD",
+      "registration_open_at": "2026-06-01T00:00:00+00:00",
+      "registration_deadline": "2026-08-17T23:59:59+00:00",
+      "submission_deadline": "2026-08-17T23:59:59+00:00",
+      "eligible_countries": [
+        "Worldwide"
+      ],
+      "eligibility": [
+        "Developer",
+        "Team",
+        "Startup"
+      ],
+      "team_min": 1,
+      "team_max": 10,
+      "technologies": [
+        "AI",
+        "Gemini",
+        "XPRIZE"
+      ],
+      "suitable_reasons": [
+        "Largest public prize pool ($2M)",
+        "Online Devpost",
+        "Widely promoted on X"
+      ],
+      "effort_estimate": "1 Month+",
+      "confidence_score": 0.94,
+      "status": "verified_active",
+      "x_posts": [
+        {
+          "post_id": "2073293573252923724",
+          "post_url": "https://x.com/onlyonealexia/status/2073293573252923724",
+          "author": "onlyonealexia"
+        },
+        {
+          "post_id": "2072974574870815162",
+          "post_url": "https://x.com/kenn_ronin/status/2072974574870815162",
+          "author": "kenn_ronin"
+        }
+      ],
+      "prize_label": "$2,000,000 prize pool"
+    },
+    {
+      "slug": "solana-summer-camp-2026",
+      "title": "Solana Summer Camp (Colosseum)",
+      "organizer": "Solana / Colosseum",
+      "description": "Major Solana ecosystem hackathon. Up to $5M in prizes + seed funding. Tracks: payments, DeFi, Web3, gaming, DAOs, mobile. Window July 11 – Aug 16 2026.",
+      "official_url": "https://solana.com/hackathon",
+      "mode": "online",
+      "prize_value": 5000000,
+      "prize_currency": "USD",
+      "registration_open_at": "2026-07-11T00:00:00+00:00",
+      "registration_deadline": "2026-08-16T23:59:59+00:00",
+      "submission_deadline": "2026-08-16T23:59:59+00:00",
+      "eligible_countries": [
+        "Worldwide"
+      ],
+      "eligibility": [
+        "Developer",
+        "Founder"
+      ],
+      "team_min": 1,
+      "team_max": 6,
+      "technologies": [
+        "Solana",
+        "Web3",
+        "DeFi",
+        "Payments",
+        "Gaming",
+        "AI Agents"
+      ],
+      "suitable_reasons": [
+        "Up to $5M prizes + seed",
+        "Fully online ecosystem camp",
+        "Broad track coverage"
+      ],
+      "effort_estimate": "1 Month+",
+      "confidence_score": 0.92,
+      "status": "verified_active",
+      "x_posts": [
+        {
+          "post_id": "2075999116190990369",
+          "post_url": "https://x.com/LIMITLESSDAMI/status/2075999116190990369",
+          "author": "LIMITLESSDAMI"
+        }
+      ],
+      "prize_label": "Up to $5M prizes + seed funding"
+    },
+    {
+      "slug": "sui-overflow-2026",
+      "title": "Sui Overflow 2026",
+      "organizer": "Sui Network",
+      "description": "Sui ecosystem overflow hackathon. $500,000+ prize pool. DeFi, consumer apps, infra, AI × Sui. Closes August 2026.",
+      "official_url": "https://overflow.sui.io/",
+      "mode": "online",
+      "prize_value": 500000,
+      "prize_currency": "USD",
+      "registration_open_at": "2026-06-01T00:00:00+00:00",
+      "registration_deadline": "2026-08-31T23:59:59+00:00",
+      "submission_deadline": "2026-08-31T23:59:59+00:00",
+      "eligible_countries": [
+        "Worldwide"
+      ],
+      "eligibility": [
+        "Developer"
+      ],
+      "team_min": 1,
+      "team_max": 6,
+      "technologies": [
+        "Sui",
+        "Web3",
+        "DeFi",
+        "AI",
+        "Infrastructure"
+      ],
+      "suitable_reasons": [
+        "$500k+ prize pool",
+        "Online ecosystem hackathon",
+        "AI × Sui track"
+      ],
+      "effort_estimate": "1 Month+",
+      "confidence_score": 0.9,
+      "status": "verified_active",
+      "x_posts": [
+        {
+          "post_id": "2073293573252923724",
+          "post_url": "https://x.com/onlyonealexia/status/2073293573252923724",
+          "author": "onlyonealexia"
+        }
+      ],
+      "prize_label": "$500,000+ prize pool"
+    },
+    {
+      "slug": "fortyguard-hackathon-2026",
+      "title": "FortyGuard Hackathon '26",
+      "organizer": "FortyGuard",
+      "description": "100% virtual hackathon Aug 3–17 2026. Build AI solutions using enterprise-grade hyperlocal temperature data. $6,000 prize pool. Solo or teams up to 3.",
+      "official_url": "https://www.fortyguard.com/",
+      "mode": "online",
+      "prize_value": 6000,
+      "prize_currency": "USD",
+      "registration_open_at": "2026-07-20T00:00:00+00:00",
+      "registration_deadline": "2026-08-03T00:00:00+00:00",
+      "submission_deadline": "2026-08-17T23:59:59+00:00",
+      "eligible_countries": [
+        "Worldwide"
+      ],
+      "eligibility": [
+        "Developer"
+      ],
+      "team_min": 1,
+      "team_max": 3,
+      "technologies": [
+        "AI",
+        "Climate",
+        "Geospatial",
+        "Temperature Data"
+      ],
+      "suitable_reasons": [
+        "100% virtual",
+        "Climate / geospatial AI niche",
+        "$6k prize pool"
+      ],
+      "effort_estimate": "1-2 Weeks",
+      "confidence_score": 0.8,
+      "status": "likely_active",
+      "x_posts": [
+        {
+          "post_id": "2079219659602338030",
+          "post_url": "https://x.com/FortyGuard/status/2079219659602338030",
+          "author": "FortyGuard"
+        }
+      ],
+      "prize_label": "$6,000 prize pool"
+    },
+    {
+      "slug": "browserstack-ai-testing-bootcamp-hackathon-2026",
+      "title": "BrowserStack AI × Testing Bootcamp + Hackathon",
+      "organizer": "BrowserStack",
+      "description": "Virtual bootcamp and hackathon focused on AI-powered testing (TCM + LCA Labs). Share of $1,500 prize pool. Aug 5 2026, 10:00 AM IST.",
+      "official_url": "https://www.browserstack.com/webinars/aixtesting-bootcamp-hackathon-apac",
+      "mode": "online",
+      "prize_value": 1500,
+      "prize_currency": "USD",
+      "registration_open_at": "2026-07-15T00:00:00+00:00",
+      "registration_deadline": "2026-08-05T04:30:00+00:00",
+      "submission_deadline": "2026-08-05T12:00:00+00:00",
+      "eligible_countries": [
+        "Worldwide",
+        "APAC"
+      ],
+      "eligibility": [
+        "Developer",
+        "QA Engineer",
+        "Tester"
+      ],
+      "team_min": 1,
+      "team_max": 4,
+      "technologies": [
+        "AI",
+        "Testing",
+        "QA",
+        "BrowserStack"
+      ],
+      "suitable_reasons": [
+        "Virtual format",
+        "Hands-on AI testing workshop + hack",
+        "Official BrowserStack event"
+      ],
+      "effort_estimate": "1-2 Days",
+      "confidence_score": 0.9,
+      "status": "verified_active",
+      "x_posts": [
+        {
+          "post_id": "2080607481139523732",
+          "post_url": "https://x.com/browserstack/status/2080607481139523732",
+          "author": "browserstack"
+        }
+      ],
+      "prize_label": "$1,500 prize pool"
+    },
+    {
+      "slug": "impact-forge-hs-virtual-2026",
+      "title": "Impact Forge — High School Virtual Hackathon",
+      "organizer": "Impact Forge",
+      "description": "Free 48-hour virtual hackathon for high schoolers. Build a portfolio project, compete for $6K prizes, and win scholarships into a research program mentored by PhDs and Ivy League professors. Register on Devpost.",
+      "official_url": "https://impactforge26.devpost.com/",
+      "mode": "online",
+      "prize_value": 6000,
+      "prize_currency": "USD",
+      "registration_open_at": "2026-07-20T00:00:00+00:00",
+      "registration_deadline": "2026-08-31T23:59:59+00:00",
+      "submission_deadline": "2026-08-31T23:59:59+00:00",
+      "eligible_countries": [
+        "Worldwide"
+      ],
+      "eligibility": [
+        "High School Student"
+      ],
+      "team_min": 1,
+      "team_max": 4,
+      "technologies": [
+        "AI",
+        "Portfolio",
+        "Research"
+      ],
+      "suitable_reasons": [
+        "Free virtual for high schoolers",
+        "$6K prizes + research scholarships",
+        "Devpost registration"
+      ],
+      "effort_estimate": "1-2 Days",
+      "confidence_score": 0.78,
+      "status": "likely_active",
+      "x_posts": [
+        {
+          "post_id": "2080368039673971034",
+          "post_url": "https://x.com/AyaanRusta37/status/2080368039673971034",
+          "author": "AyaanRusta37"
+        }
+      ],
+      "prize_label": "$6,000 + research scholarships"
+    },
+    {
+      "slug": "indonesia-web3-hackathon-2026",
+      "title": "Indonesia Web3 Hackathon 2026",
+      "organizer": "Binance Academy × BNB Chain × Coinvestasi",
+      "description": "100% free & online Web3 hackathon focused on AI × Web3. $5,000 prize pool, 9 workshops + mentoring, Demo Day finale. Powered by Binance Academy, BNB Chain, Coinvestasi & Dev Web3 Jogja.",
+      "official_url": "https://luma.com/pcc699dv",
+      "mode": "online",
+      "prize_value": 5000,
+      "prize_currency": "USD",
+      "registration_open_at": "2026-07-01T00:00:00+00:00",
+      "registration_deadline": "2026-08-31T23:59:59+00:00",
+      "submission_deadline": "2026-08-31T23:59:59+00:00",
+      "eligible_countries": [
+        "Worldwide",
+        "Indonesia"
+      ],
+      "eligibility": [
+        "Developer",
+        "Student"
+      ],
+      "team_min": 1,
+      "team_max": 5,
+      "technologies": [
+        "Web3",
+        "BNB Chain",
+        "AI Agents",
+        "Finance",
+        "Consumer Apps"
+      ],
+      "suitable_reasons": [
+        "Free fully online",
+        "Workshops + mentoring",
+        "AI Agents / Finance / Consumer tracks"
+      ],
+      "effort_estimate": "1-2 Weeks",
+      "confidence_score": 0.88,
+      "status": "verified_active",
+      "x_posts": [
+        {
+          "post_id": "2079162191899705518",
+          "post_url": "https://x.com/cryptosiastdao/status/2079162191899705518",
+          "author": "cryptosiastdao"
+        }
+      ],
+      "prize_label": "$5,000 · free & online"
+    },
+    {
+      "slug": "ibm-bob-devday-hackathon-2026",
+      "title": "IBM Bob Dev Day + Hackathon",
+      "organizer": "IBM × BeMyApp",
+      "description": "Free virtual Dev Day on IBM Bob, then compete in a hackathon by creating a solution that improves real developer workflows.",
+      "official_url": "https://ibmdevday-bob.bemyapp.com/",
+      "mode": "online",
+      "prize_value": 0,
+      "prize_currency": "USD",
+      "registration_open_at": "2026-07-01T00:00:00+00:00",
+      "registration_deadline": "2026-08-31T23:59:59+00:00",
+      "submission_deadline": "2026-08-31T23:59:59+00:00",
+      "eligible_countries": [
+        "Worldwide"
+      ],
+      "eligibility": [
+        "Developer"
+      ],
+      "team_min": 1,
+      "team_max": 5,
+      "technologies": [
+        "AI",
+        "IBM Bob",
+        "Developer Tools",
+        "Workflow"
+      ],
+      "suitable_reasons": [
+        "Free virtual Dev Day",
+        "Developer workflow focus",
+        "Official IBM / BeMyApp"
+      ],
+      "effort_estimate": "1 Week",
+      "confidence_score": 0.85,
+      "status": "verified_active",
+      "x_posts": [
+        {
+          "post_id": "2079765379660837075",
+          "post_url": "https://x.com/bemyapp/status/2079765379660837075",
+          "author": "bemyapp"
+        }
+      ],
+      "prize_label": "Free Dev Day · hack prize TBA"
+    },
+    {
+      "slug": "casper-agentic-buildathon-2026",
+      "title": "Casper Agentic Buildathon 2026",
+      "organizer": "Casper Network",
+      "description": "Build AI agents, DeFi, RWA, security, and Web3 applications on Casper Network. $150,000 prize pool. GitHub repo + demo video required. Submission deadline July 27 2026.",
+      "official_url": "https://dorahacks.io/hackathon",
+      "mode": "online",
+      "prize_value": 150000,
+      "prize_currency": "USD",
+      "registration_open_at": "2026-07-01T00:00:00+00:00",
+      "registration_deadline": "2026-07-27T23:59:59+00:00",
+      "submission_deadline": "2026-07-27T23:59:59+00:00",
+      "eligible_countries": [
+        "Worldwide"
+      ],
+      "eligibility": [
+        "Developer"
+      ],
+      "team_min": 1,
+      "team_max": 5,
+      "technologies": [
+        "Casper",
+        "AI Agents",
+        "DeFi",
+        "RWA",
+        "Web3",
+        "Security"
+      ],
+      "suitable_reasons": [
+        "$150k prize pool",
+        "Agentic + DeFi tracks",
+        "Online submission"
+      ],
+      "effort_estimate": "1-2 Weeks",
+      "confidence_score": 0.8,
+      "status": "likely_active",
+      "x_posts": [
+        {
+          "post_id": "2080265093515030838",
+          "post_url": "https://x.com/ajay_2512x/status/2080265093515030838",
+          "author": "ajay_2512x"
+        }
+      ],
+      "prize_label": "$150,000 prize pool"
+    },
+    {
+      "slug": "encode-commit-to-change-ai-agents-2026",
+      "title": "Encode Club — Commit to Change: AI Agents Hackathon",
+      "organizer": "Encode Club",
+      "description": "7-week online program to build AI agents. ~$30,000 prizes. Credits from Google & Vercel, mentorship. Started around July 13 2026.",
+      "official_url": "https://www.encode.club/hackathons",
+      "mode": "online",
+      "prize_value": 30000,
+      "prize_currency": "USD",
+      "registration_open_at": "2026-07-01T00:00:00+00:00",
+      "registration_deadline": "2026-08-31T23:59:59+00:00",
+      "submission_deadline": "2026-09-07T23:59:59+00:00",
+      "eligible_countries": [
+        "Worldwide"
+      ],
+      "eligibility": [
+        "Developer",
+        "Student"
+      ],
+      "team_min": 1,
+      "team_max": 5,
+      "technologies": [
+        "AI",
+        "Agents",
+        "Google",
+        "Vercel"
+      ],
+      "suitable_reasons": [
+        "7-week mentorship program",
+        "$30k prizes + cloud credits",
+        "Fully online"
+      ],
+      "effort_estimate": "1 Month+",
+      "confidence_score": 0.78,
+      "status": "likely_active",
+      "x_posts": [
+        {
+          "post_id": "2073293573252923724",
+          "post_url": "https://x.com/onlyonealexia/status/2073293573252923724",
+          "author": "onlyonealexia"
+        },
+        {
+          "post_id": "2075999116190990369",
+          "post_url": "https://x.com/LIMITLESSDAMI/status/2075999116190990369",
+          "author": "LIMITLESSDAMI"
+        }
+      ],
+      "prize_label": "$30,000 + cloud credits"
+    },
+    {
+      "slug": "inco-network-hackathon-interest-2026",
+      "title": "Inco Network Hackathon (Interest Registration)",
+      "organizer": "Inco Network",
+      "description": "Upcoming hackathon from Inco Network (full-stack privacy for blockchains). Details announced in coming days — register interest via Typeform to stay updated.",
+      "official_url": "https://taglg1ysk8z.typeform.com/to/q2REER5u",
+      "mode": "online",
+      "prize_value": 0,
+      "prize_currency": "USD",
+      "registration_open_at": "2026-07-20T00:00:00+00:00",
+      "registration_deadline": "2026-09-30T23:59:59+00:00",
+      "submission_deadline": "2026-09-30T23:59:59+00:00",
+      "eligible_countries": [
+        "Worldwide"
+      ],
+      "eligibility": [
+        "Developer"
+      ],
+      "team_min": 1,
+      "team_max": 5,
+      "technologies": [
+        "Web3",
+        "Privacy",
+        "Blockchain",
+        "Inco"
+      ],
+      "suitable_reasons": [
+        "Interest registration open",
+        "Privacy-for-blockchains theme",
+        "Official Inco Typeform"
+      ],
+      "effort_estimate": "1-2 Weeks",
+      "confidence_score": 0.7,
+      "status": "likely_active",
+      "x_posts": [
+        {
+          "post_id": "2079960512276922769",
+          "post_url": "https://x.com/inconetwork/status/2079960512276922769",
+          "author": "inconetwork"
+        }
+      ],
+      "prize_label": "Prize TBA · interest registration"
     }
   ],
   "ai_offers": [
     {
-      "slug": "google-ai-studio-free",
-      "title": "Google AI Studio — Free Model Access",
-      "product_name": "Google AI Studio",
+      "slug": "google-gemini-api-free-tier",
+      "title": "Google Gemini API — Free tier (AI Studio)",
+      "product_name": "Gemini API (Google AI Studio)",
       "provider": "Google",
-      "description": "Free access to Google's latest models for image/video generation and app building. Frequently cited in free-AI tool lists discovered via X.",
+      "description": "Official free tier for the Gemini Developer API: free input/output tokens with rate limits. Flash-class models (e.g. Gemini 2.5/3.x Flash, Flash-Lite) are free of charge on the Free plan; some Pro/image models are paid-only. Free-tier content may be used to improve Google products — check terms. No credit card required to start.",
       "offer_type": "free_tier",
-      "offer_value": "Free tier access to Gemini models in AI Studio",
-      "official_terms_url": "https://aistudio.google.com/",
-      "claim_url": "https://aistudio.google.com/",
-      "target_users": ["Developer", "Student", "Creator"],
-      "requirements": ["Google account"],
-      "supported_regions": ["Worldwide"],
-      "tags": ["free", "gemini", "google", "ai-studio"],
-      "suitable_reasons": ["No paid plan required to start", "Official Google developer surface"],
+      "offer_value": "Free tokens on Flash models · rate-limited (see AI Studio rate limits)",
+      "official_terms_url": "https://ai.google.dev/gemini-api/terms",
+      "claim_url": "https://aistudio.google.com/apikey",
+      "target_users": [
+        "Developer",
+        "Student",
+        "Researcher"
+      ],
+      "requirements": [
+        "Google account",
+        "AI Studio / API key project"
+      ],
+      "supported_regions": [
+        "Supported Google AI regions"
+      ],
+      "tags": [
+        "free",
+        "gemini",
+        "google",
+        "api",
+        "no-card",
+        "rate-limited"
+      ],
+      "suitable_reasons": [
+        "Best no-card developer API free tier among frontier providers",
+        "Official pricing lists Free of charge for many Flash models",
+        "AI Studio for quick experiments + API key for apps"
+      ],
+      "confidence_score": 0.95,
+      "status": "verified_active",
+      "expires_at": null,
+      "x_posts": [
+        {
+          "post_id": "2080720988229206223",
+          "post_url": "https://x.com/MadaoFCM/status/2080720988229206223",
+          "author": "MadaoFCM"
+        }
+      ]
+    },
+    {
+      "slug": "groqcloud-free-developer-limits",
+      "title": "GroqCloud — Free developer rate limits",
+      "product_name": "GroqCloud API",
+      "provider": "Groq",
+      "description": "Fast inference API with free-tier rate limits at the organization level (RPM/RPD/TPM vary by model, e.g. llama-3.1-8b-instant and gpt-oss models). View exact limits in console settings. Free plan is suitable for prototypes; upgrade to Developer for higher limits / Batch / Flex.",
+      "offer_type": "free_tier",
+      "offer_value": "Free RPM/TPM per model (e.g. 30 RPM class models) · check console Limits page",
+      "official_terms_url": "https://console.groq.com/docs/rate-limits",
+      "claim_url": "https://console.groq.com/",
+      "target_users": [
+        "Developer"
+      ],
+      "requirements": [
+        "GroqCloud account"
+      ],
+      "supported_regions": [
+        "Worldwide (service availability may vary)"
+      ],
+      "tags": [
+        "free",
+        "llm",
+        "inference",
+        "api",
+        "speed",
+        "openai-compatible"
+      ],
+      "suitable_reasons": [
+        "Very low latency free inference for demos",
+        "OpenAI-compatible API surface",
+        "Official rate-limit docs (not marketing guesswork)"
+      ],
       "confidence_score": 0.93,
       "status": "verified_active",
       "expires_at": null,
-      "x_posts": [
-        {
-          "post_id": "2080304736411033913",
-          "post_url": "https://x.com/BLAZT_Ai/status/2080304736411033913",
-          "author": "BLAZT_Ai"
-        }
-      ]
+      "x_posts": []
     },
     {
-      "slug": "huggingface-spaces-free",
-      "title": "Hugging Face Spaces — Free Hosted Demos",
-      "product_name": "Hugging Face Spaces",
-      "provider": "Hugging Face",
-      "description": "Free hosted AI demos and community models. Common anchor in viral free-AI builder stacks on X.",
+      "slug": "cloudflare-workers-ai-free",
+      "title": "Cloudflare Workers AI — Free Neurons/day",
+      "product_name": "Workers AI",
+      "provider": "Cloudflare",
+      "description": "Workers AI is available on the Free plan with a daily free allocation of 10,000 Neurons at no charge. Usage above that requires Workers Paid ($0.011 per 1,000 Neurons beyond free allocation). Good for edge AI demos without a separate LLM vendor bill.",
       "offer_type": "free_tier",
-      "offer_value": "Free CPU Spaces and public model demos",
-      "official_terms_url": "https://huggingface.co/spaces",
-      "claim_url": "https://huggingface.co/spaces",
-      "target_users": ["Developer", "Researcher", "Student"],
-      "requirements": ["HF account for deploy"],
-      "supported_regions": ["Worldwide"],
-      "tags": ["free", "open-source", "spaces", "models"],
-      "suitable_reasons": ["Free public demos", "Strong open-source ecosystem"],
+      "offer_value": "10,000 Neurons/day free on Workers Free plan",
+      "official_terms_url": "https://developers.cloudflare.com/workers-ai/platform/pricing/",
+      "claim_url": "https://dash.cloudflare.com/",
+      "target_users": [
+        "Developer"
+      ],
+      "requirements": [
+        "Cloudflare account"
+      ],
+      "supported_regions": [
+        "Worldwide"
+      ],
+      "tags": [
+        "free",
+        "edge",
+        "workers",
+        "inference",
+        "cloudflare"
+      ],
+      "suitable_reasons": [
+        "Documented free daily Neurons on official pricing page",
+        "Pairs with free Workers request limits",
+        "No separate AI vendor signup if you already use CF"
+      ],
       "confidence_score": 0.94,
       "status": "verified_active",
       "expires_at": null,
-      "x_posts": [
-        {
-          "post_id": "2026589323408052266",
-          "post_url": "https://x.com/aitrendz_xyz/status/2026589323408052266",
-          "author": "aitrendz_xyz"
-        }
-      ]
+      "x_posts": []
     },
     {
-      "slug": "perplexity-ai-free-research",
-      "title": "Perplexity AI — Free Research Tier",
-      "product_name": "Perplexity",
-      "provider": "Perplexity AI",
-      "description": "Free AI research assistant frequently listed in free-tool mega-threads on X.",
-      "offer_type": "free_tier",
-      "offer_value": "Free research queries with limited Pro features",
-      "official_terms_url": "https://www.perplexity.ai/",
-      "claim_url": "https://www.perplexity.ai/",
-      "target_users": ["Developer", "Student", "Researcher"],
-      "requirements": ["Email or Google signup"],
-      "supported_regions": ["Worldwide"],
-      "tags": ["free", "research", "search"],
-      "suitable_reasons": ["Free research tier", "No install required"],
-      "confidence_score": 0.9,
+      "slug": "github-student-developer-pack",
+      "title": "GitHub Student Developer Pack",
+      "product_name": "GitHub Student Developer Pack",
+      "provider": "GitHub Education",
+      "description": "Verified students get free tools and partner credits via the Student Developer Pack. Notable AI-related pieces: GitHub Copilot Student plan (free for verified students; model picker simplified to Auto mode as of 2026), plus partner credits such as DigitalOcean $200 platform credit (GitHub pack promo ending 2026-07-31), Microsoft Azure free services + ~$100 credit, MongoDB Atlas credits, and more. Always re-check education.github.com/pack — partner offers rotate.",
+      "offer_type": "student_program",
+      "offer_value": "Copilot Student + partner credits (DO $200 thru 2026-07-31 · Azure ~$100 · others)",
+      "official_terms_url": "https://education.github.com/pack",
+      "claim_url": "https://education.github.com/pack",
+      "target_users": [
+        "Student"
+      ],
+      "requirements": [
+        "Verified student status",
+        "GitHub account"
+      ],
+      "supported_regions": [
+        "Worldwide (eligibility varies by school)"
+      ],
+      "tags": [
+        "student",
+        "free",
+        "github",
+        "copilot",
+        "credits",
+        "education"
+      ],
+      "suitable_reasons": [
+        "Largest bundled free stack for students",
+        "Official GitHub Education page is source of truth",
+        "Includes AI coding assistant + cloud credits"
+      ],
+      "confidence_score": 0.94,
       "status": "verified_active",
-      "expires_at": null,
+      "expires_at": "2026-07-31T23:59:59+00:00",
       "x_posts": [
         {
-          "post_id": "2026333041258307828",
-          "post_url": "https://x.com/AI_with_jasmin/status/2026333041258307828",
-          "author": "AI_with_jasmin"
+          "post_id": "2032170602392666462",
+          "post_url": "https://x.com/Sarthak4Alpha/status/2032170602392666462",
+          "author": "Sarthak4Alpha"
         }
       ]
     },
     {
-      "slug": "deepseek-free-chat",
-      "title": "DeepSeek — Free Chat / Models",
-      "product_name": "DeepSeek",
-      "provider": "DeepSeek",
-      "description": "Free DeepSeek chat and models commonly recommended in builder-oriented free stacks (alongside n8n, LM Studio, Vercel free tier).",
-      "offer_type": "free_model",
-      "offer_value": "Free chat and open-weight model access (check current limits)",
-      "official_terms_url": "https://www.deepseek.com/",
-      "claim_url": "https://www.deepseek.com/",
-      "target_users": ["Developer", "Student"],
-      "requirements": ["Account signup"],
-      "supported_regions": ["Worldwide"],
-      "tags": ["free", "llm", "open-weights"],
-      "suitable_reasons": ["Free chat entry point", "Popular in builder stacks"],
+      "slug": "github-copilot-free",
+      "title": "GitHub Copilot Free (non-student)",
+      "product_name": "GitHub Copilot Free",
+      "provider": "GitHub",
+      "description": "Copilot Free gives limited monthly AI completions for personal use without a paid plan. Students should prefer Copilot Student via the Student Pack. Limits and model routing change (Auto mode default). Not a replacement for full Pro.",
+      "offer_type": "free_tier",
+      "offer_value": "Limited free monthly completions (see GitHub Copilot Free docs)",
+      "official_terms_url": "https://docs.github.com/en/copilot/about-github-copilot/subscription-plans-for-github-copilot",
+      "claim_url": "https://github.com/features/copilot",
+      "target_users": [
+        "Developer"
+      ],
+      "requirements": [
+        "GitHub account"
+      ],
+      "supported_regions": [
+        "Supported GitHub Copilot regions"
+      ],
+      "tags": [
+        "free",
+        "copilot",
+        "github",
+        "coding",
+        "ide"
+      ],
+      "suitable_reasons": [
+        "No-cost IDE AI for light use",
+        "Official GitHub product"
+      ],
       "confidence_score": 0.88,
       "status": "verified_active",
       "expires_at": null,
-      "x_posts": [
-        {
-          "post_id": "2032131609441550432",
-          "post_url": "https://x.com/alifcoder/status/2032131609441550432",
-          "author": "alifcoder"
-        }
-      ]
+      "x_posts": []
+    },
+    {
+      "slug": "huggingface-spaces-free",
+      "title": "Hugging Face Spaces — Free hosting for demos",
+      "product_name": "Hugging Face Spaces",
+      "provider": "Hugging Face",
+      "description": "Free CPU Spaces for public Gradio/Streamlit/Docker demos and access to free Inference API tiers / open models. GPU Spaces are paid. Ideal for portfolio demos and open-source model showcases.",
+      "offer_type": "free_tier",
+      "offer_value": "Free CPU Spaces + free-tier inference (GPU paid)",
+      "official_terms_url": "https://huggingface.co/docs/hub/spaces-overview",
+      "claim_url": "https://huggingface.co/spaces",
+      "target_users": [
+        "Developer",
+        "Researcher",
+        "Student"
+      ],
+      "requirements": [
+        "Hugging Face account for deploy"
+      ],
+      "supported_regions": [
+        "Worldwide"
+      ],
+      "tags": [
+        "free",
+        "open-source",
+        "spaces",
+        "hosting",
+        "models"
+      ],
+      "suitable_reasons": [
+        "Ship public AI demos for free",
+        "Huge open-model ecosystem"
+      ],
+      "confidence_score": 0.94,
+      "status": "verified_active",
+      "expires_at": null,
+      "x_posts": []
+    },
+    {
+      "slug": "vercel-hobby-free",
+      "title": "Vercel Hobby — Free deploy tier",
+      "product_name": "Vercel Hobby",
+      "provider": "Vercel",
+      "description": "Hobby plan for personal projects: free hosting with bandwidth/function limits. Common base for AI SDK / Next.js demos. Not unlimited — check current pricing. Students may get enhanced benefits via GitHub Student Pack (verify pack page).",
+      "offer_type": "free_tier",
+      "offer_value": "Hobby free tier (limits on bandwidth, serverless duration, etc.)",
+      "official_terms_url": "https://vercel.com/pricing",
+      "claim_url": "https://vercel.com/signup",
+      "target_users": [
+        "Developer",
+        "Student",
+        "Indie hacker"
+      ],
+      "requirements": [
+        "Git provider or email signup"
+      ],
+      "supported_regions": [
+        "Worldwide"
+      ],
+      "tags": [
+        "free",
+        "hosting",
+        "vercel",
+        "ai-sdk",
+        "no-card"
+      ],
+      "suitable_reasons": [
+        "Deploy frontends/AI apps without a card on Hobby",
+        "Official pricing page is source of truth"
+      ],
+      "confidence_score": 0.91,
+      "status": "verified_active",
+      "expires_at": null,
+      "x_posts": []
     },
     {
       "slug": "chatgpt-free-tier",
-      "title": "ChatGPT — Free Writing Tier",
-      "product_name": "ChatGPT",
+      "title": "ChatGPT — Free consumer plan",
+      "product_name": "ChatGPT Free",
       "provider": "OpenAI",
-      "description": "Free ChatGPT tier often cited for writing workflows in free-AI use-case lists on X.",
+      "description": "Consumer ChatGPT free plan remains available (limits and model access change). This is NOT free OpenAI Platform API credits for most new accounts — API usage typically requires prepaid billing. Free chat is for interactive use, not production APIs.",
       "offer_type": "free_tier",
-      "offer_value": "Free plan with usage limits",
-      "official_terms_url": "https://chatgpt.com/",
+      "offer_value": "Free ChatGPT with usage/model limits (not Platform API free credits)",
+      "official_terms_url": "https://openai.com/chatgpt/pricing/",
       "claim_url": "https://chatgpt.com/",
-      "target_users": ["Everyone", "Student", "Creator"],
-      "requirements": ["Email or phone signup"],
-      "supported_regions": ["Worldwide"],
-      "tags": ["free", "writing", "openai"],
-      "suitable_reasons": ["Free writing assistant", "No paid plan required to start"],
-      "confidence_score": 0.91,
+      "target_users": [
+        "Everyone",
+        "Student",
+        "Creator"
+      ],
+      "requirements": [
+        "Email or phone signup"
+      ],
+      "supported_regions": [
+        "Supported OpenAI consumer regions"
+      ],
+      "tags": [
+        "free",
+        "chat",
+        "openai",
+        "consumer"
+      ],
+      "suitable_reasons": [
+        "Zero-cost interactive AI",
+        "Do not confuse with paid API platform"
+      ],
+      "confidence_score": 0.9,
       "status": "verified_active",
       "expires_at": null,
-      "x_posts": [
-        {
-          "post_id": "2078564369013915775",
-          "post_url": "https://x.com/madamayo_/status/2078564369013915775",
-          "author": "madamayo_"
-        }
-      ]
+      "x_posts": []
     },
     {
       "slug": "claude-ai-free-tier",
-      "title": "Claude AI — Free Tier",
-      "product_name": "Claude",
+      "title": "Claude.ai — Free plan",
+      "product_name": "Claude Free",
       "provider": "Anthropic",
-      "description": "Claude free tier frequently listed in viral free-AI tool megathreads discovered via X MCP.",
+      "description": "Claude free plan for chat with daily message limits. Claude Pro/Team are paid. Anthropic API is billed separately (no ongoing free API tier for most developers). Check claude.com/pricing for current free vs paid differences.",
       "offer_type": "free_tier",
-      "offer_value": "Free plan with daily limits",
-      "official_terms_url": "https://claude.ai/",
+      "offer_value": "Free Claude chat with daily limits (API is paid separately)",
+      "official_terms_url": "https://claude.com/pricing",
       "claim_url": "https://claude.ai/",
-      "target_users": ["Developer", "Student", "Writer"],
-      "requirements": ["Email signup"],
-      "supported_regions": ["Supported Anthropic regions"],
-      "tags": ["free", "claude", "anthropic"],
-      "suitable_reasons": ["Free chat tier", "Strong coding/writing use cases"],
+      "target_users": [
+        "Developer",
+        "Student",
+        "Writer"
+      ],
+      "requirements": [
+        "Email signup",
+        "Supported region"
+      ],
+      "supported_regions": [
+        "Supported Anthropic regions"
+      ],
+      "tags": [
+        "free",
+        "claude",
+        "anthropic",
+        "chat",
+        "coding"
+      ],
+      "suitable_reasons": [
+        "Strong free coding/writing assistant",
+        "Official consumer free plan"
+      ],
+      "confidence_score": 0.9,
+      "status": "verified_active",
+      "expires_at": null,
+      "x_posts": []
+    },
+    {
+      "slug": "deepseek-free-chat-api",
+      "title": "DeepSeek — Free chat & low-cost API",
+      "product_name": "DeepSeek",
+      "provider": "DeepSeek",
+      "description": "DeepSeek offers free web chat and a developer API with aggressive pricing (historically free credits or very low rates — always re-check platform.deepseek.com). Open-weight models also available for self-host. Treat limits as dynamic.",
+      "offer_type": "free_model",
+      "offer_value": "Free chat · API pricing/limits verify on platform.deepseek.com",
+      "official_terms_url": "https://platform.deepseek.com/",
+      "claim_url": "https://www.deepseek.com/",
+      "target_users": [
+        "Developer",
+        "Student"
+      ],
+      "requirements": [
+        "Account signup for API"
+      ],
+      "supported_regions": [
+        "Check DeepSeek availability"
+      ],
+      "tags": [
+        "free",
+        "llm",
+        "open-weights",
+        "api",
+        "low-cost"
+      ],
+      "suitable_reasons": [
+        "Popular free/cheap builder stack option",
+        "Open weights for self-host alternative"
+      ],
+      "confidence_score": 0.82,
+      "status": "likely_active",
+      "expires_at": null,
+      "x_posts": []
+    },
+    {
+      "slug": "perplexity-ai-free",
+      "title": "Perplexity — Free research tier",
+      "product_name": "Perplexity Free",
+      "provider": "Perplexity AI",
+      "description": "Free AI research assistant with limited Pro features. Students sometimes get Perplexity Pro via education promos (verify independently). Free tier is suitable for search/research, not bulk API workloads.",
+      "offer_type": "free_tier",
+      "offer_value": "Free research queries · Pro features limited",
+      "official_terms_url": "https://www.perplexity.ai/",
+      "claim_url": "https://www.perplexity.ai/",
+      "target_users": [
+        "Developer",
+        "Student",
+        "Researcher"
+      ],
+      "requirements": [
+        "Email or Google signup"
+      ],
+      "supported_regions": [
+        "Worldwide"
+      ],
+      "tags": [
+        "free",
+        "research",
+        "search",
+        "no-card"
+      ],
+      "suitable_reasons": [
+        "Fast free research UX",
+        "No install required"
+      ],
+      "confidence_score": 0.88,
+      "status": "verified_active",
+      "expires_at": null,
+      "x_posts": []
+    },
+    {
+      "slug": "openai-researcher-access-credits",
+      "title": "OpenAI Researcher Access Program (up to $1,000 API credits)",
+      "product_name": "OpenAI API Researcher Access",
+      "provider": "OpenAI",
+      "description": "Application-based program: researchers can apply for up to $1,000 OpenAI API credits valid 12 months for responsible AI / societal impact research. Not a general free tier for all developers — approval required. Platform API for others generally needs billing.",
+      "offer_type": "free_credits",
+      "offer_value": "Up to $1,000 API credits (12 months) if approved",
+      "official_terms_url": "https://openai.com/form/researcher-access-program/",
+      "claim_url": "https://openai.smapply.org/prog/openai_researcher_access_program/",
+      "target_users": [
+        "Researcher"
+      ],
+      "requirements": [
+        "Research proposal",
+        "Supported country for API"
+      ],
+      "supported_regions": [
+        "OpenAI API supported countries"
+      ],
+      "tags": [
+        "credits",
+        "research",
+        "openai",
+        "api",
+        "application"
+      ],
+      "suitable_reasons": [
+        "Documented official credit program",
+        "Only path to meaningful free OpenAI API for research"
+      ],
+      "confidence_score": 0.92,
+      "status": "verified_active",
+      "expires_at": null,
+      "x_posts": []
+    },
+    {
+      "slug": "oracle-cloud-free-tier",
+      "title": "Oracle Cloud Free Tier (Always Free + trial)",
+      "product_name": "Oracle Cloud Free Tier",
+      "provider": "Oracle",
+      "description": "Always Free cloud resources plus a time-limited free trial with credits for new accounts (amounts change — check oracle.com/cloud/free). Useful for self-hosting open models and backends without immediate cost.",
+      "offer_type": "free_tier",
+      "offer_value": "Always Free resources + trial credits (verify current amounts)",
+      "official_terms_url": "https://www.oracle.com/cloud/free/",
+      "claim_url": "https://www.oracle.com/cloud/free/",
+      "target_users": [
+        "Developer",
+        "Student"
+      ],
+      "requirements": [
+        "Account + payment method often required for trial verification"
+      ],
+      "supported_regions": [
+        "Oracle Cloud regions"
+      ],
+      "tags": [
+        "free",
+        "cloud",
+        "self-host",
+        "compute",
+        "vm"
+      ],
+      "suitable_reasons": [
+        "Always Free compute for self-hosted LLMs",
+        "Listed in common student/builder free stacks"
+      ],
+      "confidence_score": 0.86,
+      "status": "verified_active",
+      "expires_at": null,
+      "x_posts": []
+    },
+    {
+      "slug": "kaggle-free-compute",
+      "title": "Kaggle — Free notebooks & datasets",
+      "product_name": "Kaggle Notebooks",
+      "provider": "Google (Kaggle)",
+      "description": "Free hosted notebooks with weekly GPU/TPU quotas (limits reset weekly), free datasets, and Kaggle Learn micro-courses. Strong free path for ML experimentation without local GPUs.",
+      "offer_type": "free_tier",
+      "offer_value": "Free notebooks + weekly accelerator quota (see Kaggle docs)",
+      "official_terms_url": "https://www.kaggle.com/docs/notebooks",
+      "claim_url": "https://www.kaggle.com/",
+      "target_users": [
+        "Student",
+        "Researcher",
+        "Developer"
+      ],
+      "requirements": [
+        "Kaggle / Google account",
+        "Phone verification often required for GPU"
+      ],
+      "supported_regions": [
+        "Worldwide"
+      ],
+      "tags": [
+        "free",
+        "gpu",
+        "notebooks",
+        "ml",
+        "datasets",
+        "education"
+      ],
+      "suitable_reasons": [
+        "Free GPU time for learning ML",
+        "Huge public dataset library"
+      ],
       "confidence_score": 0.91,
       "status": "verified_active",
       "expires_at": null,
-      "x_posts": [
-        {
-          "post_id": "2054207990224576693",
-          "post_url": "https://x.com/KanikaBK/status/2054207990224576693",
-          "author": "KanikaBK"
-        }
-      ]
-    },
-    {
-      "slug": "kivora-free-ai-suite",
-      "title": "Kivora — Free AI Chat & Tools",
-      "product_name": "Kivora",
-      "provider": "Kivora",
-      "description": "Free AI chat, study tools, dev tools, and image generation. Claims no card required (verify on visit).",
-      "offer_type": "free_tier",
-      "offer_value": "Free suite — no card claimed",
-      "official_terms_url": "https://kivora.pages.dev/",
-      "claim_url": "https://kivora.pages.dev/",
-      "target_users": ["Student", "Developer"],
-      "requirements": ["Browser access"],
-      "supported_regions": ["Worldwide"],
-      "tags": ["free", "chat", "image-gen", "study"],
-      "suitable_reasons": ["No card claimed", "Multi-tool free surface"],
-      "confidence_score": 0.7,
-      "status": "likely_active",
-      "expires_at": null,
-      "x_posts": [
-        {
-          "post_id": "2080405389980451190",
-          "post_url": "https://x.com/menshlyglobal/status/2080405389980451190",
-          "author": "menshlyglobal"
-        }
-      ]
+      "x_posts": []
     }
   ]
 }

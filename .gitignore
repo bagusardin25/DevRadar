@@ -26,5 +26,7 @@ backend/data/
 *.njsproj
 *.sln
 *.sw?
+# Markdown: allow project docs; ignore random local notes if any
 *.md
 !**/README.md
+!docs/**/*.md

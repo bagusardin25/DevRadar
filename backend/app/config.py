@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import json
 import os
-from typing import Any, Self
+from typing import Annotated, Any, Self
 
 from pydantic import field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -16,7 +17,9 @@ class Settings(BaseSettings):
     app_env: str = "development"
     api_base_path: str = "/api/v1"
     frontend_url: str = "http://localhost:5173"
-    cors_origins: list[str] = ["http://localhost:5173"]
+    # NoDecode: allow plain comma-separated env values (not only JSON arrays).
+    # pydantic-settings otherwise json.loads list fields before validators run.
+    cors_origins: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
 
     # Database
     database_url: str = "postgresql+asyncpg://devradar:devradar@127.0.0.1:5434/devradar"
@@ -47,7 +50,7 @@ class Settings(BaseSettings):
     # GitHub OAuth
     github_client_id: str = ""
     github_client_secret: str = ""
-    admin_github_ids: list[str] = []
+    admin_github_ids: Annotated[list[str], NoDecode] = []
 
     # Email
     email_provider: str = "console"
@@ -71,11 +74,22 @@ class Settings(BaseSettings):
     @field_validator("cors_origins", "admin_github_ids", mode="before")
     @classmethod
     def parse_comma_separated_list(cls, v: Any) -> list[str]:
-        """Parse comma-separated strings/numbers or lists into list[str]."""
+        """Parse JSON arrays, comma-separated strings, or lists into list[str]."""
         if isinstance(v, (int, float)):
             return [str(v)]
         if isinstance(v, str):
-            return [item.strip() for item in v.split(",") if item.strip()]
+            text = v.strip()
+            if not text:
+                return []
+            # Prefer JSON when the value looks like an array (common for deploy envs).
+            if text.startswith("["):
+                try:
+                    decoded = json.loads(text)
+                except json.JSONDecodeError:
+                    decoded = None
+                if isinstance(decoded, list):
+                    return [str(item).strip() for item in decoded if str(item).strip()]
+            return [item.strip() for item in text.split(",") if item.strip()]
         if isinstance(v, list):
             return [str(item) for item in v]
         return []

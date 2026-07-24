@@ -31,9 +31,13 @@ export const HackathonCard: React.FC<HackathonCardProps> = ({
   viewLayout = 'grid'
 }) => {
   // Calculate remaining registration days accurately
-  const deadlineDate = new Date(hackathon.registrationDeadline);
+  const deadlineRaw = hackathon.registrationDeadline || hackathon.submissionDeadline;
+  const deadlineDate = deadlineRaw ? new Date(deadlineRaw) : null;
   const now = new Date();
-  const diffTime = deadlineDate.getTime() - now.getTime();
+  const diffTime =
+    deadlineDate && !Number.isNaN(deadlineDate.getTime())
+      ? deadlineDate.getTime() - now.getTime()
+      : 0;
   const daysLeft = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
 
   const primarySource = hackathon.discoverySources[0];

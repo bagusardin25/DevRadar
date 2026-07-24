@@ -17,13 +17,13 @@ interface DetailModalProps {
 }
 
 export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
+  const [activeTab, setActiveTab] = useState<'overview' | 'audit' | 'json'>('overview');
+
   if (!item) return null;
 
   const isHackathon = 'prizeValue' in item;
   const hackathon = isHackathon ? (item as Hackathon) : null;
   const deal = !isHackathon ? (item as AIDeal) : null;
-
-  const [activeTab, setActiveTab] = useState<'overview' | 'audit' | 'json'>('overview');
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md overflow-y-auto font-sans">

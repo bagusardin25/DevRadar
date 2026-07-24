@@ -119,6 +119,21 @@ Example file: `candidates.example.jsonl`.
 
 No frontend wiring required for this path.
 
+### Optional: seed catalogue from curated X MCP hits
+
+For local demo data, a deduplicated JSON seed lives at
+`data/manual-collection/seed_listings.json` (derived from `candidates.jsonl`).
+
+```powershell
+cd backend
+uv run alembic upgrade head
+uv run python scripts/seed_x_mcp_collection.py --dry-run
+uv run python scripts/seed_x_mcp_collection.py
+```
+
+Idempotent by `slug`. Each listing gets a Tier-1 official `listing_source` plus
+Tier-3 X post provenance (no post text stored). See `data/manual-collection/README.md`.
+
 ---
 
 ## 5. Later (not now)

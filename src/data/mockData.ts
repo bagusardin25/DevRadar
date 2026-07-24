@@ -1,3 +1,7 @@
+/**
+ * Story / offline fixtures only. Production UI loads the catalogue from the API
+ * (`src/api/*`). Do not import these into App.tsx.
+ */
 import type { Hackathon, AIDeal, UnverifiedSignal } from '../types';
 
 export const MOCK_HACKATHONS: Hackathon[] = [

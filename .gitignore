@@ -29,7 +29,7 @@ backend/data/
 # Local / internal documentation (not published with the open-source tree)
 docs/
 
-# Markdown: allow a few root docs only; ignore other local notes
+# Markdown: allow a few root docs and GitHub meta only; ignore other local notes
 *.md
 !**/README.md
 !CONTRIBUTING.md
@@ -37,3 +37,4 @@ docs/
 !CODE_OF_CONDUCT.md
 !CHANGELOG.md
 !LICENSE
+!.github/**/*.md

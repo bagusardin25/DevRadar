@@ -200,6 +200,34 @@ Coarse public status only (no reviewer notes, IP, or email).
 
 Statuses: `received`, `queued`, `processing`, `duplicate`, `accepted`, `rejected`.
 
+## Admin auth
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/admin/auth/github/start` | Returns `{ authorizeUrl, state }`; stores PKCE verifier |
+| GET | `/admin/auth/github/callback` | Exchanges code, allowlist check, sets session cookie, redirects to frontend |
+| GET | `/admin/auth/me` | Current admin + `csrfToken` (session cookie required) |
+| POST | `/admin/auth/logout` | CSRF + Origin required; revokes session |
+
+**Session cookie:** `devradar_admin_session` — HttpOnly, SameSite=Lax, Secure in production, 8h TTL.  
+**CSRF:** mutations require header `X-CSRF-Token` matching the session CSRF token.  
+**Allowlist:** `ADMIN_GITHUB_IDS` env (GitHub numeric user IDs).
+
+## Admin review
+
+All routes require an admin session. Mutations also require CSRF + allowed Origin.
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/admin/review-items` | Optional `state`, `limit` |
+| GET | `/admin/review-items/{id}` | Detail |
+| POST | `/admin/review-items/{id}/approve` | Body: `expectedVersion`, optional `notes`, `corrections` |
+| POST | `/admin/review-items/{id}/reject` | Body: `expectedVersion`, `reason` |
+| POST | `/admin/review-items/{id}/merge` | Body: `expectedVersion`, `targetListingId`, optional `notes` |
+
+Optimistic concurrency: wrong `expectedVersion` → **409 Conflict**.  
+Each mutation appends `admin_audit_log` in the same transaction.
+
 ## Health (outside `/api/v1`)
 
 | Method | Path | Purpose |

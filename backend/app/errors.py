@@ -69,6 +69,13 @@ class ConflictError(AppError):
         super().__init__(status=409, title="Conflict", detail=detail)
 
 
+class UnauthorizedError(AppError):
+    """Authentication required (401)."""
+
+    def __init__(self, detail: str = "Authentication required") -> None:
+        super().__init__(status=401, title="Unauthorized", detail=detail)
+
+
 class ForbiddenError(AppError):
     """Access forbidden (403)."""
 

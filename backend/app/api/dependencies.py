@@ -6,8 +6,11 @@ from typing import Annotated
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.service import AuthService, resolve_github_oauth, resolve_session_store
+from app.auth.sessions import AdminIdentity
 from app.catalog.service import CatalogueService
 from app.config import Settings
+from app.review.service import ReviewService
 from app.submissions.enqueue import RedisSubmissionEnqueue
 from app.submissions.service import SubmissionService
 
@@ -65,3 +68,43 @@ async def get_submission_service(
 
 
 SubmissionSvc = Annotated[SubmissionService, Depends(get_submission_service)]
+
+
+async def get_auth_service(
+    request: Request,
+    session: DbSession,
+) -> AuthService:
+    settings: Settings = request.app.state.settings
+    store = resolve_session_store(request, settings)
+    oauth = resolve_github_oauth(request, settings)
+    return AuthService(session, settings, store, oauth)
+
+
+AuthSvc = Annotated[AuthService, Depends(get_auth_service)]
+
+
+async def get_review_service(session: DbSession) -> ReviewService:
+    return ReviewService(session)
+
+
+ReviewSvc = Annotated[ReviewService, Depends(get_review_service)]
+
+
+async def require_admin_read(
+    request: Request,
+    auth: AuthSvc,
+) -> AdminIdentity:
+    """Authenticated admin for GET endpoints (no CSRF)."""
+    return await auth.require_admin(request, require_csrf=False)
+
+
+async def require_admin_write(
+    request: Request,
+    auth: AuthSvc,
+) -> AdminIdentity:
+    """Authenticated admin for mutations (CSRF + Origin)."""
+    return await auth.require_admin(request, require_csrf=True)
+
+
+AdminUser = Annotated[AdminIdentity, Depends(require_admin_write)]
+AdminUserRead = Annotated[AdminIdentity, Depends(require_admin_read)]

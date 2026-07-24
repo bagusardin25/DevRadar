@@ -250,6 +250,7 @@ class IngestionPipeline:
                     team_min=int(f.get("team_min") or 1),
                     team_max=int(f.get("team_max") or 1),
                     prize_value=Decimal(str(f.get("prize_value") or 0)),
+                    prize_label=str(f.get("prize_label") or "").strip(),
                     prize_currency=str(f.get("prize_currency") or "USD"),
                     technologies=list(f.get("technologies") or []),
                     official_url=candidate.official_url,

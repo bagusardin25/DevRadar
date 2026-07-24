@@ -49,6 +49,19 @@ class VerificationAuditPublic(CamelModel):
     pipeline_step: PipelineStep = "verified"
 
 
+class CompletenessPublic(CamelModel):
+    """Computed field-completeness for honest UI badges (not stored)."""
+
+    score: int = Field(ge=0, le=100, default=0)
+    missing: list[str] = Field(default_factory=list)
+    flags: list[str] = Field(default_factory=list)
+    has_deadline: bool = False
+    has_prize: bool = False
+    has_strong_url: bool = False
+    has_eligibility: bool = False
+    has_description: bool = False
+
+
 class HackathonPublic(CamelModel):
     id: str
     slug: str
@@ -67,6 +80,7 @@ class HackathonPublic(CamelModel):
     team_max: int = 1
     prize_value: Decimal = Decimal("0")
     prize_currency: str = "USD"
+    prize_label: str = ""
     technologies: list[str] = Field(default_factory=list)
     official_url: str
     discovery_sources: list[DiscoverySourcePublic] = Field(default_factory=list)
@@ -76,6 +90,7 @@ class HackathonPublic(CamelModel):
     suitable_reasons: list[str] = Field(default_factory=list)
     effort_estimate: EffortEstimate | None = None
     audit: VerificationAuditPublic
+    completeness: CompletenessPublic = Field(default_factory=CompletenessPublic)
 
 
 class AIOfferPublic(CamelModel):
@@ -101,6 +116,7 @@ class AIOfferPublic(CamelModel):
     discovery_sources: list[DiscoverySourcePublic] = Field(default_factory=list)
     suitable_reasons: list[str] = Field(default_factory=list)
     audit: VerificationAuditPublic
+    completeness: CompletenessPublic = Field(default_factory=CompletenessPublic)
 
 
 class CombinedSearchItem(CamelModel):

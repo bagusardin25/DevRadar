@@ -18,7 +18,7 @@ celery_app = Celery(
     "devradar",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=["app.ingestion.tasks"],
+    include=["app.ingestion.tasks", "app.catalog.tasks"],
 )
 
 celery_app.conf.update(
@@ -35,9 +35,25 @@ celery_app.conf.update(
         "ingestion.fetch_document": {"queue": "fetch"},
         "ingestion.fetch_submission": {"queue": "fetch"},
         "ingestion.browser_fetch": {"queue": "browser"},
+        "catalog.lifecycle_sweep": {"queue": "fetch"},
+        "catalog.recheck_official_urls": {"queue": "fetch"},
     },
     # Browser queue should run in a separate worker process with restricted env.
     task_annotations={
         "ingestion.browser_fetch": {"rate_limit": "10/m"},
+        "catalog.recheck_official_urls": {"rate_limit": "30/h"},
+    },
+    # Optional beat schedule (enable with celery beat).
+    beat_schedule={
+        "catalog-lifecycle-hourly": {
+            "task": "catalog.lifecycle_sweep",
+            "schedule": 3600.0,
+        },
+        # Re-fetch AI offer official pages daily (rules-only if LLM disabled).
+        "catalog-recheck-ai-offers-daily": {
+            "task": "catalog.recheck_official_urls",
+            "schedule": 86400.0,
+            "kwargs": {"kind": "ai_offer", "limit": 25},
+        },
     },
 )

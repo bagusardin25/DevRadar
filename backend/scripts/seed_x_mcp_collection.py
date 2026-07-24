@@ -134,6 +134,66 @@ async def _ensure_sources(session: Any) -> tuple[Source, Source]:
     return official, x_src
 
 
+def _prize_label_for(item: dict[str, Any]) -> str:
+    label = (item.get("prize_label") or "").strip()
+    if label:
+        return label
+    try:
+        value = Decimal(str(item.get("prize_value") or 0))
+    except Exception:
+        value = Decimal("0")
+    currency = item.get("prize_currency") or "USD"
+    if value > 0:
+        if currency == "USD":
+            return f"${value:,.0f} USD"
+        return f"{value:,.0f} {currency}"
+    return "Prize TBA"
+
+
+async def _update_hackathon_prize(
+    session: Any,
+    repo: ListingRepository,
+    item: dict[str, Any],
+    *,
+    dry_run: bool,
+) -> str:
+    """Refresh prize fields (and a few core catalogue fields) on an existing row."""
+    slug = item["slug"]
+    existing = await repo.get_by_slug(slug)
+    if existing is None or existing.hackathon is None:
+        return f"miss  hackathon {slug} (not in DB)"
+    if dry_run:
+        return f"dry   update {slug} prize"
+    h = existing.hackathon
+    h.prize_value = Decimal(str(item.get("prize_value") or 0))
+    h.prize_currency = item.get("prize_currency") or "USD"
+    h.prize_label = _prize_label_for(item)
+    if item.get("description"):
+        existing.description = item["description"]
+    if item.get("title"):
+        existing.title = item["title"]
+    if item.get("status"):
+        existing.verification_status = _status(item["status"])
+    if item.get("official_url"):
+        h.official_url = item["official_url"]
+    if item.get("organizer"):
+        h.organizer = item["organizer"]
+    if item.get("eligible_countries") is not None:
+        h.eligible_countries = list(item.get("eligible_countries") or [])
+    if item.get("eligibility") is not None:
+        h.eligibility = list(item.get("eligibility") or [])
+    if item.get("technologies") is not None:
+        h.technologies = list(item.get("technologies") or [])
+    if item.get("suitable_reasons") is not None:
+        h.suitable_reasons = list(item.get("suitable_reasons") or [])
+    if item.get("registration_deadline") is not None:
+        h.registration_deadline = _parse_dt(item.get("registration_deadline"))
+    if item.get("submission_deadline") is not None:
+        h.submission_deadline = _parse_dt(item.get("submission_deadline"))
+    await session.flush()
+    return f"upd   hackathon {slug}"
+
+
 async def _seed_hackathon(
     session: Any,
     repo: ListingRepository,
@@ -142,10 +202,15 @@ async def _seed_hackathon(
     x_src: Source,
     *,
     dry_run: bool,
+    update_existing: bool,
 ) -> str:
     slug = item["slug"]
     existing = await repo.get_by_slug(slug)
     if existing is not None:
+        if update_existing:
+            return await _update_hackathon_prize(
+                session, repo, item, dry_run=dry_run
+            )
         return f"skip  hackathon {slug} (exists)"
 
     if dry_run:
@@ -189,6 +254,7 @@ async def _seed_hackathon(
             team_max=int(item.get("team_max") or 4),
             prize_value=Decimal(str(item.get("prize_value") or 0)),
             prize_currency=item.get("prize_currency") or "USD",
+            prize_label=_prize_label_for(item),
             technologies=list(item.get("technologies") or ["AI"]),
             official_url=item["official_url"],
             suitable_reasons=list(item.get("suitable_reasons") or []),
@@ -268,6 +334,56 @@ async def _seed_hackathon(
     return f"add   hackathon {slug}"
 
 
+async def _update_ai_offer(
+    session: Any,
+    repo: ListingRepository,
+    item: dict[str, Any],
+    *,
+    dry_run: bool,
+) -> str:
+    slug = item["slug"]
+    existing = await repo.get_by_slug(slug)
+    if existing is None or existing.ai_offer is None:
+        return f"miss  ai_offer  {slug} (not in DB)"
+    if dry_run:
+        return f"dry   update ai_offer {slug}"
+    o = existing.ai_offer
+    if item.get("description"):
+        existing.description = item["description"]
+    if item.get("title"):
+        existing.title = item["title"]
+    if item.get("status"):
+        existing.verification_status = _status(item["status"])
+    if item.get("confidence_score") is not None:
+        existing.confidence_score = Decimal(str(item["confidence_score"]))
+    o.product_name = item.get("product_name") or o.product_name
+    o.provider = item.get("provider") or o.provider
+    if item.get("offer_type"):
+        o.offer_type = _offer_type(item["offer_type"])
+    if item.get("offer_value") is not None:
+        o.offer_value = item["offer_value"] or ""
+    if item.get("target_users") is not None:
+        o.target_users = list(item["target_users"] or [])
+    if item.get("requirements") is not None:
+        o.requirements = list(item["requirements"] or [])
+    if item.get("supported_regions") is not None:
+        o.supported_regions = list(item["supported_regions"] or [])
+    if item.get("official_terms_url"):
+        o.official_terms_url = item["official_terms_url"]
+    if item.get("claim_url"):
+        o.claim_url = item["claim_url"]
+    if item.get("tags") is not None:
+        o.tags = list(item["tags"] or [])
+    if item.get("suitable_reasons") is not None:
+        o.suitable_reasons = list(item["suitable_reasons"] or [])
+    if "expires_at" in item:
+        o.expires_at = (
+            _parse_dt(item.get("expires_at")) if item.get("expires_at") else None
+        )
+    await session.flush()
+    return f"upd   ai_offer  {slug}"
+
+
 async def _seed_ai_offer(
     session: Any,
     repo: ListingRepository,
@@ -276,10 +392,13 @@ async def _seed_ai_offer(
     x_src: Source,
     *,
     dry_run: bool,
+    update_existing: bool = False,
 ) -> str:
     slug = item["slug"]
     existing = await repo.get_by_slug(slug)
     if existing is not None:
+        if update_existing:
+            return await _update_ai_offer(session, repo, item, dry_run=dry_run)
         return f"skip  ai_offer  {slug} (exists)"
 
     if dry_run:
@@ -395,7 +514,7 @@ async def _seed_ai_offer(
     return f"add   ai_offer  {slug}"
 
 
-async def run(json_path: Path, *, dry_run: bool) -> int:
+async def run(json_path: Path, *, dry_run: bool, update_existing: bool) -> int:
     if not json_path.is_file():
         print(f"ERROR: seed file not found: {json_path}", file=sys.stderr)
         return 1
@@ -408,7 +527,8 @@ async def run(json_path: Path, *, dry_run: bool) -> int:
     if dry_run:
         print("Dry-run mode — no database writes.")
         for h in hackathons:
-            print(f"  would seed hackathon: {h['slug']}")
+            action = "update" if update_existing else "seed"
+            print(f"  would {action} hackathon: {h['slug']} prize={_prize_label_for(h)}")
         for o in offers:
             print(f"  would seed ai_offer:  {o['slug']}")
         return 0
@@ -425,13 +545,25 @@ async def run(json_path: Path, *, dry_run: bool) -> int:
             for item in hackathons:
                 lines.append(
                     await _seed_hackathon(
-                        session, repo, item, official_src, x_src, dry_run=False
+                        session,
+                        repo,
+                        item,
+                        official_src,
+                        x_src,
+                        dry_run=False,
+                        update_existing=update_existing,
                     )
                 )
             for item in offers:
                 lines.append(
                     await _seed_ai_offer(
-                        session, repo, item, official_src, x_src, dry_run=False
+                        session,
+                        repo,
+                        item,
+                        official_src,
+                        x_src,
+                        dry_run=False,
+                        update_existing=update_existing,
                     )
                 )
             await session.commit()
@@ -439,10 +571,11 @@ async def run(json_path: Path, *, dry_run: bool) -> int:
         await engine.dispose()
 
     added = sum(1 for line in lines if line.startswith("add"))
+    updated = sum(1 for line in lines if line.startswith("upd"))
     skipped = sum(1 for line in lines if line.startswith("skip"))
     for line in lines:
         print(line)
-    print(f"Done. added={added} skipped={skipped} total={len(lines)}")
+    print(f"Done. added={added} updated={updated} skipped={skipped} total={len(lines)}")
     return 0
 
 
@@ -459,8 +592,17 @@ def main() -> None:
         action="store_true",
         help="Print planned inserts without writing to the database",
     )
+    parser.add_argument(
+        "--update",
+        action="store_true",
+        help="Update prize/title/description on existing hackathon slugs (idempotent seed alone only inserts)",
+    )
     args = parser.parse_args()
-    raise SystemExit(asyncio.run(run(args.json_path, dry_run=args.dry_run)))
+    raise SystemExit(
+        asyncio.run(
+            run(args.json_path, dry_run=args.dry_run, update_existing=args.update)
+        )
+    )
 
 
 if __name__ == "__main__":

@@ -15,7 +15,7 @@ from app.discovery.models import LiveDiscoveryRun
 from app.errors import RateLimitError, ValidationError
 from app.submissions.security import hash_ip
 
-MIN_QUERY_LEN = 3
+MIN_QUERY_LEN = 2
 MAX_RESULTS = 20
 CACHE_WINDOW_SECONDS = 300
 RATE_LIMIT_MAX = 5

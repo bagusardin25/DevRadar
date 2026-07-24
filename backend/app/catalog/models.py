@@ -175,6 +175,8 @@ class Hackathon(TimestampMixin, Base):
         server_default=text("0"),
     )
     prize_currency: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'USD'"))
+    # Human-readable prize summary (e.g. "TBA", "$30K + GPU credits", "Free entry")
+    prize_label: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
     technologies: Mapped[list[str]] = mapped_column(
         ARRAY(Text),
         nullable=False,

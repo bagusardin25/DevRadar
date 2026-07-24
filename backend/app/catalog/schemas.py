@@ -79,6 +79,7 @@ class HackathonCreateSchema(CamelModel):
     team_max: int = Field(default=1, ge=1)
     prize_value: Decimal = Field(default=Decimal("0"), ge=0)
     prize_currency: str = "USD"
+    prize_label: str = ""
     technologies: list[str] = Field(default_factory=list)
     official_url: str
     suitable_reasons: list[str] = Field(default_factory=list)

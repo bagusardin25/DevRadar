@@ -20,10 +20,13 @@ from app.catalog.enums import (
     VerificationStatus,
 )
 from app.catalog.models import AIOffer, Hackathon, Listing
+from app.catalog.completeness import ai_offer_completeness, hackathon_completeness
+from app.catalog.lifecycle import apply_lifecycle_transitions
 from app.catalog.public_schemas import (
     AIOfferPublic,
     CatalogueStatsResponse,
     CombinedSearchItem,
+    CompletenessPublic,
     DiscoverySourcePublic,
     DiscoverySourceType,
     FilterMetaResponse,
@@ -155,6 +158,19 @@ def _build_audit(listing: Listing) -> VerificationAuditPublic:
     )
 
 
+def _completeness_public(raw: dict[str, Any]) -> CompletenessPublic:
+    return CompletenessPublic(
+        score=int(raw.get("score") or 0),
+        missing=list(raw.get("missing") or []),
+        flags=list(raw.get("flags") or []),
+        has_deadline=bool(raw.get("hasDeadline")),
+        has_prize=bool(raw.get("hasPrize")),
+        has_strong_url=bool(raw.get("hasStrongUrl")),
+        has_eligibility=bool(raw.get("hasEligibility")),
+        has_description=bool(raw.get("hasDescription")),
+    )
+
+
 def to_hackathon_public(
     listing: Listing,
     sources: dict[UUID, Source],
@@ -163,6 +179,7 @@ def to_hackathon_public(
     if h is None:
         raise ValueError("Listing is missing hackathon child")
     mode = h.mode if isinstance(h.mode, HackathonMode) else HackathonMode(str(h.mode))
+    completeness = _completeness_public(hackathon_completeness(listing, h))
     return HackathonPublic(
         id=str(listing.id),
         slug=listing.slug,
@@ -181,6 +198,7 @@ def to_hackathon_public(
         team_max=h.team_max,
         prize_value=_as_decimal(h.prize_value),
         prize_currency=h.prize_currency,
+        prize_label=(h.prize_label or "").strip(),
         technologies=list(h.technologies or []),
         official_url=h.official_url,
         discovery_sources=_build_discovery_sources(
@@ -192,6 +210,7 @@ def to_hackathon_public(
         suitable_reasons=list(h.suitable_reasons or []),
         effort_estimate=h.effort_estimate,
         audit=_build_audit(listing),
+        completeness=completeness,
     )
 
 
@@ -205,6 +224,7 @@ def to_ai_offer_public(
     offer_type = (
         o.offer_type if isinstance(o.offer_type, OfferType) else OfferType(str(o.offer_type))
     )
+    completeness = _completeness_public(ai_offer_completeness(listing, o))
     return AIOfferPublic(
         id=str(listing.id),
         slug=listing.slug,
@@ -230,6 +250,7 @@ def to_ai_offer_public(
         ),
         suitable_reasons=list(o.suitable_reasons or []),
         audit=_build_audit(listing),
+        completeness=completeness,
     )
 
 
@@ -284,6 +305,13 @@ class CatalogueService:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
+    async def _refresh_lifecycle(self) -> None:
+        """Advance past-deadline listings before serving catalogue reads.
+
+        Flushes only — request-scoped session commits at end of request.
+        """
+        await apply_lifecycle_transitions(self._session)
+
     async def search_hackathons(
         self,
         filters: HackathonFilters,
@@ -291,6 +319,7 @@ class CatalogueService:
         cursor: str | None = None,
         limit: int | None = None,
     ) -> tuple[list[HackathonPublic], str | None, int]:
+        await self._refresh_lifecycle()
         page = await search_hackathons(
             self._session, filters, cursor=cursor, limit=limit
         )
@@ -303,6 +332,7 @@ class CatalogueService:
         cursor: str | None = None,
         limit: int | None = None,
     ) -> tuple[list[AIOfferPublic], str | None, int]:
+        await self._refresh_lifecycle()
         page = await search_ai_offers(self._session, filters, cursor=cursor, limit=limit)
         return await serialize_ai_offer_page(self._session, page)
 
@@ -326,11 +356,13 @@ class CatalogueService:
         return await serialize_combined_page(self._session, page)
 
     async def get_hackathon_by_slug(self, slug: str) -> HackathonPublic:
+        await self._refresh_lifecycle()
         listing = await self._get_public_listing(slug, ListingKind.HACKATHON)
         sources = await hydrate_sources_for_listings(self._session, [listing])
         return to_hackathon_public(listing, sources)
 
     async def get_ai_offer_by_slug(self, slug: str) -> AIOfferPublic:
+        await self._refresh_lifecycle()
         listing = await self._get_public_listing(slug, ListingKind.AI_OFFER)
         sources = await hydrate_sources_for_listings(self._session, [listing])
         return to_ai_offer_public(listing, sources)

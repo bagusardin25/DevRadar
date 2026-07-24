@@ -64,7 +64,7 @@ class AuthService:
             raise UnauthorizedError(detail="Invalid or expired OAuth state")
 
         user = await self._oauth.exchange_code(code, pending.code_verifier)
-        assert_allowlisted(user.id, self._settings)
+        assert_allowlisted(user.id, user.login, self._settings)
         admin_user = await self._upsert_admin(user)
         raw_token, identity = await self._store.create_session(
             github_id=user.id,

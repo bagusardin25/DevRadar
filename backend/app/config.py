@@ -71,7 +71,9 @@ class Settings(BaseSettings):
     @field_validator("cors_origins", "admin_github_ids", mode="before")
     @classmethod
     def parse_comma_separated_list(cls, v: Any) -> list[str]:
-        """Parse comma-separated strings into lists."""
+        """Parse comma-separated strings/numbers or lists into list[str]."""
+        if isinstance(v, (int, float)):
+            return [str(v)]
         if isinstance(v, str):
             return [item.strip() for item in v.split(",") if item.strip()]
         if isinstance(v, list):

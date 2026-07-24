@@ -149,9 +149,12 @@ class FakeGitHubOAuthClient:
         return user
 
 
-def assert_allowlisted(github_id: str, settings: Settings) -> None:
+def assert_allowlisted(github_id: str, github_login: str, settings: Settings) -> None:
     allow = set(settings.admin_github_ids)
     if not allow:
         raise ForbiddenError(detail="Admin allowlist is empty")
-    if github_id not in allow:
-        raise ForbiddenError(detail="GitHub user is not allowlisted")
+    allow_lower = {str(x).lower() for x in allow}
+    if str(github_id) not in allow and github_login.lower() not in allow_lower:
+        raise ForbiddenError(
+            detail=f"GitHub user '{github_login}' (ID: {github_id}) is not allowlisted in ADMIN_GITHUB_IDS"
+        )

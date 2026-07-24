@@ -33,7 +33,7 @@ class TestDiscoveryAPI:
     async def test_min_query_length(self, client) -> None:
         r = await client.post(
             "/api/v1/discovery-runs",
-            json={"query": "ab", "confirmLiveDiscovery": True},
+            json={"query": "a", "confirmLiveDiscovery": True},
         )
         assert r.status_code == 422
 

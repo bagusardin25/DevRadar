@@ -114,7 +114,8 @@ class XRecentSearchConnector:
             return DiscoveryPage(items=[], next_cursor=None)
 
         accounts = list(query.config.get("curated_accounts") or [])
-        q = build_x_query(query.query_text or query.config.get("query") or "", curated_accounts=accounts)
+        base_q = query.query_text or query.config.get("query") or ""
+        q = build_x_query(base_q, curated_accounts=accounts)
         start_time = datetime.now(UTC) - timedelta(days=LOOKBACK_DAYS)
         max_results = min(query.result_cap, MAX_RESULTS_PER_PAGE)
 
@@ -140,8 +141,7 @@ class XRecentSearchConnector:
             else:
                 created_at = datetime.now(UTC)
             urls = list(post.get("discovered_urls") or [])
-            # Never attach post text
-            assert "text" not in post or True  # raw API may include text but we drop it
+            # Drop post text intentionally even if the API returned it.
             items.append(
                 DiscoveryCandidate(
                     external_id=post_id,

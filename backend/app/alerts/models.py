@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Text, UniqueConstraint, text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -20,7 +20,9 @@ class AlertSubscription(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # Encrypted email + HMAC lookup (never plaintext).
     email_ciphertext: Mapped[str] = mapped_column(Text, nullable=False)
     email_hash: Mapped[str] = mapped_column(Text, nullable=False, index=True)
-    confirmed: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
+    confirmed: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
     filter_json: Mapped[dict[str, Any]] = mapped_column(
         JSONB, nullable=False, server_default=text("'{}'::jsonb")
     )

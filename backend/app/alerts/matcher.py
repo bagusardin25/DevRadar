@@ -16,11 +16,10 @@ def match_listing(
 ) -> bool:
     """Return True if listing matches saved search filters."""
     now = now or datetime.now(UTC)
-    if listing.verification_status not in {
-        "verified_active",
-        "likely_active",
-        "registration_closed",
-    } and str(listing.verification_status) not in {
+    status = str(
+        getattr(listing.verification_status, "value", listing.verification_status)
+    )
+    if status not in {
         "verified_active",
         "likely_active",
         "registration_closed",
@@ -28,7 +27,8 @@ def match_listing(
         return False
 
     kind = filter_json.get("kind")
-    if kind and str(listing.kind) != kind and listing.kind != kind:
+    listing_kind = str(getattr(listing.kind, "value", listing.kind))
+    if kind and listing_kind != kind:
         return False
 
     q = (filter_json.get("q") or filter_json.get("query") or "").strip().lower()
@@ -37,7 +37,6 @@ def match_listing(
         if q not in blob:
             return False
 
-    # Closing soon (hackathons via child if loaded)
     if filter_json.get("onlyClosingSoon") or filter_json.get("only_closing_soon"):
         hack = getattr(listing, "hackathon", None)
         if hack is None or hack.submission_deadline is None:
@@ -47,10 +46,10 @@ def match_listing(
         if hack.submission_deadline > now + timedelta(days=14):
             return False
 
-    status = filter_json.get("status")
-    if status:
-        allowed = {s.strip() for s in str(status).split(",") if s.strip()}
-        if str(listing.verification_status) not in allowed:
+    status_filter = filter_json.get("status")
+    if status_filter:
+        allowed = {s.strip() for s in str(status_filter).split(",") if s.strip()}
+        if status not in allowed:
             return False
 
     return True

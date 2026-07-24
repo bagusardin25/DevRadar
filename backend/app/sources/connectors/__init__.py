@@ -21,4 +21,5 @@ def get_connector(connector_type: str, **kwargs: object) -> SourceConnector:
     cls = CONNECTOR_TYPES.get(connector_type)
     if cls is None:
         raise KeyError(f"Unknown connector type: {connector_type}")
-    return cls(**kwargs)  # type: ignore[return-value]
+    instance: SourceConnector = cls(**kwargs)  # type: ignore[misc]
+    return instance

@@ -60,9 +60,10 @@ class TestXConnector:
             pages=[{"data": [{"id": str(i), "discovered_urls": []} for i in range(5)], "meta": {}}]
         )
         conn = XRecentSearchConnector(client, cost_per_post=0.5, budget=0.6)
-        page1 = await conn.discover(ConnectorQuery(module="hackathon", query_text="x", result_cap=5))
+        q = ConnectorQuery(module="hackathon", query_text="x", result_cap=5)
+        page1 = await conn.discover(q)
         assert page1.items  # first call spends
-        page2 = await conn.discover(ConnectorQuery(module="hackathon", query_text="x", result_cap=5))
+        page2 = await conn.discover(q)
         assert page2.items == []  # budget exhausted
 
     @pytest.mark.asyncio

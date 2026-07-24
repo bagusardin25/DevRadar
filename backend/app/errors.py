@@ -76,6 +76,13 @@ class ForbiddenError(AppError):
         super().__init__(status=403, title="Forbidden", detail=detail)
 
 
+class RateLimitError(AppError):
+    """Too many requests (429)."""
+
+    def __init__(self, detail: str = "Rate limit exceeded") -> None:
+        super().__init__(status=429, title="Too Many Requests", detail=detail)
+
+
 async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
     """Convert AppError exceptions to RFC 9457 problem responses."""
     trace_id = getattr(request.state, "trace_id", None)

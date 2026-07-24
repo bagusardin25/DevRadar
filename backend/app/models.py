@@ -12,10 +12,12 @@ from app.ingestion.models import (
 )
 from app.review.models import ReviewItem
 from app.sources.models import Source, SourceQuery
+from app.submissions.models import CommunitySubmission
 
 __all__ = [
     "AdminAuditLog",
     "AIOffer",
+    "CommunitySubmission",
     "CrawlRun",
     "DiscoverySignal",
     "ExtractionRun",

@@ -153,6 +153,53 @@ Distinct filter values currently present in the public-facing tables (plus fixed
 }
 ```
 
+## Submissions
+
+### `POST /submissions`
+
+Accept a community URL for verification. Returns **202 Accepted**.
+
+| Body field | Type | Notes |
+|---|---|---|
+| `url` | string | Required; http(s) only |
+| `claimedType` | `hackathon` \| `ai_offer` | Optional |
+| `claimedTitle` | string | Optional |
+| `notes` | string | Optional |
+| `email` | string | Optional; stored encrypted + HMAC hash only |
+| `website` | string | **Honeypot** — must be empty |
+| `formOpenedAt` | number | Unix seconds; rejects submits under 2s |
+
+| Header | Notes |
+|---|---|
+| `Idempotency-Key` | Optional; repeats return the same receipt |
+
+**Anti-abuse:** private/loopback/metadata hosts rejected; IP rate limit 10/hour; honeypot; min form fill time.
+
+```json
+{
+  "trackingId": "…",
+  "status": "queued",
+  "message": "…",
+  "duplicate": false
+}
+```
+
+### `GET /submissions/{trackingId}`
+
+Coarse public status only (no reviewer notes, IP, or email).
+
+```json
+{
+  "trackingId": "…",
+  "status": "queued",
+  "submittedAt": "2026-07-24T10:00:00Z",
+  "claimedType": "hackathon",
+  "message": "Your submission is queued for verification."
+}
+```
+
+Statuses: `received`, `queued`, `processing`, `duplicate`, `accepted`, `rejected`.
+
 ## Health (outside `/api/v1`)
 
 | Method | Path | Purpose |

@@ -143,3 +143,14 @@ class ActorType(StrEnum):
     ADMIN = "admin"
     PIPELINE = "pipeline"
     USER = "user"
+
+
+class SubmissionState(StrEnum):
+    """Coarse public lifecycle of a community submission."""
+
+    RECEIVED = "received"
+    QUEUED = "queued"
+    PROCESSING = "processing"
+    DUPLICATE = "duplicate"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"

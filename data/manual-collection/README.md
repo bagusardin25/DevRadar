@@ -2,30 +2,34 @@
 
 - `candidates.example.jsonl` — schema sample (safe to commit).
 - `candidates.jsonl` — real curated lead rows from X MCP.
-- `seed_listings.json` — **deduplicated, enriched catalogue seed** derived from those X hits (official URLs + X provenance).
-
-See `docs/manual-x-collection.md`.
+- `seed_listings.json` — **deduplicated, enriched catalogue seed** derived from those X hits (official URLs + X provenance). Wave-2 (2026-07-25) added 15 online/virtual hackathons from a fresh X search.
 
 ## Seed into PostgreSQL
 
-From the repo, with Docker Postgres up and migrations applied:
+**Yes — open Docker Desktop first.** Backend needs Postgres (port **5434**) + Redis (**6379**) from `infra/compose.yaml`. API process itself runs on the host (`uvicorn`); only infra runs in Docker.
+
+Easiest path from repo root:
 
 ```powershell
-# infra
-docker compose -f infra/compose.yaml up -d
+# Windows
+.\scripts\dev.ps1
 
-# migrate
+# Unix / make
+./scripts/dev.sh
+# or: make bootstrap
+```
+
+Manual steps:
+
+```powershell
+docker compose -f infra/compose.yaml up -d
 cd backend
 uv run alembic upgrade head
-
-# dry-run
 uv run python scripts/seed_x_mcp_collection.py --dry-run
-
-# insert (idempotent by slug)
 uv run python scripts/seed_x_mcp_collection.py
 ```
 
-Then start the API and open the frontend — catalogue should show the seeded hackathons and free AI offers.
+Then start the API and frontend — catalogue shows seeded hackathons and AI offers.
 
 ```powershell
 uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
@@ -33,4 +37,6 @@ uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 npm run dev
 ```
 
-Re-running the seed script **skips** existing slugs (`skip … (exists)`).
+- Re-run seed **skips** existing slugs (`skip … (exists)`).
+- Refresh prize labels / core fields: `uv run python scripts/seed_x_mcp_collection.py --update`
+- Prefer editing **this seed file** for OSS data PRs, not `src/data/mockData.ts`.

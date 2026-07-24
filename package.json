@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "bootstrap": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/dev.ps1"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",

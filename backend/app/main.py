@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
+from app.api.router import api_router
 from app.config import Settings, get_settings
 from app.db import create_engine, create_session_maker
 from app.errors import AppError, app_error_handler
@@ -44,10 +45,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        # Store engine and session_maker in app state for access in routes
-        app.state.engine = engine
-        app.state.session_maker = session_maker
-        app.state.settings = _settings
         yield
         await engine.dispose()
 
@@ -57,6 +54,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         version="0.1.0",
         lifespan=lifespan,
     )
+    # Available immediately (including ASGI tests without lifespan startup).
+    app.state.engine = engine
+    app.state.session_maker = session_maker
+    app.state.settings = _settings
 
     # --- Middleware ---
     app.add_middleware(TraceIdMiddleware)
@@ -70,6 +71,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # --- Exception Handlers ---
     app.add_exception_handler(AppError, app_error_handler)  # type: ignore[arg-type]
+
+    # --- Public API ---
+    app.include_router(api_router, prefix=_settings.api_base_path)
 
     # --- Health Routes ---
     @app.get("/health/live", tags=["Health"])

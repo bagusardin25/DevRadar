@@ -94,7 +94,7 @@ class TestScheduler:
         assert q is not None
         q.next_run_at = NOW - timedelta(seconds=1)
         await session.flush()
-        s2 = await enqueue_due_source_queries(session, now=NOW, lease_owner="b")
+        await enqueue_due_source_queries(session, now=NOW, lease_owner="b")
         # Same window → no second crawl with same key
         runs = list((await session.execute(select(CrawlRun))).scalars().all())
         assert s1.enqueued == 1

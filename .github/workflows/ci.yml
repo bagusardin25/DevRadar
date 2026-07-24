@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install & build
+        run: |
+          npm ci
+          npm run build
+      - name: Lint
+        run: npm run lint
+
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: devradar
+          POSTGRES_PASSWORD: devradar
+          POSTGRES_DB: devradar
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd "pg_isready -U devradar"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      APP_ENV: test
+      DATABASE_URL: postgresql+asyncpg://devradar:devradar@127.0.0.1:5434/devradar
+      REDIS_URL: redis://127.0.0.1:6379/0
+      SESSION_SECRET: ci-session-secret-at-least-32-chars-long
+      EMAIL_ENCRYPTION_KEY: ci-email-encryption-key-material
+      EMAIL_HMAC_KEY: ci-email-hmac-key-at-least-32-chars
+      LLM_PROVIDER: disabled
+      OBJECT_STORAGE_BACKEND: memory
+      FRONTEND_URL: http://localhost:5173
+      CORS_ORIGINS: http://localhost:5173
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Python setup
+        run: |
+          cd backend
+          uv sync --all-extras
+      - name: PostgreSQL extensions
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+          PGPASSWORD=devradar psql -h 127.0.0.1 -p 5434 -U devradar -d devradar -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE EXTENSION IF NOT EXISTS pg_trgm;
+          CREATE EXTENSION IF NOT EXISTS citext;
+          CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+          SQL
+      - name: Migrate
+        run: |
+          cd backend
+          uv run alembic upgrade head
+      - name: Pytest
+        run: |
+          cd backend
+          uv run pytest -q --tb=short

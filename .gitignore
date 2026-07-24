@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Manual X/MCP collection (may include draft leads)
+data/manual-collection/candidates.jsonl
+backend/data/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

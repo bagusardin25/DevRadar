@@ -17,7 +17,12 @@
 | `hackerearth` | Challenges |
 | `rss` | Generic RSS/Atom |
 | `official_site` | Seed URL list for official pages |
-| `x_recent_search` | Tier 3 discovery (Task 11) |
+| `x_recent_search` | Tier 3 discovery (Task 11) — automated crawler (later) |
+
+### Manual X leads (preferred first)
+
+Until the scheduled X crawler is enabled, discover leads with the **X MCP** (`xapi` in Grok) and curate rows under `data/manual-collection/`.  
+Full steps: [`docs/manual-x-collection.md`](./manual-x-collection.md).
 
 ## Offline testing
 

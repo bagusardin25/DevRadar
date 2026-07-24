@@ -23,7 +23,7 @@ export async function startLiveDiscovery(input: {
     method: 'POST',
     body: {
       query: input.query,
-      connectors: input.connectors ?? ['devpost'],
+      connectors: input.connectors ?? ['devpost', 'mlh', 'hackerearth'],
       resultCap: input.resultCap ?? 10,
       confirmLiveDiscovery: true,
     },

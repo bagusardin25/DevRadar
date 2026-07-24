@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Activity, 
   Layers, 
@@ -10,10 +10,58 @@ import {
   Server,
   FileCode,
   Workflow,
-  Share2
+  Share2,
+  RefreshCw,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  RotateCcw,
 } from 'lucide-react';
+import { fetchCrawlRuns, retryCrawlRun } from '../api/pipeline';
+import type { CrawlRun } from '../api/pipeline';
 
-export const PipelineViewer: React.FC = () => {
+interface PipelineViewerProps {
+  admin?: { githubId: string; login: string; csrfToken: string } | null;
+}
+
+export const PipelineViewer: React.FC<PipelineViewerProps> = ({ admin }) => {
+  const [crawlRuns, setCrawlRuns] = useState<CrawlRun[]>([]);
+  const [runsLoading, setRunsLoading] = useState(false);
+  const [runsError, setRunsError] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState<string | null>(null);
+
+  const loadRuns = async () => {
+    if (!admin) return;
+    setRunsLoading(true);
+    setRunsError(null);
+    try {
+      const data = await fetchCrawlRuns();
+      setCrawlRuns(data);
+    } catch (err) {
+      setRunsError(err instanceof Error ? err.message : 'Failed to load crawl runs');
+    } finally {
+      setRunsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadRuns();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [admin]);
+
+  const handleRetry = async (runId: string) => {
+    if (!admin) return;
+    setRetrying(runId);
+    try {
+      const updated = await retryCrawlRun(runId, admin.csrfToken);
+      setCrawlRuns((prev) => prev.map((r) => (r.id === runId ? updated : r)));
+    } catch (err) {
+      setRunsError(err instanceof Error ? err.message : 'Retry failed');
+    } finally {
+      setRetrying(null);
+    }
+  };
+
   const pipelineSteps = [
     { name: '1. Source Scheduler', desc: 'Periodic cron polling & X API stream listener', icon: Activity, status: 'Active' },
     { name: '2. Fetcher / Worker', desc: 'Headless Chrome worker & HTTP client', icon: Globe, status: 'Active' },
@@ -25,6 +73,14 @@ export const PipelineViewer: React.FC = () => {
     { name: '8. Verification Engine', desc: 'HTTP HEAD checks & deadline validation', icon: ShieldCheck, status: 'Active' },
     { name: '9. PostgreSQL & API', desc: 'Full-text & trigram indexed search API', icon: Database, status: 'Active' },
   ];
+
+  function statusBadge(status: string) {
+    const s = status.toLowerCase();
+    if (['completed', 'done'].includes(s)) return 'bg-[#059669]/15 text-[#059669] border-[#059669]';
+    if (['failed', 'error'].includes(s)) return 'bg-[#FF5A36]/15 text-[#FF5A36] border-[#FF5A36]';
+    if (['queued', 'running', 'in_progress'].includes(s)) return 'bg-[#D97706]/15 text-[#D97706] border-[#D97706]';
+    return 'bg-slate-400/15 text-slate-500 border-slate-400';
+  }
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto px-4 lg:px-8 py-6 font-sans">
@@ -73,6 +129,84 @@ export const PipelineViewer: React.FC = () => {
           })}
         </div>
       </div>
+
+      {/* Live Crawl Runs (from backend) */}
+      {admin && (
+        <div className="sharetopus-card p-6 rounded-[28px] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] shadow-[4px_4px_0_0_#1C1B18] dark:shadow-[4px_4px_0_0_#D6DCE5] space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-extrabold text-[#1C1B18] dark:text-white flex items-center gap-2 font-mono">
+              <Activity className="w-5 h-5 text-[#D97706]" />
+              Live Crawl Runs
+              {crawlRuns.length > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-[#D97706]/15 text-[#D97706] border border-[#D97706]">
+                  {crawlRuns.length}
+                </span>
+              )}
+            </h3>
+            <button
+              type="button"
+              onClick={() => void loadRuns()}
+              disabled={runsLoading}
+              className="btn-sharetopus-secondary text-[10px] py-1.5 px-3 font-bold flex items-center gap-1"
+            >
+              <RefreshCw className={`w-3 h-3 ${runsLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+          </div>
+
+          {runsError && (
+            <p className="text-xs text-[#FF5A36] font-bold">{runsError}</p>
+          )}
+
+          {runsLoading ? (
+            <div className="text-center py-6">
+              <Loader2 className="w-6 h-6 animate-spin text-[#D97706] mx-auto" />
+            </div>
+          ) : crawlRuns.length === 0 ? (
+            <p className="text-xs text-slate-500 font-bold text-center py-4">No crawl runs recorded yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {crawlRuns.slice(0, 10).map((run) => {
+                const isFailed = ['failed', 'error'].includes(run.status.toLowerCase());
+                return (
+                  <div key={run.id} className="flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border border-[#1C1B18]/10 dark:border-white/10 bg-[#F8F9F4] dark:bg-[#1A2336]">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold border ${statusBadge(run.status)}`}>
+                        {run.status}
+                      </span>
+                      <span className="text-[11px] font-mono font-extrabold text-[#1C1B18] dark:text-white truncate">
+                        {run.trigger}
+                      </span>
+                      <span className="flex items-center gap-1 text-[10px] font-mono text-[#059669]">
+                        <CheckCircle2 className="w-3 h-3" />{run.discoveredCount}
+                      </span>
+                      <span className="flex items-center gap-1 text-[10px] font-mono text-[#2563EB]">
+                        <Globe className="w-3 h-3" />{run.fetchedCount}
+                      </span>
+                      {run.failedCount > 0 && (
+                        <span className="flex items-center gap-1 text-[10px] font-mono text-[#FF5A36]">
+                          <XCircle className="w-3 h-3" />{run.failedCount}
+                        </span>
+                      )}
+                    </div>
+                    {isFailed && (
+                      <button
+                        type="button"
+                        onClick={() => void handleRetry(run.id)}
+                        disabled={retrying === run.id}
+                        className="btn-sharetopus-secondary text-[10px] py-1 px-2 font-bold flex items-center gap-1 shrink-0"
+                      >
+                        {retrying === run.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
+                        Retry
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Source Hierarchy Tiers */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

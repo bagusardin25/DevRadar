@@ -79,7 +79,7 @@ export const SubmitModal: React.FC<SubmitModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md font-sans">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 font-sans">
       <div className="sharetopus-card w-full max-w-lg rounded-[28px] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] shadow-[8px_8px_0_0_#1C1B18] dark:shadow-[8px_8px_0_0_#D6DCE5] overflow-hidden animate-in zoom-in-95 duration-200">
         {/* Header — match DetailModal */}
         <div className="flex items-center justify-between p-5 border-b border-[#D6D5CF] dark:border-slate-800 bg-[#F8F9F4] dark:bg-[#1A2336]">

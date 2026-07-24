@@ -1,16 +1,14 @@
-import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { Header } from './components/Header';
 import { HeroSection } from './components/HeroSection';
 import { StatsOverview } from './components/StatsOverview';
 import { HackathonCard } from './components/HackathonCard';
 import { AIDealCard } from './components/AIDealCard';
 import { DetailModal } from './components/DetailModal';
-import { PipelineViewer } from './components/PipelineViewer';
-import { AdminQueue } from './components/AdminQueue';
-import { ChromeExtensionSidePanel } from './components/ChromeExtensionSidePanel';
 import { CompareModal } from './components/CompareModal';
 import { SubmitModal } from './components/SubmitModal';
 import { BookmarksDrawer } from './components/BookmarksDrawer';
+import { AlertSubscribeModal } from './components/AlertSubscribeModal';
 
 import type { FilterState, Hackathon, AIDeal } from './types';
 import {
@@ -35,12 +33,79 @@ import {
   toggleId,
   waitForDiscovery,
 } from './api';
-import { FilterX, Loader2, AlertCircle } from 'lucide-react';
+import { MOCK_HACKATHONS, MOCK_AI_DEALS } from './data/mockData';
+import { FilterX, Loader2, WifiOff } from 'lucide-react';
+
+/** Heavy admin / tooling views — split out of the initial catalogue bundle. */
+const PipelineViewer = lazy(() =>
+  import('./components/PipelineViewer').then((m) => ({ default: m.PipelineViewer })),
+);
+const AdminQueue = lazy(() =>
+  import('./components/AdminQueue').then((m) => ({ default: m.AdminQueue })),
+);
+const ChromeExtensionSidePanel = lazy(() =>
+  import('./components/ChromeExtensionSidePanel').then((m) => ({
+    default: m.ChromeExtensionSidePanel,
+  })),
+);
+const SourcesManager = lazy(() =>
+  import('./components/SourcesManager').then((m) => ({ default: m.SourcesManager })),
+);
+
+function ModuleFallback() {
+  return (
+    <div className="max-w-6xl mx-auto px-4 lg:px-8 pt-10 flex items-center justify-center gap-2 text-xs font-bold">
+      <Loader2 className="w-5 h-5 animate-spin text-[#FF5A36]" />
+      Loading module…
+    </div>
+  );
+}
 
 const STORAGE_KEYS = {
   LAYOUT: 'devradar_layout_v1',
   THEME: 'devradar_theme_v1',
 };
+
+/** Filter mock hackathons locally when backend is offline. */
+function filterMockHackathons(items: Hackathon[], filters: FilterState): Hackathon[] {
+  return items.filter((h) => {
+    const q = filters.searchQuery.toLowerCase();
+    if (q && q.length >= 2) {
+      const searchable = `${h.title} ${h.organizer} ${h.description} ${h.technologies.join(' ')} ${h.eligibility.join(' ')} ${h.eligibleCountries.join(' ')}`.toLowerCase();
+      if (!searchable.includes(q)) return false;
+    }
+    if (filters.mode !== 'all' && h.mode !== filters.mode) return false;
+    if (filters.technology && !h.technologies.some((t) => t.toLowerCase().includes(filters.technology.toLowerCase()))) return false;
+    if (filters.eligibility && !h.eligibility.some((e) => e.toLowerCase().includes(filters.eligibility.toLowerCase()))) return false;
+    if (filters.verificationStatus && h.verificationStatus !== filters.verificationStatus) return false;
+    if (filters.onlyClosingSoon) {
+      const deadline = new Date(h.registrationDeadline);
+      const diffDays = (deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+      if (diffDays > 14 || diffDays < 0) return false;
+    }
+    if (filters.onlyBigPrizes && h.prizeValue < 10000) return false;
+    return true;
+  });
+}
+
+/** Filter mock AI deals locally when backend is offline. */
+function filterMockAIDeals(items: AIDeal[], filters: FilterState): AIDeal[] {
+  return items.filter((d) => {
+    const q = filters.searchQuery.toLowerCase();
+    if (q && q.length >= 2) {
+      const searchable = `${d.productName} ${d.provider} ${d.description} ${d.tags.join(' ')} ${d.offerValue} ${d.targetUsers.join(' ')}`.toLowerCase();
+      if (!searchable.includes(q)) return false;
+    }
+    if (filters.offerType && d.offerType !== filters.offerType) return false;
+    if (filters.verificationStatus && d.verificationStatus !== filters.verificationStatus) return false;
+    if (filters.technology && !d.tags.some((t) => t.toLowerCase().includes(filters.technology.toLowerCase()))) return false;
+    if (filters.onlyFreeNoCard) {
+      const reqText = d.requirements.join(' ').toLowerCase();
+      if (reqText.includes('credit card')) return false;
+    }
+    return true;
+  });
+}
 
 export function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -57,6 +122,16 @@ export function App() {
       root.classList.remove('dark', 'dark-theme');
     }
   }, [theme]);
+
+  // Pause marquee / continuous work when the tab is not visible
+  useEffect(() => {
+    const onVis = () => {
+      document.documentElement.classList.toggle('tab-hidden', document.hidden);
+    };
+    onVis();
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, []);
 
   const [filters, setFilters] = useState<FilterState>({
     searchQuery: '',
@@ -159,8 +234,11 @@ export function App() {
   const [isBookmarksOpen, setIsBookmarksOpen] = useState(false);
   const [isSubmitOpen, setIsSubmitOpen] = useState(false);
   const [isExtensionOpen, setIsExtensionOpen] = useState(false);
+  const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
+  const [alertConfirmMsg, setAlertConfirmMsg] = useState<string | null>(null);
   const [isSearchingLive, setIsSearchingLive] = useState(false);
   const [liveDiscoveryMessage, setLiveDiscoveryMessage] = useState<string | null>(null);
+  const [, setIsOfflineMode] = useState(false);
 
   // Admin review state
   const [admin, setAdmin] = useState<AdminMe | null>(null);
@@ -219,6 +297,7 @@ export function App() {
       setAiDeals(dealPage.items);
       setDealTotal(dealPage.totalEstimate);
       if (statsRes) setStats(statsRes);
+      setIsOfflineMode(false);
       // Refresh bookmark cache from freshly loaded rows that are still bookmarked.
       setBookmarkCache((prev) => {
         const nextH = { ...prev.hackathons };
@@ -240,8 +319,26 @@ export function App() {
             ? err.message
             : 'Failed to load catalogue';
       setCatalogueError(message);
-      setHackathons([]);
-      setAiDeals([]);
+      // Fallback to mock data so the UI is never empty during offline dev
+      const bookmarks = loadBookmarkIds();
+      const alerts = loadAlertIds();
+      const filteredH = filterMockHackathons(MOCK_HACKATHONS, queryFilters);
+      const filteredD = filterMockAIDeals(MOCK_AI_DEALS, queryFilters);
+      const mockH = filteredH.map((h) => ({
+        ...h,
+        bookmarked: bookmarks.has(h.id),
+        alertEnabled: alerts.has(h.id),
+      }));
+      const mockD = filteredD.map((d) => ({
+        ...d,
+        bookmarked: bookmarks.has(d.id),
+        alertEnabled: alerts.has(d.id),
+      }));
+      setHackathons(mockH);
+      setHackTotal(mockH.length);
+      setAiDeals(mockD);
+      setDealTotal(mockD.length);
+      setIsOfflineMode(true);
     } finally {
       setCatalogueLoading(false);
     }
@@ -251,11 +348,16 @@ export function App() {
     void loadCatalogue();
   }, [loadCatalogue]);
 
-  // Re-apply bookmark/alert flags without refetch when only local prefs change
-  useEffect(() => {
-    setHackathons((prev) => applyLocalFlags(prev));
-    setAiDeals((prev) => applyLocalFlags(prev));
-  }, [bookmarkIds, alertIds, applyLocalFlags]);
+  // Derive flags in memory — avoids remapping + setState of the full catalogue
+  const displayHackathons = useMemo(
+    () => applyLocalFlags(hackathons),
+    [hackathons, applyLocalFlags],
+  );
+  const displayAiDeals = useMemo(
+    () => applyLocalFlags(aiDeals),
+    [aiDeals, applyLocalFlags],
+  );
+
   const loadAdminSession = useCallback(async () => {
     try {
       const me = await fetchAdminMe();
@@ -302,7 +404,7 @@ export function App() {
     }
   }, [filters.activeModule, loadReviewQueue]);
 
-  // After GitHub OAuth redirect
+  // After GitHub OAuth redirect or alert confirmation
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('admin_auth') === 'ok') {
@@ -311,16 +413,21 @@ export function App() {
         window.history.replaceState({}, '', window.location.pathname);
       });
     }
+    if (params.get('alert') === 'confirmed') {
+      setAlertConfirmMsg('✅ Email alert subscription confirmed! You will receive notifications.');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
   }, [loadAdminSession]);
 
   const handleTriggerLiveDiscovery = async () => {
-    const q = filters.searchQuery.trim() || 'AI hackathon';
+    const trimmed = filters.searchQuery.trim();
+    const q = trimmed.length >= 2 ? trimmed : 'AI hackathon';
     setIsSearchingLive(true);
     setLiveDiscoveryMessage(null);
     try {
       const receipt = await startLiveDiscovery({
         query: q,
-        connectors: ['devpost'],
+        connectors: ['devpost', 'mlh', 'hackerearth'],
         resultCap: 10,
       });
       setLiveDiscoveryMessage(receipt.message || `Discovery started (${receipt.status})`);
@@ -340,7 +447,7 @@ export function App() {
     }
   };
 
-  const handleToggleBookmark = (id: string) => {
+  const handleToggleBookmark = useCallback((id: string) => {
     setBookmarkIds((prev) => {
       const next = toggleId(prev, id);
       setBookmarkCache((cache) => {
@@ -359,23 +466,28 @@ export function App() {
       });
       return next;
     });
-  };
+  }, [hackathons, aiDeals]);
 
-  const handleToggleAlert = (id: string) => {
+  const handleToggleAlert = useCallback((id: string) => {
     setAlertIds((prev) => toggleId(prev, id));
-  };
+  }, []);
 
-  const handleToggleCompare = (hack: Hackathon) => {
-    if (compareItems.some((i) => i.id === hack.id)) {
-      setCompareItems((prev) => prev.filter((i) => i.id !== hack.id));
-    } else {
-      if (compareItems.length >= 3) {
-        alert('You can compare up to 3 hackathons side-by-side.');
-        return;
+  const handleToggleCompare = useCallback((hack: Hackathon) => {
+    setCompareItems((prev) => {
+      if (prev.some((i) => i.id === hack.id)) {
+        return prev.filter((i) => i.id !== hack.id);
       }
-      setCompareItems((prev) => [...prev, hack]);
-    }
-  };
+      if (prev.length >= 3) {
+        alert('You can compare up to 3 hackathons side-by-side.');
+        return prev;
+      }
+      return [...prev, hack];
+    });
+  }, []);
+
+  const handleSelectItem = useCallback((item: Hackathon | AIDeal) => {
+    setSelectedItem(item);
+  }, []);
 
   const handleAdminLogin = async () => {
     try {
@@ -441,9 +553,14 @@ export function App() {
         setFilters={setFilters}
         bookmarkCount={totalBookmarks}
         unverifiedCount={reviewTotal}
+        showAdminNav={Boolean(admin)}
+        hackathons={displayHackathons}
+        aiDeals={displayAiDeals}
         onOpenBookmarks={() => setIsBookmarksOpen(true)}
         onOpenSubmit={() => setIsSubmitOpen(true)}
         onOpenExtensionPanel={() => setIsExtensionOpen(true)}
+        onOpenAlerts={() => setIsAlertModalOpen(true)}
+        onOpenAdmin={() => setFilters((f) => ({ ...f, activeModule: 'admin_queue' }))}
         viewLayout={viewLayout}
         setViewLayout={setViewLayout}
         theme={theme}
@@ -456,26 +573,36 @@ export function App() {
           totalHackathons={displayHackCount}
           totalDeals={displayDealCount}
           unverifiedCount={reviewTotal}
+          showQueueStat={Boolean(admin)}
         />
 
         {catalogueError && filters.activeModule !== 'admin_queue' && filters.activeModule !== 'pipeline' && (
           <div className="max-w-6xl mx-auto px-4 lg:px-8 pt-4">
-            <div className="sharetopus-card p-4 rounded-2xl border-[1.5px] border-[#FF5A36] bg-[#FF5A36]/10 flex items-start gap-3 text-xs font-bold">
-              <AlertCircle className="w-5 h-5 text-[#FF5A36] shrink-0" />
+            <div className="sharetopus-card p-4 rounded-2xl border-[1.5px] border-[#D97706] bg-[#D97706]/10 flex items-start gap-3 text-xs font-bold">
+              <WifiOff className="w-5 h-5 text-[#D97706] shrink-0" />
               <div>
-                <div className="font-extrabold">Could not load catalogue from API</div>
+                <div className="font-extrabold">Backend Offline — Showing Demo Data</div>
                 <p className="mt-1 opacity-90">{catalogueError}</p>
                 <p className="mt-1 text-[11px] font-mono opacity-70">
-                  Ensure the backend is running and Vite proxy targets it (default http://127.0.0.1:8000).
+                  Start the backend (uvicorn app.main:app) at http://127.0.0.1:8000 to load real data.
                 </p>
                 <button
                   type="button"
-                  onClick={() => void loadCatalogue()}
+                  onClick={() => { setIsOfflineMode(false); void loadCatalogue(); }}
                   className="btn-sharetopus-secondary text-xs py-1.5 px-3 mt-2 font-bold"
                 >
-                  Retry
+                  Retry Connection
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {alertConfirmMsg && (
+          <div className="max-w-6xl mx-auto px-4 lg:px-8 pt-3">
+            <div className="sharetopus-card p-3 rounded-2xl border-[1.5px] border-[#059669] bg-[#059669]/10 flex items-center justify-between text-xs font-bold text-[#059669]">
+              <span>{alertConfirmMsg}</span>
+              <button type="button" onClick={() => setAlertConfirmMsg(null)} className="font-extrabold hover:opacity-70">×</button>
             </div>
           </div>
         )}
@@ -504,7 +631,7 @@ export function App() {
                   <Loader2 className="w-8 h-8 animate-spin text-[#FF5A36] mx-auto mb-3" />
                   <p className="text-xs font-bold">Loading verified hackathons…</p>
                 </div>
-              ) : hackathons.length === 0 ? (
+              ) : displayHackathons.length === 0 ? (
                 <div className="sharetopus-card p-12 text-center rounded-[24px] space-y-3 bg-white dark:bg-[#131A29] text-[#1C1B18] dark:text-white">
                   <FilterX className="w-10 h-10 text-[#FF5A36] mx-auto" />
                   <h3 className="text-lg font-extrabold">No Hackathons Matched Your Filter</h3>
@@ -534,11 +661,11 @@ export function App() {
                     viewLayout === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-6' : 'space-y-4'
                   }
                 >
-                  {hackathons.map((hackathon) => (
+                  {displayHackathons.map((hackathon) => (
                     <HackathonCard
                       key={hackathon.id}
                       hackathon={hackathon}
-                      onSelect={(item) => setSelectedItem(item)}
+                      onSelect={handleSelectItem}
                       onToggleBookmark={handleToggleBookmark}
                       onToggleAlert={handleToggleAlert}
                       onToggleCompare={handleToggleCompare}
@@ -568,7 +695,7 @@ export function App() {
                   <Loader2 className="w-8 h-8 animate-spin text-[#7C3AED] mx-auto mb-3" />
                   <p className="text-xs font-bold">Loading AI offers…</p>
                 </div>
-              ) : aiDeals.length === 0 ? (
+              ) : displayAiDeals.length === 0 ? (
                 <div className="sharetopus-card p-12 text-center rounded-[24px] space-y-3 bg-white dark:bg-[#131A29] text-[#1C1B18] dark:text-white">
                   <FilterX className="w-10 h-10 text-[#FF5A36] mx-auto" />
                   <h3 className="text-lg font-extrabold">No AI Deals Matched Your Filter</h3>
@@ -582,11 +709,11 @@ export function App() {
                     viewLayout === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-6' : 'space-y-4'
                   }
                 >
-                  {aiDeals.map((deal) => (
+                  {displayAiDeals.map((deal) => (
                     <AIDealCard
                       key={deal.id}
                       deal={deal}
-                      onSelect={(item) => setSelectedItem(item)}
+                      onSelect={handleSelectItem}
                       onToggleBookmark={handleToggleBookmark}
                       onToggleAlert={handleToggleAlert}
                       viewLayout={viewLayout}
@@ -598,21 +725,50 @@ export function App() {
           </div>
         )}
 
-        {filters.activeModule === 'pipeline' && <PipelineViewer />}
+        {filters.activeModule === 'pipeline' && admin && (
+          <Suspense fallback={<ModuleFallback />}>
+            <PipelineViewer admin={admin} />
+          </Suspense>
+        )}
 
+        {filters.activeModule === 'sources' && admin && (
+          <Suspense fallback={<ModuleFallback />}>
+            <SourcesManager admin={admin} onLogin={() => void handleAdminLogin()} />
+          </Suspense>
+        )}
+
+        {/* Review always reachable so operators can start GitHub login */}
         {filters.activeModule === 'admin_queue' && (
-          <AdminQueue
-            items={reviewItems}
-            total={reviewTotal}
-            admin={admin}
-            loading={reviewLoading}
-            error={reviewError}
-            onRefresh={() => void loadReviewQueue()}
-            onLogin={() => void handleAdminLogin()}
-            onLogout={() => void handleAdminLogout()}
-            onApprove={handleApprove}
-            onReject={handleReject}
-          />
+          <Suspense fallback={<ModuleFallback />}>
+            <AdminQueue
+              items={reviewItems}
+              total={reviewTotal}
+              admin={admin}
+              loading={reviewLoading}
+              error={reviewError}
+              onRefresh={() => void loadReviewQueue()}
+              onLogin={() => void handleAdminLogin()}
+              onLogout={() => void handleAdminLogout()}
+              onApprove={handleApprove}
+              onReject={handleReject}
+            />
+          </Suspense>
+        )}
+
+        {/* If user lost admin session while on pipeline/sources, bounce to public radar */}
+        {(filters.activeModule === 'pipeline' || filters.activeModule === 'sources') && !admin && (
+          <div className="max-w-6xl mx-auto px-4 lg:px-8 pt-10">
+            <div className="sharetopus-card p-8 rounded-[24px] text-center space-y-3">
+              <p className="text-sm font-extrabold">Operator tools require a signed-in admin session.</p>
+              <button
+                type="button"
+                className="btn-sharetopus-primary text-xs font-bold"
+                onClick={() => setFilters((f) => ({ ...f, activeModule: 'admin_queue' }))}
+              >
+                Open operator login
+              </button>
+            </div>
+          </div>
         )}
       </main>
 
@@ -647,10 +803,14 @@ export function App() {
         onRemove={(id) => setCompareItems((prev) => prev.filter((i) => i.id !== id))}
       />
 
-      <ChromeExtensionSidePanel
-        isOpen={isExtensionOpen}
-        onClose={() => setIsExtensionOpen(false)}
-      />
+      {isExtensionOpen && (
+        <Suspense fallback={null}>
+          <ChromeExtensionSidePanel
+            isOpen={isExtensionOpen}
+            onClose={() => setIsExtensionOpen(false)}
+          />
+        </Suspense>
+      )}
 
       <SubmitModal
         isOpen={isSubmitOpen}
@@ -669,16 +829,21 @@ export function App() {
         onToggleAlert={handleToggleAlert}
       />
 
+      <AlertSubscribeModal
+        isOpen={isAlertModalOpen}
+        onClose={() => setIsAlertModalOpen(false)}
+      />
+
       <footer className="border-t border-[#D6D5CF] dark:border-slate-800 bg-[#E5E6DF] dark:bg-[#090C15] py-8 px-4 lg:px-8 text-xs font-mono text-[#1C1B18] dark:text-slate-200 font-bold">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
             <span className="font-extrabold text-[#1C1B18] dark:text-white text-sm tracking-tight">
-              DevRadar Intelligence
+              DevRadar
             </span>
-            <span>• 100% Open Source (MIT) • No Login • Frictionless</span>
+            <span>MIT · no end-user login · bookmarks stay in your browser</span>
           </div>
-          <div>
-            Data: live API · Tier 1 Official Domains + Tier 2 Aggregators + Tier 3 Discovery
+          <div className="text-center sm:text-right opacity-90">
+            Listings are community/operator-verified · always check official rules
           </div>
         </div>
       </footer>

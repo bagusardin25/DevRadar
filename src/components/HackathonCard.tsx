@@ -1,9 +1,8 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { 
   Trophy, 
   ShieldCheck, 
   Bookmark, 
-  Layers, 
   Clock, 
   ArrowUpRight,
   Sparkles,
@@ -11,6 +10,8 @@ import {
   Download
 } from 'lucide-react';
 import type { Hackathon } from '../types';
+import { formatPrizePool } from '../utils/formatPrize';
+import { ListingBadges } from './ListingBadges';
 
 interface HackathonCardProps {
   hackathon: Hackathon;
@@ -22,14 +23,14 @@ interface HackathonCardProps {
   viewLayout?: 'grid' | 'compact';
 }
 
-export const HackathonCard: React.FC<HackathonCardProps> = ({
+export const HackathonCard = memo(function HackathonCard({
   hackathon,
   onSelect,
   onToggleBookmark,
   onToggleCompare,
   isCompared,
   viewLayout = 'grid'
-}) => {
+}: HackathonCardProps) {
   // Calculate remaining registration days accurately
   const deadlineRaw = hackathon.registrationDeadline || hackathon.submissionDeadline;
   const deadlineDate = deadlineRaw ? new Date(deadlineRaw) : null;
@@ -44,7 +45,7 @@ export const HackathonCard: React.FC<HackathonCardProps> = ({
 
   const handleDownloadMD = (e: React.MouseEvent, hackathon: Hackathon) => {
     e.stopPropagation();
-    const mdContent = `# ${hackathon.title}\n\n**Organizer:** ${hackathon.organizer}\n**Prize Pool:** $${hackathon.prizeValue.toLocaleString()} ${hackathon.prizeCurrency}\n**Registration Deadline:** ${new Date(hackathon.registrationDeadline).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}\n**Submission Deadline:** ${new Date(hackathon.submissionDeadline).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}\n\n## Description\n${hackathon.description}\n\n## Technologies\n${hackathon.technologies.join(', ')}\n\n## Official Link\n[${hackathon.officialUrl}](${hackathon.officialUrl})\n\n## Verification Notes\n${hackathon.audit?.verifierNotes || 'N/A'}\n`;
+    const mdContent = `# ${hackathon.title}\n\n**Organizer:** ${hackathon.organizer}\n**Prize Pool:** ${formatPrizePool(hackathon)}\n**Registration Deadline:** ${new Date(hackathon.registrationDeadline).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}\n**Submission Deadline:** ${new Date(hackathon.submissionDeadline).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}\n\n## Description\n${hackathon.description}\n\n## Technologies\n${hackathon.technologies.join(', ')}\n\n## Official Link\n[${hackathon.officialUrl}](${hackathon.officialUrl})\n\n## Verification Notes\n${hackathon.audit?.verifierNotes || 'N/A'}\n`;
     
     const blob = new Blob([mdContent], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
@@ -67,7 +68,7 @@ export const HackathonCard: React.FC<HackathonCardProps> = ({
           <div className="space-y-0.5">
             <div className="flex items-center gap-2">
               <span className="text-xs font-mono text-[#1C1B18] dark:text-[#F8FAF9] font-extrabold">{hackathon.organizer}</span>
-              <span className="px-2 py-0.2 rounded-full bg-[#059669]/15 text-[#059669] dark:text-[#34D399] border border-[#059669] text-[10px] font-extrabold">VERIFIED</span>
+              <span className="px-2 py-0.5 rounded-full bg-[#059669]/15 text-[#059669] dark:text-[#34D399] border border-[#059669] text-[12px] font-extrabold">VERIFIED</span>
             </div>
             <h4 
               onClick={() => onSelect(hackathon)}
@@ -76,7 +77,7 @@ export const HackathonCard: React.FC<HackathonCardProps> = ({
               {hackathon.title}
             </h4>
             <div className="flex items-center gap-3 text-xs font-mono text-[#1C1B18] dark:text-[#F8FAF9] font-extrabold">
-              <span className="text-[#059669] dark:text-[#34D399] font-extrabold">${hackathon.prizeValue.toLocaleString()} {hackathon.prizeCurrency}</span>
+              <span className="text-[#059669] dark:text-[#34D399] font-extrabold">{formatPrizePool(hackathon, { compact: true })}</span>
               <span>•</span>
               <span className="flex items-center gap-1 text-[#1C1B18] dark:text-[#F8FAF9]">
                 <span>Reg closes in:</span>
@@ -134,60 +135,57 @@ export const HackathonCard: React.FC<HackathonCardProps> = ({
   return (
     <div className="sharetopus-card p-6 rounded-[24px] bg-white dark:bg-[#131A29] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] shadow-[4px_4px_0_0_#1C1B18] dark:shadow-[4px_4px_0_0_#D6DCE5] hover:shadow-[6px_6px_0_0_#1C1B18] dark:hover:shadow-[6px_6px_0_0_#D6DCE5] flex flex-col justify-between gap-5 relative overflow-hidden transition-all duration-300">
       
-      {/* Card Header: Provenance Tier & Verification Pulse */}
+      {/* Card Header: status + completeness + provenance */}
       <div className="flex items-center justify-between gap-2 text-xs font-sans">
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Status Badge */}
-          <span className="px-3 py-1 rounded-full bg-[#059669]/15 text-[#059669] dark:text-[#34D399] border border-[#059669] text-[11px] font-extrabold flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-[#059669] dark:bg-[#34D399]" />
-            {hackathon.verificationStatus.replace('_', ' ').toUpperCase()}
-          </span>
+        <ListingBadges
+          status={hackathon.verificationStatus}
+          completeness={hackathon.completeness}
+          extra={[
+            {
+              key: 'tier',
+              label: primarySource?.tier || 'Tier ?',
+              tone: 'slate',
+              title: 'Source trust tier',
+            },
+          ]}
+        />
 
-          {/* Tier Provenance Badge */}
-          <span className="px-3 py-1 rounded-full bg-[#F3F4EF] dark:bg-[#1A2336] border border-[#1C1B18] dark:border-[#D6DCE5] text-[#1C1B18] dark:text-[#F8FAF9] text-[11px] font-extrabold flex items-center gap-1">
-            <Layers className="w-3 h-3 text-[#FF5A36]" />
-            {primarySource?.tier || 'Tier 1'}
-          </span>
-        </div>
-
-        {/* Confidence Score Gauge */}
-        <div className="flex items-center gap-1.5 font-mono text-[11px] bg-[#F3F4EF] dark:bg-[#1A2336] px-3 py-1 rounded-full border border-[#1C1B18] dark:border-[#D6DCE5] text-[#1C1B18] dark:text-[#F8FAF9] font-extrabold">
+        <div className="flex items-center gap-1.5 font-mono text-[12px] bg-[#F3F4EF] dark:bg-[#1A2336] px-3 py-1 rounded-full border border-[#1C1B18] dark:border-[#D6DCE5] text-[#1C1B18] dark:text-[#F8FAF9] font-extrabold shrink-0">
           <ShieldCheck className="w-3.5 h-3.5 text-[#1C1B18] dark:text-[#F8FAF9]" />
-          <span>{Math.round(hackathon.confidenceScore * 100)}% Match</span>
+          <span>{Math.round(hackathon.confidenceScore * 100)}%</span>
         </div>
       </div>
 
       {/* Main Info */}
       <div className="space-y-2">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <span className="text-xs text-[#1C1B18] dark:text-[#F8FAF9] font-extrabold uppercase tracking-wider">{hackathon.organizer}</span>
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+          <div className="min-w-0">
+            <span className="text-[12px] text-[#1C1B18] dark:text-[#F8FAF9] font-extrabold uppercase tracking-wider">{hackathon.organizer}</span>
             <h3 
               onClick={() => onSelect(hackathon)}
-              className="text-xl font-extrabold text-[#1C1B18] dark:text-white hover:text-[#FF5A36] cursor-pointer transition-colors line-clamp-1 tracking-tight"
+              className="text-lg sm:text-xl font-extrabold text-[#1C1B18] dark:text-white hover:text-[#FF5A36] cursor-pointer transition-colors line-clamp-2 sm:line-clamp-1 tracking-tight"
             >
               {hackathon.title}
             </h3>
           </div>
 
           {/* Prize Value Pill */}
-          <div className="text-right shrink-0 bg-[#F8F9F4] dark:bg-[#1A2336] p-2.5 rounded-2xl border border-[#1C1B18] dark:border-[#D6DCE5]">
-            <div className="text-[10px] text-[#1C1B18] dark:text-[#F8FAF9] font-mono font-extrabold tracking-wider">PRIZE POOL</div>
-            <div className="text-lg font-extrabold text-[#059669] dark:text-[#34D399] font-mono flex items-center gap-1 justify-end">
-              <Trophy className="w-4 h-4 text-[#FF5A36]" />
-              <span>${hackathon.prizeValue.toLocaleString()} {hackathon.prizeCurrency}</span>
+          <div className="text-left sm:text-right shrink-0 bg-[#F8F9F4] dark:bg-[#1A2336] p-2.5 rounded-2xl border border-[#1C1B18] dark:border-[#D6DCE5] w-full sm:w-auto">
+            <div className="text-[12px] text-[#1C1B18] dark:text-[#F8FAF9] font-mono font-extrabold tracking-wider">PRIZE POOL</div>
+            <div className="text-sm sm:text-base font-extrabold text-[#059669] dark:text-[#34D399] font-mono flex items-center gap-1 sm:justify-end max-w-none sm:max-w-[12rem] leading-tight">
+              <Trophy className="w-4 h-4 text-[#FF5A36] shrink-0" />
+              <span>{formatPrizePool(hackathon, { compact: true })}</span>
             </div>
           </div>
         </div>
 
-        {/* Issue 1 Fix: Hackathon Description - 100% Crisp Visible Text in Light & Dark Mode */}
-        <p className="text-xs text-[#1C1B18] dark:text-[#F8FAF9] line-clamp-2 leading-relaxed font-extrabold">
+        <p className="text-[13px] sm:text-sm text-[#1C1B18] dark:text-[#F8FAF9] line-clamp-2 leading-relaxed font-bold">
           {hackathon.description}
         </p>
       </div>
 
       {/* Technology Tags */}
-      <div className="flex items-center gap-1.5 flex-wrap text-[11px] font-mono">
+      <div className="flex items-center gap-1.5 flex-wrap text-[12px] font-mono">
         {hackathon.technologies.map((tech, i) => (
           <span key={i} className="px-3 py-1 rounded-full bg-[#F3F4EF] dark:bg-[#1A2336] border border-[#1C1B18] dark:border-[#D6DCE5] text-[#1C1B18] dark:text-[#F8FAF9] font-extrabold">
             #{tech}
@@ -198,28 +196,27 @@ export const HackathonCard: React.FC<HackathonCardProps> = ({
         </span>
       </div>
 
-      {/* "Suitable For You Because" AI Matcher Box */}
-      <div className="bg-[#F8F9F4] dark:bg-[#1A2336] border border-[#1C1B18] dark:border-[#D6DCE5] rounded-2xl p-3.5 space-y-2 text-xs">
-        <div className="flex items-center justify-between text-[11px] font-extrabold text-[#FF5A36] font-mono">
-          <span className="flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-[#FF5A36]" />
-            SUITABLE FOR YOU BECAUSE:
-          </span>
-          <span className="text-[#1C1B18] dark:text-[#F8FAF9] font-sans font-extrabold">AI Matcher</span>
+      {/* Key Highlights (static listing reasons — not personalized) */}
+      {hackathon.suitableReasons.length > 0 && (
+      <div className="bg-[#F8F9F4] dark:bg-[#1A2336] border border-[#1C1B18] dark:border-[#D6DCE5] rounded-2xl p-3.5 space-y-2 text-sm">
+        <div className="flex items-center gap-1.5 text-[12px] font-extrabold text-[#FF5A36] font-mono uppercase tracking-wide">
+          <Sparkles className="w-3.5 h-3.5 text-[#FF5A36]" />
+          Key highlights
         </div>
-        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[#1C1B18] dark:text-[#F8FAF9] font-extrabold">
+        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[#1C1B18] dark:text-[#F8FAF9] font-bold">
           {hackathon.suitableReasons.slice(0, 4).map((reason, idx) => (
-            <li key={idx} className="flex items-center gap-1.5 text-[11px]">
-              <CheckCircle2 className="w-3.5 h-3.5 text-[#059669] dark:text-[#34D399] shrink-0" />
+            <li key={idx} className="flex items-start gap-1.5 text-[12px] sm:text-[13px]">
+              <CheckCircle2 className="w-3.5 h-3.5 text-[#059669] dark:text-[#34D399] shrink-0 mt-0.5" />
               <span>{reason}</span>
             </li>
           ))}
         </ul>
       </div>
+      )}
 
       {/* Issue 2 Fix: Footer Countdown Text - 100% Crisp Visible Countdown */}
       <div className="pt-3 border-t border-[#D6D5CF] dark:border-slate-800 flex items-center justify-between gap-3 text-xs">
-        <div className="flex items-center gap-1.5 font-mono text-[#1C1B18] dark:text-[#F8FAF9] text-[11px] font-extrabold">
+        <div className="flex items-center gap-1.5 font-mono text-[#1C1B18] dark:text-[#F8FAF9] text-[12px] font-extrabold">
           <Clock className="w-4 h-4 text-[#FF5A36] shrink-0" />
           <span className="flex items-center gap-1">
             <span>Reg. closes in:</span>
@@ -233,7 +230,7 @@ export const HackathonCard: React.FC<HackathonCardProps> = ({
           {/* Compare Toggle */}
           <button
             onClick={() => onToggleCompare(hackathon)}
-            className={`px-3.5 py-1.5 rounded-full border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] text-[11px] font-extrabold transition-all ${
+            className={`px-3.5 py-1.5 rounded-full border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] text-[12px] font-extrabold transition-all ${
               isCompared
                 ? 'bg-[#1C1B18] text-white dark:bg-white dark:text-[#1C1B18]'
                 : 'bg-white dark:bg-[#1A2336] text-[#1C1B18] dark:text-white hover:bg-[#1C1B18] hover:text-white'
@@ -277,4 +274,4 @@ export const HackathonCard: React.FC<HackathonCardProps> = ({
 
     </div>
   );
-};
+});

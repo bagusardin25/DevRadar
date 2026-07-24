@@ -32,3 +32,26 @@ export {
   saveBookmarkIds,
   toggleId,
 } from './bookmarks';
+export {
+  createAlert,
+  unsubscribeAlert,
+  type AlertCreateInput,
+  type AlertCreateResponse,
+} from './alerts';
+export {
+  combinedSearch,
+  type CombinedSearchResponse,
+  type CombinedSearchResult,
+} from './search';
+export {
+  createSource,
+  fetchCrawlRuns,
+  fetchSources,
+  getSource,
+  retryCrawlRun,
+  updateSource,
+  type CrawlRun,
+  type Source,
+  type SourceCreateInput,
+  type SourceUpdateInput,
+} from './pipeline';

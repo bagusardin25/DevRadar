@@ -52,6 +52,18 @@ export interface VerificationAudit {
   pipelineStep: 'fetched' | 'parsed' | 'extracted' | 'verified';
 }
 
+/** Computed on API read — honest data-quality signals for cards. */
+export interface FieldCompleteness {
+  score: number; // 0–100
+  missing: string[];
+  flags: string[]; // closing_soon | prize_tba | weak_url | deadline_passed | no_expiry | expired
+  hasDeadline: boolean;
+  hasPrize: boolean;
+  hasStrongUrl: boolean;
+  hasEligibility: boolean;
+  hasDescription: boolean;
+}
+
 export interface Hackathon {
   id: string;
   title: string;
@@ -69,6 +81,8 @@ export interface Hackathon {
   teamMax: number;
   prizeValue: number;
   prizeCurrency: string;
+  /** Human-readable prize summary when numeric pool is 0 or incomplete (e.g. "TBA", "Free + credits"). */
+  prizeLabel?: string;
   technologies: string[];
   officialUrl: string;
   discoverySources: DiscoverySource[];
@@ -78,6 +92,7 @@ export interface Hackathon {
   suitableReasons: string[];
   effortEstimate: EffortEstimate;
   audit: VerificationAudit;
+  completeness?: FieldCompleteness;
   bookmarked?: boolean;
   alertEnabled?: boolean;
 }
@@ -104,6 +119,7 @@ export interface AIDeal {
   discoverySources: DiscoverySource[];
   suitableReasons: string[];
   audit: VerificationAudit;
+  completeness?: FieldCompleteness;
   bookmarked?: boolean;
   alertEnabled?: boolean;
 }
@@ -124,7 +140,7 @@ export interface UnverifiedSignal {
 
 export interface FilterState {
   searchQuery: string;
-  activeModule: 'hackathon' | 'ai_deal' | 'pipeline' | 'admin_queue';
+  activeModule: 'hackathon' | 'ai_deal' | 'pipeline' | 'admin_queue' | 'sources';
   mode: 'all' | 'online' | 'hybrid' | 'in_person';
   region: string;
   eligibility: string;

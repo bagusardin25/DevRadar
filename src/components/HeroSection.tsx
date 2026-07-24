@@ -176,7 +176,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
 
         {/* Presets / Filter Chips */}
         <div className="flex items-center justify-center gap-2 overflow-x-auto pt-2 pb-1 text-xs">
-          <span className="text-[#1C1B18] dark:text-[#F8FAF9] font-mono font-extrabold uppercase text-[11px] whitespace-nowrap mr-1">Presets:</span>
+          <span className="text-[#1C1B18] dark:text-[#F8FAF9] font-mono font-extrabold uppercase text-[12px] whitespace-nowrap mr-1">Presets:</span>
           {presetChips.map((chip, idx) => {
             const ChipIcon = chip.icon;
             return (

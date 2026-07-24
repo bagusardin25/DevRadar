@@ -2,6 +2,7 @@ import type {
   AIDeal,
   DiscoverySource,
   EffortEstimate,
+  FieldCompleteness,
   Hackathon,
   HackathonMode,
   OfferType,
@@ -118,6 +119,21 @@ function normalizeSource(raw: Record<string, unknown>): DiscoverySource {
   };
 }
 
+function normalizeCompleteness(raw: unknown): FieldCompleteness | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const c = raw as Record<string, unknown>;
+  return {
+    score: asNumber(c.score),
+    missing: asStringList(c.missing),
+    flags: asStringList(c.flags),
+    hasDeadline: Boolean(c.hasDeadline),
+    hasPrize: Boolean(c.hasPrize),
+    hasStrongUrl: Boolean(c.hasStrongUrl),
+    hasEligibility: Boolean(c.hasEligibility),
+    hasDescription: Boolean(c.hasDescription),
+  };
+}
+
 function normalizeAudit(raw: unknown, confidence: number, lastChecked: string): VerificationAudit {
   const a = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
   const sb = (a.scoreBreakdown && typeof a.scoreBreakdown === 'object'
@@ -172,6 +188,7 @@ export function normalizeHackathon(
     teamMax: asNumber(raw.teamMax, 1),
     prizeValue: asNumber(raw.prizeValue),
     prizeCurrency: asString(raw.prizeCurrency, 'USD'),
+    prizeLabel: asString(raw.prizeLabel, ''),
     technologies: asStringList(raw.technologies),
     officialUrl: asString(raw.officialUrl),
     discoverySources: sources,
@@ -181,6 +198,7 @@ export function normalizeHackathon(
     suitableReasons: asStringList(raw.suitableReasons),
     effortEstimate: asEffort(raw.effortEstimate),
     audit: normalizeAudit(raw.audit, confidence, lastChecked),
+    completeness: normalizeCompleteness(raw.completeness),
     bookmarked: flags?.bookmarked ?? false,
     alertEnabled: flags?.alertEnabled ?? false,
   };
@@ -220,6 +238,7 @@ export function normalizeAIDeal(
     discoverySources: sources,
     suitableReasons: asStringList(raw.suitableReasons),
     audit: normalizeAudit(raw.audit, confidence, lastChecked),
+    completeness: normalizeCompleteness(raw.completeness),
     bookmarked: flags?.bookmarked ?? false,
     alertEnabled: flags?.alertEnabled ?? false,
   };

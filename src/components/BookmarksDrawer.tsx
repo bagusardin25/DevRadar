@@ -1,5 +1,6 @@
 import React from 'react';
 import { X, Bookmark, ExternalLink, Trash2, Trophy, Gift } from 'lucide-react';
+import { formatPrizePool } from '../utils/formatPrize';
 import type { Hackathon, AIDeal } from '../types';
 
 interface BookmarksDrawerProps {
@@ -67,7 +68,9 @@ export const BookmarksDrawer: React.FC<BookmarksDrawerProps> = ({
                         <Trophy className="w-3.5 h-3.5 text-[#FF5A36] shrink-0" />
                         <span className="truncate">{h.title}</span>
                       </div>
-                      <div className="text-[11px] font-mono text-[#059669] font-extrabold">${h.prizeValue.toLocaleString()} USD</div>
+                      <div className="text-[11px] font-mono text-[#059669] font-extrabold">
+                        {formatPrizePool(h, { compact: true })}
+                      </div>
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">

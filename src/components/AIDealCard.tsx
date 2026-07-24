@@ -1,4 +1,4 @@
-import React from 'react';
+import { memo } from 'react';
 import { 
   ShieldCheck, 
   Gift, 
@@ -10,6 +10,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import type { AIDeal } from '../types';
+import { ListingBadges } from './ListingBadges';
 
 interface AIDealCardProps {
   deal: AIDeal;
@@ -19,12 +20,12 @@ interface AIDealCardProps {
   viewLayout?: 'grid' | 'compact';
 }
 
-export const AIDealCard: React.FC<AIDealCardProps> = ({
+export const AIDealCard = memo(function AIDealCard({
   deal,
   onSelect,
   onToggleBookmark,
   viewLayout = 'grid'
-}) => {
+}: AIDealCardProps) {
   const getOfferBadgeStyle = (type: string) => {
     switch (type) {
       case 'free_credits':
@@ -50,7 +51,7 @@ export const AIDealCard: React.FC<AIDealCardProps> = ({
           <div className="space-y-0.5">
             <div className="flex items-center gap-2">
               <span className="text-xs font-mono text-[#1C1B18] dark:text-[#D6DCE5] font-extrabold">{deal.provider}</span>
-              <span className={`px-2 py-0.2 rounded-full text-[10px] font-extrabold border ${getOfferBadgeStyle(deal.offerType)}`}>
+              <span className={`px-2 py-0.5 rounded-full text-[12px] font-extrabold border ${getOfferBadgeStyle(deal.offerType)}`}>
                 {deal.offerType.replace('_', ' ').toUpperCase()}
               </span>
             </div>
@@ -95,69 +96,71 @@ export const AIDealCard: React.FC<AIDealCardProps> = ({
   return (
     <div className="sharetopus-card p-6 rounded-[24px] bg-white dark:bg-[#131A29] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] shadow-[4px_4px_0_0_#1C1B18] dark:shadow-[4px_4px_0_0_#D6DCE5] hover:shadow-[6px_6px_0_0_#1C1B18] dark:hover:shadow-[6px_6px_0_0_#D6DCE5] flex flex-col justify-between gap-5 relative overflow-hidden transition-all duration-300">
       
-      {/* Top Provenance & Offer Type */}
+      {/* Status + completeness + offer type */}
       <div className="flex items-center justify-between gap-2 text-xs font-sans">
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Status Badge */}
-          <span className="px-3 py-1 rounded-full bg-[#059669]/15 text-[#059669] border border-[#059669] text-[11px] font-extrabold flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-[#059669]" />
-            Verified Active
-          </span>
+        <ListingBadges
+          status={deal.verificationStatus}
+          completeness={deal.completeness}
+          extra={[
+            {
+              key: 'offer_type',
+              label: deal.offerType.replace(/_/g, ' ').toUpperCase(),
+              tone: 'purple',
+            },
+          ]}
+        />
 
-          {/* Offer Type Pill */}
-          <span className={`px-3 py-1 rounded-full text-[11px] font-extrabold border ${getOfferBadgeStyle(deal.offerType)}`}>
-            {deal.offerType.replace('_', ' ').toUpperCase()}
-          </span>
-        </div>
-
-        {/* Confidence Score Gauge */}
-        <div className="flex items-center gap-1.5 font-mono text-[11px] bg-[#F3F4EF] dark:bg-[#1A2336] px-3 py-1 rounded-full border border-[#1C1B18] dark:border-[#D6DCE5] text-[#1C1B18] dark:text-[#F8FAF9] font-extrabold">
+        <div className="flex items-center gap-1.5 font-mono text-[12px] bg-[#F3F4EF] dark:bg-[#1A2336] px-3 py-1 rounded-full border border-[#1C1B18] dark:border-[#D6DCE5] text-[#1C1B18] dark:text-[#F8FAF9] font-extrabold shrink-0">
           <ShieldCheck className="w-3.5 h-3.5 text-[#1C1B18] dark:text-[#F8FAF9]" />
-          <span>{Math.round(deal.confidenceScore * 100)}% Match</span>
+          <span>{Math.round(deal.confidenceScore * 100)}%</span>
         </div>
       </div>
 
       {/* Main Info */}
       <div className="space-y-2">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <span className="text-xs text-[#1C1B18] dark:text-[#B8C4D2] font-extrabold uppercase tracking-wider">{deal.provider}</span>
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+          <div className="min-w-0">
+            <span className="text-[12px] text-[#1C1B18] dark:text-[#B8C4D2] font-extrabold uppercase tracking-wider">{deal.provider}</span>
             <h3 
               onClick={() => onSelect(deal)}
-              className="text-xl font-extrabold text-[#1C1B18] dark:text-white hover:text-[#FF5A36] cursor-pointer transition-colors line-clamp-1 tracking-tight"
+              className="text-lg sm:text-xl font-extrabold text-[#1C1B18] dark:text-white hover:text-[#FF5A36] cursor-pointer transition-colors line-clamp-2 sm:line-clamp-1 tracking-tight"
             >
               {deal.productName}
             </h3>
           </div>
 
           {/* Value Badge */}
-          <div className="text-right shrink-0 bg-[#F8F9F4] dark:bg-[#1A2336] p-2.5 rounded-2xl border border-[#1C1B18] dark:border-[#D6DCE5]">
-            <div className="text-[10px] text-[#1C1B18] dark:text-[#F8FAF9] font-mono font-extrabold tracking-wider">VALUE</div>
-            <div className="text-lg font-extrabold text-[#FF5A36] font-mono flex items-center gap-1 justify-end">
-              <Gift className="w-4 h-4 text-[#FF5A36]" />
-              <span>{deal.offerValue}</span>
+          <div className="text-left sm:text-right shrink-0 bg-[#F8F9F4] dark:bg-[#1A2336] p-2.5 rounded-2xl border border-[#1C1B18] dark:border-[#D6DCE5] w-full sm:w-auto max-w-full">
+            <div className="text-[12px] text-[#1C1B18] dark:text-[#F8FAF9] font-mono font-extrabold tracking-wider">VALUE</div>
+            <div className="text-sm sm:text-base font-extrabold text-[#FF5A36] font-mono flex items-start gap-1 sm:justify-end leading-tight">
+              <Gift className="w-4 h-4 text-[#FF5A36] shrink-0 mt-0.5" />
+              <span className="break-words">{deal.offerValue}</span>
             </div>
           </div>
         </div>
 
-        <p className="text-xs text-[#1C1B18] dark:text-[#D6DCE5] line-clamp-2 leading-relaxed font-bold">
+        <p className="text-[13px] sm:text-sm text-[#1C1B18] dark:text-[#D6DCE5] line-clamp-2 leading-relaxed font-bold">
           {deal.description}
         </p>
       </div>
 
-      {/* Value Proposition Box */}
-      <div className="bg-[#F8F9F4] dark:bg-[#1A2336] border border-[#1C1B18] dark:border-[#D6DCE5] rounded-2xl p-3.5 space-y-2 text-xs">
-        <div className="flex items-center justify-between text-[11px] font-extrabold text-[#FF5A36] font-mono">
+      {/* Key Highlights */}
+      <div className="bg-[#F8F9F4] dark:bg-[#1A2336] border border-[#1C1B18] dark:border-[#D6DCE5] rounded-2xl p-3.5 space-y-2 text-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-[12px] font-extrabold text-[#FF5A36] font-mono uppercase tracking-wide">
           <span className="flex items-center gap-1.5">
             <CreditCard className="w-3.5 h-3.5 text-[#FF5A36]" />
-            DEAL IMPACT:
+            Key highlights
           </span>
-          <span className="text-[#1C1B18] dark:text-[#B8C4D2] font-sans font-bold">Target: {deal.targetUsers.join(', ')}</span>
+          <span className="text-[#1C1B18] dark:text-[#B8C4D2] font-sans font-bold normal-case tracking-normal">
+            For: {deal.targetUsers.join(', ')}
+          </span>
         </div>
-        <ul className="space-y-1 text-[#1C1B18] dark:text-[#E8ECF1] font-extrabold">
-          {deal.requirements.map((req, idx) => (
-            <li key={idx} className="flex items-center gap-1.5 text-[11px]">
-              <CheckCircle2 className="w-3.5 h-3.5 text-[#059669] shrink-0" />
+        <ul className="space-y-1 text-[#1C1B18] dark:text-[#E8ECF1] font-bold">
+          {(deal.suitableReasons.length > 0 ? deal.suitableReasons : deal.requirements)
+            .slice(0, 4)
+            .map((req, idx) => (
+            <li key={idx} className="flex items-start gap-1.5 text-[12px] sm:text-[13px]">
+              <CheckCircle2 className="w-3.5 h-3.5 text-[#059669] shrink-0 mt-0.5" />
               <span>{req}</span>
             </li>
           ))}
@@ -165,7 +168,7 @@ export const AIDealCard: React.FC<AIDealCardProps> = ({
       </div>
 
       {/* Tags */}
-      <div className="flex items-center gap-1.5 flex-wrap text-[11px] font-mono">
+      <div className="flex items-center gap-1.5 flex-wrap text-[12px] font-mono">
         {deal.tags.map((tag, i) => (
           <span key={i} className="px-3 py-1 rounded-full bg-[#F3F4EF] dark:bg-[#1A2336] border border-[#1C1B18] dark:border-[#D6DCE5] text-[#1C1B18] dark:text-white font-extrabold">
             #{tag}
@@ -174,8 +177,8 @@ export const AIDealCard: React.FC<AIDealCardProps> = ({
       </div>
 
       {/* Footer & Action Buttons */}
-      <div className="pt-3 border-t border-[#D6D5CF] dark:border-slate-800 flex items-center justify-between gap-3 text-xs">
-        <div className="text-[11px] font-mono text-[#1C1B18] dark:text-[#D6DCE5] font-extrabold flex items-center gap-1">
+      <div className="pt-3 border-t border-[#D6D5CF] dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+        <div className="text-[12px] font-mono text-[#1C1B18] dark:text-[#D6DCE5] font-extrabold flex items-center gap-1">
           <Clock className="w-3.5 h-3.5 text-[#FF5A36]" />
           <span>Checked {new Date(deal.lastCheckedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
         </div>
@@ -217,4 +220,4 @@ export const AIDealCard: React.FC<AIDealCardProps> = ({
 
     </div>
   );
-};
+});

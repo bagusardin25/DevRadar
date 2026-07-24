@@ -10,6 +10,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import type { Hackathon, AIDeal } from '../types';
+import { formatPrizePool } from '../utils/formatPrize';
 
 interface DetailModalProps {
   item: Hackathon | AIDeal | null;
@@ -26,62 +27,67 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
   const deal = !isHackathon ? (item as AIDeal) : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md overflow-y-auto font-sans">
-      <div className="sharetopus-card w-full max-w-4xl rounded-[28px] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] shadow-[8px_8px_0_0_#1C1B18] dark:shadow-[8px_8px_0_0_#D6DCE5] overflow-hidden my-8 animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/65 overflow-y-auto font-sans">
+      <div className="sharetopus-card w-full max-w-4xl rounded-t-[28px] sm:rounded-[28px] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] shadow-[8px_8px_0_0_#1C1B18] dark:shadow-[8px_8px_0_0_#D6DCE5] overflow-hidden my-0 sm:my-8 max-h-[95vh] flex flex-col">
         
         {/* Modal Header */}
-        <div className="flex items-center justify-between p-6 border-b border-[#D6D5CF] dark:border-slate-800 bg-[#F8F9F4] dark:bg-[#1A2336]">
-          <div className="flex items-center gap-3">
-            <div className={`p-3 rounded-2xl border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] ${isHackathon ? 'bg-[#FF5A36]/15 text-[#FF5A36]' : 'bg-[#7C3AED]/15 text-[#7C3AED]'}`}>
-              {isHackathon ? <Trophy className="w-6 h-6" /> : <Sparkles className="w-6 h-6" />}
+        <div className="flex items-start sm:items-center justify-between gap-3 p-4 sm:p-6 border-b border-[#D6D5CF] dark:border-slate-800 bg-[#F8F9F4] dark:bg-[#1A2336] shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className={`p-2.5 sm:p-3 rounded-2xl border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] shrink-0 ${isHackathon ? 'bg-[#FF5A36]/15 text-[#FF5A36]' : 'bg-[#7C3AED]/15 text-[#7C3AED]'}`}>
+              {isHackathon ? <Trophy className="w-5 h-5 sm:w-6 sm:h-6" /> : <Sparkles className="w-5 h-5 sm:w-6 sm:h-6" />}
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-mono font-extrabold text-[#1C1B18] dark:text-[#D6DCE5]">{isHackathon ? hackathon?.organizer : deal?.provider}</span>
-                <span className="px-2.5 py-0.5 rounded-full bg-[#059669]/15 text-[#059669] border border-[#059669] text-[10px] font-extrabold">VERIFIED LISTING</span>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[12px] font-mono font-extrabold text-[#1C1B18] dark:text-[#D6DCE5]">{isHackathon ? hackathon?.organizer : deal?.provider}</span>
+                <span className="px-2.5 py-0.5 rounded-full bg-[#059669]/15 text-[#059669] border border-[#059669] text-[12px] font-extrabold">
+                  {item.verificationStatus.replace(/_/g, ' ').toUpperCase()}
+                </span>
               </div>
-              <h2 className="text-xl font-extrabold text-[#1C1B18] dark:text-white tracking-tight">{isHackathon ? hackathon?.title : deal?.productName}</h2>
+              <h2 className="text-lg sm:text-xl font-extrabold text-[#1C1B18] dark:text-white tracking-tight leading-snug">
+                {isHackathon ? hackathon?.title : deal?.productName}
+              </h2>
             </div>
           </div>
 
           <button 
             onClick={onClose}
-            className="p-2 rounded-full border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] text-[#1C1B18] dark:text-white hover:bg-[#FF5A36] hover:text-white transition-all font-bold"
+            className="p-2 rounded-full border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] text-[#1C1B18] dark:text-white hover:bg-[#FF5A36] hover:text-white transition-all font-bold shrink-0"
+            aria-label="Close"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-4 px-6 border-b border-[#D6D5CF] dark:border-slate-800 bg-[#F3F4EF] dark:bg-[#131A29] text-xs font-mono font-extrabold">
+        <div className="flex items-center gap-1 sm:gap-4 px-3 sm:px-6 border-b border-[#D6D5CF] dark:border-slate-800 bg-[#F3F4EF] dark:bg-[#131A29] text-[12px] sm:text-sm font-mono font-extrabold overflow-x-auto no-scrollbar shrink-0">
           <button
             onClick={() => setActiveTab('overview')}
-            className={`py-3.5 border-b-2 font-extrabold transition-all ${
+            className={`py-3 sm:py-3.5 border-b-2 font-extrabold transition-all whitespace-nowrap px-1 ${
               activeTab === 'overview' ? 'border-[#FF5A36] text-[#FF5A36]' : 'border-transparent text-[#1C1B18] dark:text-[#B8C4D2] hover:text-[#FF5A36]'
             }`}
           >
-            1. Overview & Requirements
+            Overview
           </button>
           <button
             onClick={() => setActiveTab('audit')}
-            className={`py-3.5 border-b-2 font-extrabold transition-all ${
+            className={`py-3 sm:py-3.5 border-b-2 font-extrabold transition-all whitespace-nowrap px-1 ${
               activeTab === 'audit' ? 'border-[#FF5A36] text-[#FF5A36]' : 'border-transparent text-[#1C1B18] dark:text-[#B8C4D2] hover:text-[#FF5A36]'
             }`}
           >
-            2. Provenance Scorecard ({Math.round(item.confidenceScore * 100)}%)
+            Provenance
           </button>
           <button
             onClick={() => setActiveTab('json')}
-            className={`py-3.5 border-b-2 font-extrabold transition-all ${
+            className={`py-3 sm:py-3.5 border-b-2 font-extrabold transition-all whitespace-nowrap px-1 ${
               activeTab === 'json' ? 'border-[#FF5A36] text-[#FF5A36]' : 'border-transparent text-[#1C1B18] dark:text-[#B8C4D2] hover:text-[#FF5A36]'
             }`}
           >
-            3. Normalized JSON
+            Raw JSON
           </button>
         </div>
 
         {/* Modal Body Content */}
-        <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto text-[#1C1B18] dark:text-white font-bold">
+        <div className="p-4 sm:p-6 space-y-6 overflow-y-auto text-[#1C1B18] dark:text-white font-bold flex-1">
           
           {/* TAB 1: OVERVIEW */}
           {activeTab === 'overview' && (
@@ -90,30 +96,39 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
               {/* Summary Stats Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono">
                 <div className="sharetopus-card p-3.5 rounded-2xl bg-[#F8F9F4] dark:bg-[#1A2336] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5]">
-                  <div className="text-[11px] text-[#1C1B18] dark:text-[#B8C4D2] font-extrabold">VALUE / REWARD</div>
-                  <div className="text-lg font-extrabold text-[#059669]">
-                    {isHackathon ? `$${hackathon?.prizeValue.toLocaleString()} USD` : deal?.offerValue}
+                  <div className="text-[12px] text-[#1C1B18] dark:text-[#B8C4D2] font-extrabold">VALUE / REWARD</div>
+                  <div className="text-base sm:text-lg font-extrabold text-[#059669] leading-snug break-words">
+                    {isHackathon && hackathon
+                      ? formatPrizePool(hackathon)
+                      : !isHackathon
+                        ? deal?.offerValue
+                        : '—'}
                   </div>
                 </div>
 
                 <div className="sharetopus-card p-3.5 rounded-2xl bg-[#F8F9F4] dark:bg-[#1A2336] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5]">
-                  <div className="text-[11px] text-[#1C1B18] dark:text-[#B8C4D2] font-extrabold">PARTICIPATION MODE</div>
+                  <div className="text-[12px] text-[#1C1B18] dark:text-[#B8C4D2] font-extrabold">MODE / TYPE</div>
                   <div className="text-sm font-extrabold text-[#FF5A36]">
-                    {isHackathon ? hackathon?.mode.toUpperCase() : deal?.offerType.toUpperCase()}
+                    {isHackathon ? hackathon?.mode.toUpperCase() : deal?.offerType.replace(/_/g, ' ').toUpperCase()}
                   </div>
                 </div>
 
                 <div className="sharetopus-card p-3.5 rounded-2xl bg-[#F8F9F4] dark:bg-[#1A2336] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5]">
-                  <div className="text-[11px] text-[#1C1B18] dark:text-[#B8C4D2] font-extrabold">CONFIDENCE SCORE</div>
+                  <div className="text-[12px] text-[#1C1B18] dark:text-[#B8C4D2] font-extrabold">CONFIDENCE</div>
                   <div className="text-sm font-extrabold text-[#7C3AED]">
-                    {Math.round(item.confidenceScore * 100)}% Verified
+                    {Math.round(item.confidenceScore * 100)}%
                   </div>
                 </div>
 
                 <div className="sharetopus-card p-3.5 rounded-2xl bg-[#F8F9F4] dark:bg-[#1A2336] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5]">
-                  <div className="text-[11px] text-[#1C1B18] dark:text-[#B8C4D2] font-extrabold">LAST CHECKED</div>
-                  <div className="text-xs font-extrabold text-[#1C1B18] dark:text-white">
-                    {new Date(item.lastCheckedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  <div className="text-[12px] text-[#1C1B18] dark:text-[#B8C4D2] font-extrabold">LAST CHECKED</div>
+                  <div className="text-[12px] sm:text-sm font-extrabold text-[#1C1B18] dark:text-white">
+                    {new Date(item.lastCheckedAt).toLocaleString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
                   </div>
                 </div>
               </div>
@@ -121,24 +136,26 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
               {/* Description */}
               <div className="space-y-2">
                 <h4 className="font-extrabold text-[#1C1B18] dark:text-white text-base">Description</h4>
-                <p className="text-[#1C1B18] dark:text-[#D6DCE5] leading-relaxed font-bold">{item.description}</p>
+                <p className="text-[13px] sm:text-sm text-[#1C1B18] dark:text-[#D6DCE5] leading-relaxed font-bold">{item.description}</p>
               </div>
 
-              {/* Suitable For You Because (AI Matcher) */}
+              {/* Key Highlights — not personalized matching */}
+              {item.suitableReasons.length > 0 && (
               <div className="sharetopus-card p-4 rounded-2xl border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-[#F8F9F4] dark:bg-[#1A2336] space-y-2">
-                <div className="flex items-center gap-2 font-extrabold text-[#FF5A36] text-xs font-mono">
+                <div className="flex items-center gap-2 font-extrabold text-[#FF5A36] text-[12px] font-mono uppercase tracking-wide">
                   <Sparkles className="w-4 h-4 text-[#FF5A36]" />
-                  <span>SUITABLE FOR YOU BECAUSE (AUTOMATED MATCH REASONING):</span>
+                  <span>Key highlights</span>
                 </div>
-                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-[#1C1B18] dark:text-[#E8ECF1] font-extrabold">
+                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[13px] text-[#1C1B18] dark:text-[#E8ECF1] font-bold">
                   {item.suitableReasons.map((reason, idx) => (
-                    <li key={idx} className="flex items-center gap-2">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-[#059669] shrink-0" />
+                    <li key={idx} className="flex items-start gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-[#059669] shrink-0 mt-0.5" />
                       <span>{reason}</span>
                     </li>
                   ))}
                 </ul>
               </div>
+              )}
 
               {/* Specific Metadata for Hackathon */}
               {isHackathon && (
@@ -184,20 +201,23 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
             </div>
           )}
 
-          {/* TAB 2: AUDIT & PROVENANCE SCORECARD */}
+          {/* TAB 2: PROVENANCE (technical — secondary) */}
           {activeTab === 'audit' && (
-            <div className="space-y-6 text-xs font-sans">
+            <div className="space-y-6 text-sm font-sans">
+              <p className="text-[13px] text-[#4A4845] dark:text-[#B8C4D2] font-bold">
+                Optional technical detail for operators. Most users can stay on Overview.
+              </p>
               
               {/* Scorecard Visualizer */}
               <div className="sharetopus-card p-5 rounded-2xl border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-[#F8F9F4] dark:bg-[#1A2336] space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <h4 className="font-extrabold text-[#1C1B18] dark:text-white text-base">Deterministic Confidence Scorecard</h4>
-                    <p className="text-[#1C1B18] dark:text-[#B8C4D2] text-xs font-bold">Weighted formula score calculated by DevRadar Verification Engine</p>
+                    <h4 className="font-extrabold text-[#1C1B18] dark:text-white text-base">Verification scorecard</h4>
+                    <p className="text-[#1C1B18] dark:text-[#B8C4D2] text-[12px] sm:text-sm font-bold">How we weighted status, keywords, source tier, freshness, and completeness</p>
                   </div>
-                  <div className="text-right font-mono">
-                    <div className="text-2xl font-extrabold text-[#FF5A36]">{Math.round(item.confidenceScore * 100)} / 100</div>
-                    <div className="text-[10px] text-[#1C1B18] dark:text-[#B8C4D2] font-extrabold">HIGH CONFIDENCE</div>
+                  <div className="text-left sm:text-right font-mono">
+                    <div className="text-2xl font-extrabold text-[#FF5A36]">{Math.round(item.confidenceScore * 100)}%</div>
+                    <div className="text-[12px] text-[#1C1B18] dark:text-[#B8C4D2] font-extrabold">CONFIDENCE</div>
                   </div>
                 </div>
 
@@ -260,15 +280,15 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
                   {item.discoverySources.map((source, i) => (
                     <div key={i} className="flex items-center justify-between p-3.5 rounded-2xl bg-white dark:bg-[#131A29] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5]">
                       <div className="flex items-center gap-3">
-                        <span className="px-3 py-1 rounded-full bg-[#F3F4EF] dark:bg-[#1A2336] border border-[#1C1B18] dark:border-[#D6DCE5] text-[#1C1B18] dark:text-white text-[11px] font-extrabold">
+                        <span className="px-3 py-1 rounded-full bg-[#F3F4EF] dark:bg-[#1A2336] border border-[#1C1B18] dark:border-[#D6DCE5] text-[#1C1B18] dark:text-white text-[12px] font-extrabold">
                           {source.tier}
                         </span>
-                        <div>
-                          <div className="font-extrabold text-[#1C1B18] dark:text-white flex items-center gap-2">
+                        <div className="min-w-0">
+                          <div className="font-extrabold text-[#1C1B18] dark:text-white flex items-center gap-2 flex-wrap">
                             <span>{source.type.toUpperCase()}</span>
-                            {source.author && <span className="text-[#1C1B18] dark:text-[#B8C4D2] font-mono text-[11px]">{source.author}</span>}
+                            {source.author && <span className="text-[#1C1B18] dark:text-[#B8C4D2] font-mono text-[12px]">{source.author}</span>}
                           </div>
-                          <div className="text-[11px] font-mono text-[#1C1B18] dark:text-[#B8C4D2] font-bold truncate max-w-md">{source.url}</div>
+                          <div className="text-[12px] font-mono text-[#1C1B18] dark:text-[#B8C4D2] font-bold truncate max-w-[min(100%,20rem)]">{source.url}</div>
                         </div>
                       </div>
 

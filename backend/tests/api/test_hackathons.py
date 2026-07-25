@@ -240,8 +240,11 @@ class TestHackathonDetail:
         assert body["verificationStatus"] == "verified_active"
         assert "discoverySources" in body
         assert len(body["discoverySources"]) >= 1
-        assert body["audit"]["verifierNotes"]
         assert body["audit"]["scoreBreakdown"]["statusAndDeadline"] >= 0
+        # Internal operator notes and social-post identity never ship publicly.
+        assert "verifierNotes" not in body["audit"]
+        assert all("author" not in s for s in body["discoverySources"])
+        assert all("postId" not in s for s in body["discoverySources"])
         assert "ETag" in response.headers
 
         await db_session.delete(listing)

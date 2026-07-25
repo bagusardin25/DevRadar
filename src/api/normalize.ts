@@ -112,8 +112,7 @@ function normalizeSource(raw: Record<string, unknown>): DiscoverySource {
       ? type
       : 'official_site',
     url: asString(raw.url),
-    author: raw.author != null ? asString(raw.author) : undefined,
-    postId: raw.postId != null ? asString(raw.postId) : undefined,
+    // Poster identity is dropped here too, so a stale API still cannot surface it.
     fetchedAt: asIso(raw.fetchedAt, new Date(0).toISOString()),
     tier: asTier(raw.tier),
   };
@@ -150,7 +149,6 @@ function normalizeAudit(raw: unknown, confidence: number, lastChecked: string): 
       freshness: asNumber(sb.freshness),
       completeness: asNumber(sb.completeness),
     },
-    verifierNotes: asString(a.verifierNotes),
     checkedUrls: asStringList(a.checkedUrls),
     pipelineStep:
       step === 'fetched' || step === 'parsed' || step === 'extracted' || step === 'verified'

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
@@ -112,6 +113,27 @@ async def _sources_by_id(
     return {row.id: row for row in result.scalars().all()}
 
 
+_X_STATUS_WITH_HANDLE = re.compile(
+    r"^https?://(?:www\.)?(?:x|twitter|fxtwitter|vxtwitter)\.com/"
+    r"(?!i/web/status/)([^/?#]+)/status(?:es)?/(\d+)",
+    re.IGNORECASE,
+)
+
+
+def _anonymize_social_url(url: str) -> str:
+    """Rewrite `x.com/<handle>/status/<id>` to the handle-free canonical form.
+
+    Dropping the `author` field from the response is pointless if the very next
+    field spells the handle out in a URL path. The `i/web/status/<id>` form
+    resolves to the same post, so provenance survives. Non-matching URLs — and
+    URLs already in canonical form — pass through untouched.
+    """
+    match = _X_STATUS_WITH_HANDLE.match(url)
+    if match is None:
+        return url
+    return f"https://x.com/i/web/status/{match.group(2)}"
+
+
 def _build_discovery_sources(
     listing_sources: list[ListingSource],
     sources: dict[UUID, Source],
@@ -130,9 +152,7 @@ def _build_discovery_sources(
         items.append(
             DiscoverySourcePublic(
                 type=_map_discovery_type(connector),
-                url=ls.source_url,
-                author=None,
-                post_id=None,
+                url=_anonymize_social_url(ls.source_url),
                 fetched_at=ls.last_observed_at,
                 tier=TIER_LABELS.get(tier_raw, "Tier 2 (Aggregator)"),
             )
@@ -143,7 +163,7 @@ def _build_discovery_sources(
 def _build_audit(listing: Listing) -> VerificationAuditPublic:
     events = list(listing.verification_events or [])
     latest: VerificationEvent | None = events[-1] if events else None
-    notes = latest.notes if latest and latest.notes else ""
+    # `latest.notes` stays server-side — see VerificationAuditPublic.
     checked = list(latest.checked_urls) if latest else []
     breakdown_raw = (
         latest.score_breakdown if latest and latest.score_breakdown else listing.score_breakdown
@@ -152,7 +172,6 @@ def _build_audit(listing: Listing) -> VerificationAuditPublic:
         last_checked_at=listing.last_checked_at,
         confidence_score=_as_decimal(listing.confidence_score),
         score_breakdown=_score_breakdown(breakdown_raw),
-        verifier_notes=notes,
         checked_urls=checked,
         pipeline_step="verified",
     )

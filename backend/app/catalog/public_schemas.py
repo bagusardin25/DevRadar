@@ -32,19 +32,31 @@ class ScoreBreakdownPublic(CamelModel):
 
 
 class DiscoverySourcePublic(CamelModel):
+    """Where a listing was spotted — deliberately without who posted it.
+
+    Tier-3 signals come from social posts, but re-publishing the account handle
+    and post id would republish a third party's identity on a page they never
+    opted into. The source type and tier carry the trust signal on their own.
+    """
+
     type: DiscoverySourceType
     url: str
-    author: str | None = None
-    post_id: str | None = None
     fetched_at: datetime
     tier: str
 
 
 class VerificationAuditPublic(CamelModel):
+    """Why we believe a listing is real.
+
+    `verifier_notes` is intentionally absent: operator notes are written for
+    internal review and can name reviewers, internal tooling, or half-finished
+    reasoning. The score breakdown and checked URLs are the parts a visitor can
+    actually act on. Full notes stay in the admin review queue.
+    """
+
     last_checked_at: datetime | None = None
     confidence_score: Decimal = Field(ge=0, le=1, default=Decimal("0"))
     score_breakdown: ScoreBreakdownPublic = Field(default_factory=ScoreBreakdownPublic)
-    verifier_notes: str = ""
     checked_urls: list[str] = Field(default_factory=list)
     pipeline_step: PipelineStep = "verified"
 

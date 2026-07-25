@@ -38,8 +38,6 @@ export const MOCK_HACKATHONS: Hackathon[] = [
       {
         type: 'x',
         url: 'https://x.com/anthropic/status/18920192830',
-        author: '@AnthropicAI',
-        postId: '18920192830',
         fetchedAt: '2026-07-23T10:00:00Z',
         tier: 'Tier 3 (Discovery Signal)'
       }
@@ -65,7 +63,6 @@ export const MOCK_HACKATHONS: Hackathon[] = [
         freshness: 14,
         completeness: 4
       },
-      verifierNotes: 'Verified against Tier 1 official terms and Devpost aggregator. Deadlines matched cleanly across official blog post and rules page.',
       checkedUrls: [
         'https://anthropic.com/hackathon-2026',
         'https://devpost.com/hackathons/global-ai-agents-2026'
@@ -102,8 +99,6 @@ export const MOCK_HACKATHONS: Hackathon[] = [
       {
         type: 'x',
         url: 'https://x.com/huggingface/status/18933211029',
-        author: '@huggingface',
-        postId: '18933211029',
         fetchedAt: '2026-07-22T08:12:00Z',
         tier: 'Tier 3 (Discovery Signal)'
       }
@@ -128,7 +123,6 @@ export const MOCK_HACKATHONS: Hackathon[] = [
         freshness: 12,
         completeness: 5
       },
-      verifierNotes: 'Verified via Hugging Face official event directory. Registration link leads to Modal Labs sign-up page with valid SSL and active dates.',
       checkedUrls: [
         'https://huggingface.co/events/infra-hack-2026'
       ],
@@ -179,7 +173,6 @@ export const MOCK_HACKATHONS: Hackathon[] = [
         freshness: 14,
         completeness: 5
       },
-      verifierNotes: 'Verified MLH official calendar event.',
       checkedUrls: ['https://mlh.io/seasons/2026/events/student-innovation'],
       pipelineStep: 'verified'
     }
@@ -228,7 +221,6 @@ export const MOCK_HACKATHONS: Hackathon[] = [
         freshness: 11,
         completeness: 4
       },
-      verifierNotes: 'Official post verified, pending secondary aggregator cross-reference.',
       checkedUrls: ['https://jetbrains.com/challenge/code-refactor-2026'],
       pipelineStep: 'verified'
     }
@@ -264,8 +256,6 @@ export const MOCK_AI_DEALS: AIDeal[] = [
       {
         type: 'x',
         url: 'https://x.com/AnthropicAI/status/18944109283',
-        author: '@AnthropicAI',
-        postId: '18944109283',
         fetchedAt: '2026-07-23T09:00:00Z',
         tier: 'Tier 3 (Discovery Signal)'
       }
@@ -286,7 +276,6 @@ export const MOCK_AI_DEALS: AIDeal[] = [
         freshness: 13,
         completeness: 4
       },
-      verifierNotes: 'HTTP 200 on terms page. Promo code endpoint validated dynamically via HTTP HEAD headers.',
       checkedUrls: ['https://console.anthropic.com/settings/credits'],
       pipelineStep: 'verified'
     },
@@ -334,7 +323,6 @@ export const MOCK_AI_DEALS: AIDeal[] = [
         freshness: 14,
         completeness: 5
       },
-      verifierNotes: 'Official pricing table verified. Free tier limits confirmed active.',
       checkedUrls: ['https://vercel.com/pricing'],
       pipelineStep: 'verified'
     }
@@ -380,7 +368,6 @@ export const MOCK_AI_DEALS: AIDeal[] = [
         freshness: 14,
         completeness: 5
       },
-      verifierNotes: 'Verified official GitHub Education pack URL.',
       checkedUrls: ['https://education.github.com/pack'],
       pipelineStep: 'verified'
     }
@@ -413,8 +400,6 @@ export const MOCK_AI_DEALS: AIDeal[] = [
       {
         type: 'x',
         url: 'https://x.com/deepseek_ai/status/1895019284',
-        author: '@deepseek_ai',
-        postId: '1895019284',
         fetchedAt: '2026-07-23T11:00:00Z',
         tier: 'Tier 3 (Discovery Signal)'
       }
@@ -434,7 +419,6 @@ export const MOCK_AI_DEALS: AIDeal[] = [
         freshness: 13,
         completeness: 5
       },
-      verifierNotes: 'Verified pricing table update on official site.',
       checkedUrls: ['https://platform.deepseek.com/api-docs/pricing'],
       pipelineStep: 'verified'
     }

@@ -62,7 +62,6 @@ def test_hackathon_public_camel_case_keys() -> None:
                 freshness=12,
                 completeness=5,
             ),
-            verifier_notes="ok",
             checked_urls=["https://example.com"],
             pipeline_step="verified",
         ),

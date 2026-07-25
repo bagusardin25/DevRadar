@@ -28,11 +28,10 @@ export type EffortEstimate =
   | '2-3 Weeks'
   | '1 Month+';
 
+/** Where a listing was spotted. Deliberately carries no poster identity. */
 export interface DiscoverySource {
   type: 'x' | 'devpost' | 'mlh' | 'official_site' | 'reddit' | 'github';
   url: string;
-  author?: string;
-  postId?: string;
   fetchedAt: string;
   tier: SourceTier;
 }
@@ -47,7 +46,6 @@ export interface VerificationAudit {
     freshness: number;         // max 15
     completeness: number;      // max 5
   };
-  verifierNotes: string;
   checkedUrls: string[];
   pipelineStep: 'fetched' | 'parsed' | 'extracted' | 'verified';
 }

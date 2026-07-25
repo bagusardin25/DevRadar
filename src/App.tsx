@@ -25,6 +25,7 @@ import {
   fetchHackathons,
   fetchReviewItems,
   loadAlertIds,
+  describeDiscoveryResult,
   loadBookmarkIds,
   parseShareIdsFromSearch,
   rejectReviewItem,
@@ -462,13 +463,16 @@ export function App() {
     try {
       const receipt = await startLiveDiscovery({
         query: q,
-        connectors: ['devpost', 'mlh', 'hackerearth'],
+        module: filters.activeModule === 'ai_deal' ? 'ai_offer' : 'hackathon',
         resultCap: 10,
       });
       setLiveDiscoveryMessage(receipt.message || `Discovery started (${receipt.status})`);
-      await waitForDiscovery(receipt.id, { timeoutMs: 45_000 });
-      await loadCatalogue();
-      setLiveDiscoveryMessage('Live discovery finished — catalogue refreshed.');
+      const result = await waitForDiscovery(receipt.id, { timeoutMs: 45_000 });
+      // Only claim a refresh when the run actually published something.
+      if (result.published > 0) {
+        await loadCatalogue();
+      }
+      setLiveDiscoveryMessage(describeDiscoveryResult(result));
     } catch (err) {
       const message =
         err instanceof ApiError
@@ -986,8 +990,10 @@ export function App() {
             </span>
             <span>MIT · no end-user login · bookmarks stay in your browser</span>
           </div>
-          <div className="text-center sm:text-right opacity-90">
-            Listings are community/operator-verified · always check official rules
+          <div className="text-center sm:text-right opacity-90 max-w-xl">
+            DevRadar is an independent index and is not affiliated with any organiser or
+            vendor listed. Listings are community/operator-verified and can go stale —
+            always confirm on the official page before registering or paying.
           </div>
         </div>
       </footer>

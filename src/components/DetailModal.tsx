@@ -19,8 +19,11 @@ import {
   Lightbulb,
   Rocket,
   Workflow,
+  Flag,
+  AlertTriangle,
 } from 'lucide-react';
 import type { Hackathon, AIDeal } from '../types';
+import { buildReportIssueUrl } from '../utils/reportIssue';
 import { formatPrizePool } from '../utils/formatPrize';
 import { getDeadlineInfo } from '../utils/countdown';
 import {
@@ -58,6 +61,11 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
 
   const promptText = useMemo(
     () => (item ? generateAIPrompt(item) : ''),
+    [item],
+  );
+
+  const reportUrl = useMemo(
+    () => (item ? buildReportIssueUrl(item) : null),
     [item],
   );
 
@@ -408,9 +416,6 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
                   </div>
                 </div>
 
-                <div className="p-3.5 bg-white dark:bg-[#131A29] rounded-xl text-[#1C1B18] dark:text-[#E8ECF1] text-xs border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] font-bold">
-                  <strong className="text-[#FF5A36] font-mono font-extrabold">Verifier Notes:</strong> {item.audit.verifierNotes}
-                </div>
               </div>
 
               {/* Provenance Tree */}
@@ -430,7 +435,6 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
                         <div className="min-w-0">
                           <div className="font-extrabold text-[#1C1B18] dark:text-white flex items-center gap-2 flex-wrap">
                             <span>{source.type.toUpperCase()}</span>
-                            {source.author && <span className="text-[#1C1B18] dark:text-[#B8C4D2] font-mono text-[12px]">{source.author}</span>}
                           </div>
                           <div className="text-[12px] font-mono text-[#1C1B18] dark:text-[#B8C4D2] font-bold truncate max-w-[min(100%,20rem)]">{source.url}</div>
                         </div>
@@ -558,16 +562,41 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
         </div>
 
         {/* Modal Footer */}
-        <div className="p-4 px-6 border-t border-[#D6D5CF] dark:border-slate-800 bg-[#F8F9F4] dark:bg-[#1A2336] flex items-center justify-between text-xs font-bold">
-          <div className="text-[#1C1B18] dark:text-[#B8C4D2] font-mono truncate max-w-md font-bold">
-            Official URL: <a href={isHackathon ? hackathon?.officialUrl : deal?.officialTermsUrl} target="_blank" rel="noreferrer" className="text-[#FF5A36] hover:underline font-extrabold">{isHackathon ? hackathon?.officialUrl : deal?.officialTermsUrl}</a>
+        <div className="border-t border-[#D6D5CF] dark:border-slate-800 bg-[#F8F9F4] dark:bg-[#1A2336]">
+          {/* DevRadar is an index, not the organiser — say so at the point of action. */}
+          <div className="px-6 pt-3 flex items-start gap-2 text-[11px] font-bold text-[#736F66] dark:text-[#94A3B8]">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px text-[#D97706]" />
+            <p>
+              DevRadar is not affiliated with this organiser. Details can change after we last
+              checked — confirm on the official page before you register or share payment details.
+            </p>
           </div>
-          <button
-            onClick={onClose}
-            className="btn-sharetopus-secondary text-xs py-1.5 px-4 font-extrabold"
-          >
-            Close
-          </button>
+
+          <div className="p-4 px-6 flex items-center justify-between gap-4 text-xs font-bold">
+            <div className="text-[#1C1B18] dark:text-[#B8C4D2] font-mono truncate font-bold">
+              Official URL: <a href={isHackathon ? hackathon?.officialUrl : deal?.officialTermsUrl} target="_blank" rel="noreferrer" className="text-[#FF5A36] hover:underline font-extrabold">{isHackathon ? hackathon?.officialUrl : deal?.officialTermsUrl}</a>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {reportUrl && (
+                <a
+                  href={reportUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Report a dead link or wrong information"
+                  className="flex items-center gap-1.5 text-[#736F66] dark:text-[#94A3B8] hover:text-[#D97706] py-1.5 px-3 font-extrabold"
+                >
+                  <Flag className="w-3.5 h-3.5" />
+                  <span>Report issue</span>
+                </a>
+              )}
+              <button
+                onClick={onClose}
+                className="btn-sharetopus-secondary text-xs py-1.5 px-4 font-extrabold"
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
 
       </div>

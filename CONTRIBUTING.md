@@ -88,6 +88,22 @@ npm run dev
 
 If the UI shows **Backend Offline**, Docker or the API is not up.
 
+### 3. Background worker (optional)
+
+Only needed for jobs that run outside a request: **Live Web Discovery**,
+scheduled catalogue rechecks, and alert scans. Browsing the catalogue works
+without it.
+
+```powershell
+# Terminal C — Celery worker
+cd backend
+uv run celery -A app.worker.celery_app worker -Q fetch -l info --pool=solo
+```
+
+`--pool=solo` is required on Windows (Celery's default `prefork` pool is
+POSIX-only). Without a worker running, a live discovery run stays `queued` and
+the UI will tell you so.
+
 Env knobs: `backend/.env.example` → copy is already made by bootstrap as `backend/.env` (never commit `.env`).
 
 ---
@@ -106,6 +122,22 @@ npm run lint
 ```
 
 CI runs the same class of checks on pull requests (frontend build/lint + backend pytest with services).
+
+### The test database
+
+`pytest` does **not** use your development database. It creates and migrates a
+separate `devradar_test` database on first run, so your seeded catalogue is never
+touched — some tests commit rows, and the migration round-trip test drops the
+whole schema. Override the target with `TEST_DATABASE_URL` if needed.
+
+If your catalogue ever does come back empty, re-seed it (both scripts are
+idempotent):
+
+```bash
+cd backend
+uv run python scripts/seed_x_mcp_collection.py   # demo catalogue
+uv run python scripts/seed_default_sources.py    # aggregator sources
+```
 
 ---
 

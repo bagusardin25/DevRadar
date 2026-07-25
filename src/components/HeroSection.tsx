@@ -60,7 +60,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         {/* Top Eyebrow Badge */}
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-extrabold border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] text-[#1C1B18] dark:text-[#F8FAF9] shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5]">
           <span className="size-2.5 rounded-full bg-[#FF5A36]"></span>
-          <span>Multi-Source Provenance Pipeline (X → Official Sites → Verifier)</span>
+          <span>Provenance pipeline (Official sites → Extractor → Verifier)</span>
         </div>
 
         {/* Sharetopus Headline */}
@@ -102,7 +102,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               }`}
             >
               <Globe className={`w-3.5 h-3.5 ${isSearchingLive ? 'animate-spin' : ''}`} />
-              <span>{isSearchingLive ? 'Scanning X & Web...' : 'Live Web Discovery'}</span>
+              <span>{isSearchingLive ? 'Scanning sources…' : 'Live Web Discovery'}</span>
             </button>
           </div>
         </div>
@@ -156,25 +156,25 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                   className="btn-sharetopus-primary text-xs py-3 px-5 font-extrabold"
                 >
                   <RefreshCw className={`w-4 h-4 ${isSearchingLive ? 'animate-spin' : ''}`} />
-                  <span>Run Pipeline</span>
+                  <span>Run discovery</span>
                 </button>
               )}
             </div>
           </div>
         </div>
 
-        {/* Live Discovery Pipeline Banner */}
+        {/* Live Discovery Banner — describes only what the run actually does. */}
         {isSearchingLive && (
           <div className="sharetopus-card p-4 rounded-[20px] bg-[#FFF1EE] border-[#FF5A36] text-left max-w-3xl mx-auto space-y-2">
             <div className="flex items-center justify-between text-xs font-bold text-[#FF5A36]">
               <span className="flex items-center gap-2">
                 <RefreshCw className="w-4 h-4 animate-spin" />
-                Executing 9-Step Data Ingestion Pipeline...
+                Fetching configured sources…
               </span>
-              <span className="font-mono font-bold">Checking 24 Tier-1 Official URLs</span>
+              <span className="font-mono font-bold">Results appear below when done</span>
             </div>
             <p className="text-xs text-[#1C1B18] dark:text-[#D6DCE5] font-mono font-bold">
-              X Search Candidate Posts → Headless Browser Fetch → Rule Parser → LLM Extractor → Verifier Engine
+              Seed URLs &amp; RSS feeds → Fetch → Parse → Extract → Verify
             </p>
           </div>
         )}

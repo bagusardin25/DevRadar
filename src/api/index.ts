@@ -11,9 +11,11 @@ export {
 } from './catalog';
 export { createSubmission, type SubmissionReceipt } from './submissions';
 export {
+  describeDiscoveryResult,
   getDiscoveryRun,
   startLiveDiscovery,
   waitForDiscovery,
+  type DiscoveryStatus,
 } from './discovery';
 export {
   adminLogout,

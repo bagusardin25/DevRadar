@@ -18,7 +18,12 @@ celery_app = Celery(
     "devradar",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=["app.ingestion.tasks", "app.catalog.tasks", "app.alerts.tasks"],
+    include=[
+        "app.ingestion.tasks",
+        "app.catalog.tasks",
+        "app.alerts.tasks",
+        "app.discovery.tasks",
+    ],
 )
 
 celery_app.conf.update(
@@ -39,12 +44,15 @@ celery_app.conf.update(
         "catalog.recheck_official_urls": {"queue": "fetch"},
         "alerts.scan_matches": {"queue": "fetch"},
         "alerts.deliver_webhook": {"queue": "fetch"},
+        "discovery.run_live_discovery": {"queue": "fetch"},
     },
     # Browser queue should run in a separate worker process with restricted env.
     task_annotations={
         "ingestion.browser_fetch": {"rate_limit": "10/m"},
         "catalog.recheck_official_urls": {"rate_limit": "30/h"},
         "alerts.scan_matches": {"rate_limit": "30/h"},
+        # User-triggered, but still a safety valve on top of the per-IP limit.
+        "discovery.run_live_discovery": {"rate_limit": "20/m"},
     },
     # Optional beat schedule (enable with celery beat).
     beat_schedule={

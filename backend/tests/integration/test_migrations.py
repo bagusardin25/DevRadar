@@ -5,7 +5,9 @@ from __future__ import annotations
 import subprocess
 import sys
 from pathlib import Path
+from urllib.parse import urlsplit
 
+import pytest
 from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -15,6 +17,16 @@ from app.config import Settings
 from app.db import Base, create_engine
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _targets_disposable_database() -> bool:
+    """True only when DATABASE_URL points at a throwaway `*_test` database.
+
+    tests/conftest.py redirects the suite there. If that redirect is ever
+    bypassed, the round-trip test below must not drop a real catalogue.
+    """
+    name = urlsplit(Settings().database_url).path.lstrip("/")
+    return name.endswith("_test")
 
 
 async def _table_names(engine: AsyncEngine) -> set[str]:
@@ -124,6 +136,13 @@ class TestSchemaPresence:
 
 
 class TestMigrationRoundTrip:
+    @pytest.mark.skipif(
+        not _targets_disposable_database(),
+        reason=(
+            "`alembic downgrade base` DROPS every table. Refusing to run "
+            "because DATABASE_URL does not point at a `*_test` database."
+        ),
+    )
     def test_downgrade_and_upgrade(self) -> None:
         """Downgrade to base then upgrade head; schema remains usable."""
         env = None

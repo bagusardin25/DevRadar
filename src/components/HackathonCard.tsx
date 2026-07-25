@@ -1,16 +1,19 @@
 import React, { memo } from 'react';
-import { 
-  Trophy, 
-  ShieldCheck, 
-  Bookmark, 
-  Clock, 
+import {
+  Trophy,
+  ShieldCheck,
+  Bookmark,
+  Clock,
   ArrowUpRight,
   Sparkles,
   CheckCircle2,
-  Download
+  Download,
+  Calendar,
 } from 'lucide-react';
 import type { Hackathon } from '../types';
 import { formatPrizePool } from '../utils/formatPrize';
+import { getDeadlineInfo } from '../utils/countdown';
+import { downloadICS, buildGoogleCalendarUrl, hackathonRegDeadlineEvent } from '../utils/calendar';
 import { ListingBadges } from './ListingBadges';
 
 interface HackathonCardProps {
@@ -31,15 +34,9 @@ export const HackathonCard = memo(function HackathonCard({
   isCompared,
   viewLayout = 'grid'
 }: HackathonCardProps) {
-  // Calculate remaining registration days accurately
+  // D1: Urgency-aware deadline info
   const deadlineRaw = hackathon.registrationDeadline || hackathon.submissionDeadline;
-  const deadlineDate = deadlineRaw ? new Date(deadlineRaw) : null;
-  const now = new Date();
-  const diffTime =
-    deadlineDate && !Number.isNaN(deadlineDate.getTime())
-      ? deadlineDate.getTime() - now.getTime()
-      : 0;
-  const daysLeft = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+  const deadlineInfo = getDeadlineInfo(deadlineRaw);
 
   const primarySource = hackathon.discoverySources[0];
 
@@ -79,10 +76,12 @@ export const HackathonCard = memo(function HackathonCard({
             <div className="flex items-center gap-3 text-xs font-mono text-[#1C1B18] dark:text-[#F8FAF9] font-extrabold">
               <span className="text-[#059669] dark:text-[#34D399] font-extrabold">{formatPrizePool(hackathon, { compact: true })}</span>
               <span>•</span>
-              <span className="flex items-center gap-1 text-[#1C1B18] dark:text-[#F8FAF9]">
-                <span>Reg closes in:</span>
-                <strong className="text-[#FF5A36] dark:text-[#D6DCE5] font-extrabold">{daysLeft} days</strong>
-              </span>
+              {deadlineInfo && (
+                <span className={`urgency-badge urgency-${deadlineInfo.urgency}`}>
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>{deadlineInfo.shortLabel}</span>
+                </span>
+              )}
               <span>•</span>
               <span className="text-[#1C1B18] dark:text-[#F8FAF9] font-bold">{hackathon.technologies.slice(0, 3).join(', ')}</span>
             </div>
@@ -214,14 +213,39 @@ export const HackathonCard = memo(function HackathonCard({
       </div>
       )}
 
-      {/* Issue 2 Fix: Footer Countdown Text - 100% Crisp Visible Countdown */}
+      {/* D1: Urgency countdown badge + D3/D4: Calendar buttons */}
       <div className="pt-3 border-t border-[#D6D5CF] dark:border-slate-800 flex items-center justify-between gap-3 text-xs">
-        <div className="flex items-center gap-1.5 font-mono text-[#1C1B18] dark:text-[#F8FAF9] text-[12px] font-extrabold">
-          <Clock className="w-4 h-4 text-[#FF5A36] shrink-0" />
-          <span className="flex items-center gap-1">
-            <span>Reg. closes in:</span>
-            <strong className="text-[#FF5A36] dark:text-[#D6DCE5] font-extrabold text-xs">{daysLeft} days</strong>
-          </span>
+        <div className="flex items-center gap-2">
+          {deadlineInfo && (
+            <span className={`urgency-badge urgency-${deadlineInfo.urgency}`}>
+              <Clock className="w-3.5 h-3.5" />
+              {deadlineInfo.label}
+            </span>
+          )}
+          {/* D3 & D4: Calendar export buttons (only when still open) */}
+          {deadlineInfo && deadlineInfo.urgency !== 'closed' && (
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); downloadICS([hackathonRegDeadlineEvent(hackathon)]); }}
+                className="btn-calendar btn-calendar-ics"
+                title="Download .ics calendar file"
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                <span>.ics</span>
+              </button>
+              <a
+                href={buildGoogleCalendarUrl(hackathonRegDeadlineEvent(hackathon))}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="btn-calendar btn-calendar-google"
+                title="Add to Google Calendar"
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                <span>GCal</span>
+              </a>
+            </>
+          )}
         </div>
 
         {/* Action Buttons */}

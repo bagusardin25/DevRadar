@@ -17,6 +17,7 @@ import {
   Brain
 } from 'lucide-react';
 import type { FilterState } from '../types';
+import { countActiveFilters } from '../utils/countdown';
 
 interface HeroSectionProps {
   filters: FilterState;
@@ -34,6 +35,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   isSearchingLive
 }) => {
   const [showFilters, setShowFilters] = useState(false);
+  const activeFilterCount = countActiveFilters(filters);
 
   const presetChips = filters.activeModule === 'hackathon' ? [
     { label: 'All Hackathons', icon: Flame, apply: () => setFilters(f => ({ ...f, searchQuery: '', mode: 'all', verificationStatus: '' })) },
@@ -142,6 +144,9 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               >
                 <Filter className="w-4 h-4" />
                 <span>Filters</span>
+                {activeFilterCount > 0 && (
+                  <span className="filter-counter">{activeFilterCount}</span>
+                )}
               </button>
 
               {filters.searchExecutionMode === 'live_discovery' && (
@@ -196,7 +201,12 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         {showFilters && (
           <div className="sharetopus-card p-6 rounded-[24px] bg-white dark:bg-[#131A29] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] text-left max-w-3xl mx-auto space-y-4 animate-in fade-in duration-200">
             <div className="flex items-center justify-between border-b border-[#D6D5CF] dark:border-slate-800 pb-3">
-              <span className="font-extrabold text-sm text-[#1C1B18] dark:text-white">Advanced Filter Criteria</span>
+              <span className="font-extrabold text-sm text-[#1C1B18] dark:text-white">
+                Advanced Filter Criteria
+                {activeFilterCount > 0 && (
+                  <span className="ml-2 filter-counter">{activeFilterCount}</span>
+                )}
+              </span>
               <button 
                 onClick={() => setFilters(f => ({
                   ...f,
@@ -312,6 +322,9 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         <div className="flex items-center justify-between text-xs text-[#1C1B18] dark:text-[#F8FAF9] pt-2 font-mono max-w-3xl mx-auto font-extrabold">
           <div>
             Showing <strong className="text-[#FF5A36] dark:text-[#D6DCE5] text-sm font-extrabold mx-1">{totalResults}</strong> verified opportunities
+            {activeFilterCount > 0 && (
+              <span className="ml-1 text-[#FF5A36]">· {activeFilterCount} filter{activeFilterCount > 1 ? 's' : ''} active</span>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#059669]" /> Tier 1 Verified</span>

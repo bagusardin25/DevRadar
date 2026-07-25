@@ -73,6 +73,12 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+/* Select & Option dark mode contrast fix */
+select option {
+  background-color: var(--bg-card);
+  color: var(--ink-primary);
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 12px;
@@ -312,6 +318,118 @@ html.tab-hidden .animate-marquee {
   background: rgba(16, 185, 129, 0.15);
   color: #10B981;
   border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+/* Urgency Badges — Countdown deadline indicators (Wave D) */
+.urgency-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 12px;
+  border-radius: 9999px;
+  font-weight: 700;
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.urgency-critical {
+  background: rgba(239, 68, 68, 0.12);
+  color: #EF4444;
+  border: 1.5px solid rgba(239, 68, 68, 0.35);
+  animation: urgency-pulse 2s ease-in-out infinite;
+}
+
+.urgency-warning {
+  background: rgba(245, 158, 11, 0.12);
+  color: #F59E0B;
+  border: 1.5px solid rgba(245, 158, 11, 0.35);
+}
+
+.urgency-normal {
+  background: rgba(16, 185, 129, 0.10);
+  color: #10B981;
+  border: 1.5px solid rgba(16, 185, 129, 0.30);
+}
+
+.urgency-closed {
+  background: rgba(156, 163, 175, 0.10);
+  color: #9CA3AF;
+  border: 1.5px solid rgba(156, 163, 175, 0.25);
+  text-decoration: line-through;
+}
+
+@keyframes urgency-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.75; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .urgency-critical {
+    animation: none;
+  }
+}
+
+/* Calendar Action Buttons — Add to Calendar (Wave D) */
+.btn-calendar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-weight: 700;
+  font-size: 0.75rem;
+  font-family: var(--font-display);
+  cursor: pointer;
+  border: 1.5px solid var(--border-dark);
+  box-shadow: var(--shadow-neo-sm);
+  transition: all 0.15s ease-out;
+  text-decoration: none;
+  color: var(--ink-primary);
+  background: var(--bg-card);
+}
+
+.btn-calendar:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-neo);
+  background: var(--accent-orange);
+  color: #fff;
+  border-color: var(--border-dark);
+}
+
+.btn-calendar:active {
+  transform: translate(2px, 2px) !important;
+  box-shadow: 0px 0px 0 0 transparent !important;
+}
+
+.btn-calendar-google {
+  background: var(--bg-card);
+  color: var(--ink-primary);
+}
+
+.btn-calendar-ics {
+  background: var(--bg-card-alt);
+  color: var(--ink-secondary);
+}
+
+/* Filter counter badge — overlaps filter button (Wave D) */
+.filter-counter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 9999px;
+  font-weight: 800;
+  font-size: 0.65rem;
+  font-family: var(--font-mono);
+  background: var(--accent-orange);
+  color: #fff;
+  border: 1.5px solid var(--border-dark);
+  box-shadow: var(--shadow-neo-sm);
+  line-height: 1;
 }
 
 /* Primary Button — Action button for dark-themed views */

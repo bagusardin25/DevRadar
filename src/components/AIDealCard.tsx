@@ -7,9 +7,11 @@ import {
   Clock, 
   CreditCard,
   ArrowUpRight,
-  CheckCircle2
+  CheckCircle2,
+  RefreshCw
 } from 'lucide-react';
 import type { AIDeal } from '../types';
+import { getDeadlineInfo } from '../utils/countdown';
 import { ListingBadges } from './ListingBadges';
 
 interface AIDealCardProps {
@@ -26,6 +28,9 @@ export const AIDealCard = memo(function AIDealCard({
   onToggleBookmark,
   viewLayout = 'grid'
 }: AIDealCardProps) {
+  // D1: Urgency countdown for deals with expiry
+  const deadlineInfo = deal.expiresAt ? getDeadlineInfo(deal.expiresAt, 'Expired') : null;
+
   const getOfferBadgeStyle = (type: string) => {
     switch (type) {
       case 'free_credits':
@@ -178,9 +183,22 @@ export const AIDealCard = memo(function AIDealCard({
 
       {/* Footer & Action Buttons */}
       <div className="pt-3 border-t border-[#D6D5CF] dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-        <div className="text-[12px] font-mono text-[#1C1B18] dark:text-[#D6DCE5] font-extrabold flex items-center gap-1">
-          <Clock className="w-3.5 h-3.5 text-[#FF5A36]" />
-          <span>Checked {new Date(deal.lastCheckedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+        <div className="flex items-center gap-2">
+          {deadlineInfo ? (
+            <span className={`urgency-badge urgency-${deadlineInfo.urgency}`}>
+              <Clock className="w-3.5 h-3.5" />
+              <span>{deadlineInfo.shortLabel}</span>
+            </span>
+          ) : (
+            <span className="urgency-badge urgency-normal">
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Ongoing</span>
+            </span>
+          )}
+          <span className="text-[12px] font-mono text-[#1C1B18] dark:text-[#D6DCE5] font-extrabold flex items-center gap-1">
+            <Clock className="w-3.5 h-3.5 text-[#FF5A36]" />
+            Checked {new Date(deal.lastCheckedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </span>
         </div>
 
         <div className="flex items-center gap-2">

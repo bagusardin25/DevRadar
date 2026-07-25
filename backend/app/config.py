@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     fetch_max_redirects: int = 5
 
     # Security
+    # Number of proxies in front of the app. 0 ignores X-Forwarded-For (correct
+    # when directly exposed); set to 1 behind a single load balancer. Trusting
+    # the header without this makes IP rate limits trivially bypassable.
+    trusted_proxy_hops: int = 0
     session_secret: str = "replace-with-at-least-32-random-bytes"
     email_encryption_key: str = "replace-with-a-valid-key"
     email_hmac_key: str = "replace-with-at-least-32-random-bytes"

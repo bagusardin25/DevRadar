@@ -6,6 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Header, Request, Response, status
 
+from app.api.client_ip import client_ip
 from app.api.dependencies import SubmissionSvc
 from app.submissions.schemas import (
     SubmissionCreateRequest,
@@ -15,15 +16,6 @@ from app.submissions.schemas import (
 from app.submissions.service import AbuseContext
 
 router = APIRouter(prefix="/submissions", tags=["Submissions"])
-
-
-def _client_ip(request: Request) -> str:
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    if request.client and request.client.host:
-        return request.client.host
-    return "0.0.0.0"
 
 
 @router.post(
@@ -39,7 +31,7 @@ async def create_submission(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> SubmissionReceipt:
     abuse = AbuseContext(
-        ip_address=_client_ip(request),
+        ip_address=client_ip(request, request.app.state.settings.trusted_proxy_hops),
         user_agent=request.headers.get("user-agent"),
         idempotency_key=idempotency_key,
     )

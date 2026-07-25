@@ -48,3 +48,17 @@ async def unsubscribe_alert(
     service = AlertService(session, settings)
     await service.unsubscribe(token)
     return {"status": "unsubscribed"}
+
+
+@router.get("/unsubscribe")
+async def unsubscribe_alert_get(
+    request: Request,
+    session: DbSession,
+    token: str = Query(...),
+) -> RedirectResponse:
+    """One-click unsubscribe from email links (GET + redirect to frontend)."""
+    settings: Settings = request.app.state.settings
+    service = AlertService(session, settings)
+    await service.unsubscribe(token)
+    frontend = settings.frontend_url.rstrip("/")
+    return RedirectResponse(url=f"{frontend}/?alert=unsubscribed", status_code=302)

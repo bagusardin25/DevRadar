@@ -52,9 +52,22 @@ class Settings(BaseSettings):
     github_client_secret: str = ""
     admin_github_ids: Annotated[list[str], NoDecode] = []
 
-    # Email
+    # Email (console | resend | smtp)
     email_provider: str = "console"
     email_from: str = "alerts@example.test"
+    resend_api_key: str = ""
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_tls: bool = True
+
+    # Operator outbound webhook (optional — Discord/n8n/etc.)
+    # When set, scan_matches POSTs JSON for newly published matching listings.
+    webhook_url: str = ""
+    webhook_secret: str = ""  # optional HMAC-SHA256 in X-DevRadar-Signature
+    # Optional JSON object of alert filters, e.g. {"kind":"hackathon","onlyClosingSoon":true}
+    webhook_filter_json: str = ""
 
     # LLM (structured extraction only — not OpenAI web_search)
     # LLM_PROVIDER=openai | disabled

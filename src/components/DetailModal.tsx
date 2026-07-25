@@ -1,30 +1,113 @@
-import React, { useState } from 'react';
-import { 
-  X, 
-  ExternalLink, 
-  Calendar, 
-  Trophy, 
-  Users, 
-  Layers, 
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import {
+  X,
+  ExternalLink,
+  Calendar,
+  Clock,
+  Trophy,
+  Users,
+  Layers,
   Sparkles,
-  CheckCircle2
+  CheckCircle2,
+  Copy,
+  Check,
+  Bot,
+  Terminal,
+  ChevronDown,
+  ChevronRight,
+  FileText,
+  Lightbulb,
+  Rocket,
+  Workflow,
 } from 'lucide-react';
 import type { Hackathon, AIDeal } from '../types';
 import { formatPrizePool } from '../utils/formatPrize';
+import { getDeadlineInfo } from '../utils/countdown';
+import {
+  downloadICS,
+  buildGoogleCalendarUrl,
+  hackathonRegDeadlineEvent,
+  hackathonSubDeadlineEvent,
+} from '../utils/calendar';
+import { generateAIPrompt } from '../utils/aiPrompt';
 
 interface DetailModalProps {
   item: Hackathon | AIDeal | null;
   onClose: () => void;
 }
 
+type DetailTab = 'overview' | 'audit' | 'prompt';
+
 export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'audit' | 'json'>('overview');
+  const [activeTab, setActiveTab] = useState<DetailTab>('overview');
+  const [copiedPrompt, setCopiedPrompt] = useState(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
+  const [showRawJson, setShowRawJson] = useState(false);
+
+  // Reset tab-local UI when switching listings
+  useEffect(() => {
+    setActiveTab('overview');
+    setCopiedPrompt(false);
+    setCopyError(null);
+    setShowRawJson(false);
+  }, [item?.id]);
+
+  const isHackathon = item ? 'prizeValue' in item : false;
+  const hackathon = item && isHackathon ? (item as Hackathon) : null;
+  const deal = item && !isHackathon ? (item as AIDeal) : null;
+
+  const promptText = useMemo(
+    () => (item ? generateAIPrompt(item) : ''),
+    [item],
+  );
+
+  const handleCopyPrompt = useCallback(async () => {
+    if (!promptText) return;
+    setCopyError(null);
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(promptText);
+      } else {
+        // Fallback for older browsers / non-secure contexts
+        const ta = document.createElement('textarea');
+        ta.value = promptText;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      setCopiedPrompt(true);
+      window.setTimeout(() => setCopiedPrompt(false), 2000);
+    } catch {
+      setCopyError('Could not copy — select the text manually.');
+    }
+  }, [promptText]);
 
   if (!item) return null;
 
-  const isHackathon = 'prizeValue' in item;
-  const hackathon = isHackathon ? (item as Hackathon) : null;
-  const deal = !isHackathon ? (item as AIDeal) : null;
+  // D1: Compute urgency info for deadlines
+  const regDeadlineInfo = hackathon ? getDeadlineInfo(hackathon.registrationDeadline) : null;
+  const subDeadlineInfo = hackathon
+    ? getDeadlineInfo(hackathon.submissionDeadline, 'Submission closed')
+    : null;
+  const dealExpiresInfo = deal?.expiresAt ? getDeadlineInfo(deal.expiresAt, 'Expired') : null;
+
+  const tabBtn = (tab: DetailTab, label: React.ReactNode) => (
+    <button
+      type="button"
+      onClick={() => setActiveTab(tab)}
+      className={`py-3 sm:py-3.5 border-b-2 font-extrabold transition-all whitespace-nowrap px-1 flex items-center gap-1.5 ${
+        activeTab === tab
+          ? 'border-[#FF5A36] text-[#FF5A36]'
+          : 'border-transparent text-[#1C1B18] dark:text-[#B8C4D2] hover:text-[#FF5A36]'
+      }`}
+    >
+      {label}
+    </button>
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/65 overflow-y-auto font-sans">
@@ -42,6 +125,12 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
                 <span className="px-2.5 py-0.5 rounded-full bg-[#059669]/15 text-[#059669] border border-[#059669] text-[12px] font-extrabold">
                   {item.verificationStatus.replace(/_/g, ' ').toUpperCase()}
                 </span>
+                {dealExpiresInfo && (
+                  <span className={`urgency-badge urgency-${dealExpiresInfo.urgency}`}>
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>{dealExpiresInfo.label}</span>
+                  </span>
+                )}
               </div>
               <h2 className="text-lg sm:text-xl font-extrabold text-[#1C1B18] dark:text-white tracking-tight leading-snug">
                 {isHackathon ? hackathon?.title : deal?.productName}
@@ -58,32 +147,20 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
           </button>
         </div>
 
-        {/* Tab Navigation */}
+        {/* Tab Navigation: Overview · Provenance · AI Agent Prompt (Raw JSON is accordion inside Prompt) */}
         <div className="flex items-center gap-1 sm:gap-4 px-3 sm:px-6 border-b border-[#D6D5CF] dark:border-slate-800 bg-[#F3F4EF] dark:bg-[#131A29] text-[12px] sm:text-sm font-mono font-extrabold overflow-x-auto no-scrollbar shrink-0">
-          <button
-            onClick={() => setActiveTab('overview')}
-            className={`py-3 sm:py-3.5 border-b-2 font-extrabold transition-all whitespace-nowrap px-1 ${
-              activeTab === 'overview' ? 'border-[#FF5A36] text-[#FF5A36]' : 'border-transparent text-[#1C1B18] dark:text-[#B8C4D2] hover:text-[#FF5A36]'
-            }`}
-          >
-            Overview
-          </button>
-          <button
-            onClick={() => setActiveTab('audit')}
-            className={`py-3 sm:py-3.5 border-b-2 font-extrabold transition-all whitespace-nowrap px-1 ${
-              activeTab === 'audit' ? 'border-[#FF5A36] text-[#FF5A36]' : 'border-transparent text-[#1C1B18] dark:text-[#B8C4D2] hover:text-[#FF5A36]'
-            }`}
-          >
-            Provenance
-          </button>
-          <button
-            onClick={() => setActiveTab('json')}
-            className={`py-3 sm:py-3.5 border-b-2 font-extrabold transition-all whitespace-nowrap px-1 ${
-              activeTab === 'json' ? 'border-[#FF5A36] text-[#FF5A36]' : 'border-transparent text-[#1C1B18] dark:text-[#B8C4D2] hover:text-[#FF5A36]'
-            }`}
-          >
-            Raw JSON
-          </button>
+          {tabBtn('overview', 'Overview')}
+          {tabBtn('audit', 'Provenance')}
+          {tabBtn(
+            'prompt',
+            <>
+              <Bot className="w-3.5 h-3.5 text-[#FF5A36]" />
+              <span>AI Agent Prompt</span>
+              <span className="px-1.5 py-0.5 rounded-full bg-[#FF5A36]/15 text-[#FF5A36] text-[10px] font-mono font-extrabold border border-[#FF5A36]">
+                NEW
+              </span>
+            </>,
+          )}
         </div>
 
         {/* Modal Body Content */}
@@ -115,7 +192,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
 
                 <div className="sharetopus-card p-3.5 rounded-2xl bg-[#F8F9F4] dark:bg-[#1A2336] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5]">
                   <div className="text-[12px] text-[#1C1B18] dark:text-[#B8C4D2] font-extrabold">CONFIDENCE</div>
-                  <div className="text-sm font-extrabold text-[#7C3AED]">
+                  <div className="text-sm font-extrabold text-[#7C3AED] dark:text-[#C4B5FD]">
                     {Math.round(item.confidenceScore * 100)}%
                   </div>
                 </div>
@@ -165,10 +242,77 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
                       <Calendar className="w-4 h-4 text-[#0284C7]" />
                       Key Dates & Deadlines
                     </h5>
-                    <div className="space-y-1 text-[#1C1B18] dark:text-[#D6DCE5] font-bold">
+                    <div className="space-y-2 text-[#1C1B18] dark:text-[#D6DCE5] font-bold">
                       <div>Registration Opens: <strong className="text-[#1C1B18] dark:text-white font-extrabold">{new Date(hackathon!.registrationOpenAt).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}</strong></div>
-                      <div>Registration Deadline: <strong className="text-[#059669] font-extrabold">{new Date(hackathon!.registrationDeadline).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}</strong></div>
-                      <div>Submission Deadline: <strong className="text-[#FF5A36] font-extrabold">{new Date(hackathon!.submissionDeadline).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}</strong></div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span>Registration Deadline:</span>
+                        <strong className="text-[#059669] dark:text-[#34D399] font-extrabold">{new Date(hackathon!.registrationDeadline).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}</strong>
+                        {regDeadlineInfo && (
+                          <span className={`urgency-badge urgency-${regDeadlineInfo.urgency}`}>
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>{regDeadlineInfo.label}</span>
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span>Submission Deadline:</span>
+                        <strong className="text-[#FF5A36] dark:text-[#FF7A5C] font-extrabold">{new Date(hackathon!.submissionDeadline).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}</strong>
+                        {subDeadlineInfo && (
+                          <span className={`urgency-badge urgency-${subDeadlineInfo.urgency}`}>
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>{subDeadlineInfo.label}</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* D3 & D4: Calendar export buttons */}
+                    <div className="pt-3 mt-2 border-t border-[#D6D5CF] dark:border-slate-700 space-y-2">
+                      <div className="text-[11px] font-mono font-extrabold text-[#1C1B18] dark:text-[#B8C4D2] uppercase tracking-wide flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-[#0284C7]" />
+                        <span>Add to Calendar</span>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          onClick={() => downloadICS([hackathonRegDeadlineEvent(hackathon!)])}
+                          className="btn-calendar btn-calendar-ics"
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          <span>.ics (Reg)</span>
+                        </button>
+                        <button
+                          onClick={() => downloadICS([hackathonSubDeadlineEvent(hackathon!)])}
+                          className="btn-calendar btn-calendar-ics"
+                        >
+                          <Rocket className="w-3.5 h-3.5" />
+                          <span>.ics (Submit)</span>
+                        </button>
+                        <button
+                          onClick={() => downloadICS([hackathonRegDeadlineEvent(hackathon!), hackathonSubDeadlineEvent(hackathon!)])}
+                          className="btn-calendar btn-calendar-ics"
+                        >
+                          <Calendar className="w-3.5 h-3.5" />
+                          <span>.ics (All)</span>
+                        </button>
+                        <a
+                          href={buildGoogleCalendarUrl(hackathonRegDeadlineEvent(hackathon!))}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn-calendar btn-calendar-google"
+                        >
+                          <Calendar className="w-3.5 h-3.5" />
+                          <span>GCal (Reg)</span>
+                        </a>
+                        <a
+                          href={buildGoogleCalendarUrl(hackathonSubDeadlineEvent(hackathon!))}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn-calendar btn-calendar-google"
+                        >
+                          <Rocket className="w-3.5 h-3.5" />
+                          <span>GCal (Submit)</span>
+                        </a>
+                      </div>
                     </div>
                   </div>
 
@@ -309,16 +453,105 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
             </div>
           )}
 
-          {/* TAB 3: NORMALIZED JSON SCHEMA */}
-          {activeTab === 'json' && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-xs font-mono font-extrabold text-[#1C1B18] dark:text-[#D6DCE5]">
-                <span>Normalized Database Record (PostgreSQL target)</span>
-                <span>Type: {isHackathon ? 'hackathon' : 'ai_offer'}</span>
+          {/* TAB 3: AI AGENT BRAINSTORM & EXECUTION PROMPT */}
+          {activeTab === 'prompt' && (
+            <div className="space-y-4">
+              <div className="sharetopus-card p-4 rounded-2xl bg-[#F8F9F4] dark:bg-[#1A2336] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-1 min-w-0">
+                  <div className="flex items-center gap-2 font-extrabold text-[#1C1B18] dark:text-white text-sm">
+                    <Bot className="w-4 h-4 text-[#FF5A36] shrink-0" />
+                    <span>AI Brainstorm & Execution Prompt</span>
+                  </div>
+                  <p className="text-[12px] text-[#4A4845] dark:text-[#B8C4D2] font-bold leading-relaxed">
+                    Auto-generated plan prompt: brief details, 3 project ideas, architecture, MVP
+                    timeline, and demo/pitch tips. Paste into Cursor, Claude, ChatGPT, or Antigravity.
+                  </p>
+                  {copyError && (
+                    <p className="text-[11px] font-extrabold text-red-600 dark:text-red-400">{copyError}</p>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => void handleCopyPrompt()}
+                  className="btn-sharetopus-primary text-xs py-2.5 px-4 font-extrabold shrink-0 flex items-center justify-center gap-1.5 w-full sm:w-auto"
+                  aria-label="Copy AI prompt to clipboard"
+                >
+                  {copiedPrompt ? (
+                    <>
+                      <Check className="w-4 h-4" />
+                      <span>Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" />
+                      <span>Copy AI Prompt</span>
+                    </>
+                  )}
+                </button>
               </div>
-              <pre className="p-4 rounded-2xl bg-[#090C15] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] text-[#34D399] font-mono text-xs overflow-x-auto font-bold">
-                {JSON.stringify(item, null, 2)}
-              </pre>
+
+              {/* What the prompt asks the agent to produce */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] font-mono font-extrabold">
+                {[
+                  { icon: <FileText className="w-3.5 h-3.5 text-[#0284C7] shrink-0" />, label: 'Brief details' },
+                  { icon: <Lightbulb className="w-3.5 h-3.5 text-[#FF5A36] shrink-0" />, label: '3 project ideas' },
+                  { icon: <Workflow className="w-3.5 h-3.5 text-[#7C3AED] shrink-0" />, label: 'Architecture' },
+                  { icon: <Calendar className="w-3.5 h-3.5 text-[#059669] shrink-0" />, label: 'MVP timeline' },
+                ].map((chip) => (
+                  <div
+                    key={chip.label}
+                    className="sharetopus-card px-2.5 py-2 rounded-xl border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#090C15] flex items-center justify-center gap-1.5 text-[#1C1B18] dark:text-[#D6DCE5]"
+                  >
+                    {chip.icon}
+                    <span>{chip.label}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Prompt preview */}
+              <div className="relative">
+                <pre
+                  className="p-4 sm:p-5 rounded-2xl bg-[#090C15] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] text-[#34D399] dark:text-[#7DD3FC] font-mono text-[11px] sm:text-xs overflow-x-auto leading-relaxed whitespace-pre-wrap font-bold max-h-[min(50vh,420px)] select-text"
+                  aria-label="Generated AI agent prompt"
+                >
+                  {promptText}
+                </pre>
+              </div>
+
+              {/* Operator accordion — Raw JSON (secondary; not a primary tab) */}
+              <div className="pt-1 border-t border-[#D6D5CF] dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowRawJson((v) => !v)}
+                  className="w-full text-left text-[11px] font-mono font-extrabold text-[#4A4845] dark:text-[#B8C4D2] hover:text-[#FF5A36] flex items-center gap-1.5 py-2"
+                  aria-expanded={showRawJson}
+                >
+                  {showRawJson ? (
+                    <ChevronDown className="w-3.5 h-3.5 shrink-0" />
+                  ) : (
+                    <ChevronRight className="w-3.5 h-3.5 shrink-0" />
+                  )}
+                  <Terminal className="w-3.5 h-3.5 shrink-0" />
+                  <span>
+                    {showRawJson
+                      ? 'Operator View: Hide Raw JSON Record'
+                      : 'Operator View: Show Raw JSON Record'}
+                  </span>
+                </button>
+
+                {showRawJson && (
+                  <div className="mt-1 space-y-2 animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between gap-2 text-[11px] font-mono font-extrabold text-[#736F66] dark:text-[#94A3B8]">
+                      <span>Normalized catalogue payload</span>
+                      <span className="truncate">ID: {item.id}</span>
+                    </div>
+                    <pre className="p-4 rounded-2xl bg-[#090C15] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] text-[#A78BFA] font-mono text-[11px] sm:text-xs overflow-x-auto font-bold max-h-64">
+                      {JSON.stringify(item, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

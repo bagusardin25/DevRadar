@@ -9,6 +9,7 @@ import { CompareModal } from './components/CompareModal';
 import { SubmitModal } from './components/SubmitModal';
 import { BookmarksDrawer } from './components/BookmarksDrawer';
 import { AlertSubscribeModal } from './components/AlertSubscribeModal';
+import { Pagination } from './components/Pagination';
 
 import type { FilterState, Hackathon, AIDeal } from './types';
 import {
@@ -25,6 +26,7 @@ import {
   fetchReviewItems,
   loadAlertIds,
   loadBookmarkIds,
+  parseShareIdsFromSearch,
   rejectReviewItem,
   saveAlertIds,
   saveBookmarkIds,
@@ -236,6 +238,8 @@ export function App() {
   const [isExtensionOpen, setIsExtensionOpen] = useState(false);
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
   const [alertConfirmMsg, setAlertConfirmMsg] = useState<string | null>(null);
+  /** Read-only shared bookmark ids from ?bm= / ?bookmarks= (does not overwrite local). */
+  const [sharedBookmarkIds, setSharedBookmarkIds] = useState<string[] | null>(null);
   const [isSearchingLive, setIsSearchingLive] = useState(false);
   const [liveDiscoveryMessage, setLiveDiscoveryMessage] = useState<string | null>(null);
   const [, setIsOfflineMode] = useState(false);
@@ -348,6 +352,15 @@ export function App() {
     void loadCatalogue();
   }, [loadCatalogue]);
 
+  // Pagination & Rows Per Page State
+  const [rowsPerPage, setRowsPerPage] = useState<number>(12);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+
+  // Reset pagination to page 1 whenever filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters]);
+
   // Derive flags in memory — avoids remapping + setState of the full catalogue
   const displayHackathons = useMemo(
     () => applyLocalFlags(hackathons),
@@ -357,6 +370,18 @@ export function App() {
     () => applyLocalFlags(aiDeals),
     [aiDeals, applyLocalFlags],
   );
+
+  const paginatedHackathons = useMemo(() => {
+    if (rowsPerPage === 0) return displayHackathons;
+    const start = (currentPage - 1) * rowsPerPage;
+    return displayHackathons.slice(start, start + rowsPerPage);
+  }, [displayHackathons, currentPage, rowsPerPage]);
+
+  const paginatedAiDeals = useMemo(() => {
+    if (rowsPerPage === 0) return displayAiDeals;
+    const start = (currentPage - 1) * rowsPerPage;
+    return displayAiDeals.slice(start, start + rowsPerPage);
+  }, [displayAiDeals, currentPage, rowsPerPage]);
 
   const loadAdminSession = useCallback(async () => {
     try {
@@ -404,7 +429,7 @@ export function App() {
     }
   }, [filters.activeModule, loadReviewQueue]);
 
-  // After GitHub OAuth redirect or alert confirmation
+  // After GitHub OAuth redirect, alert confirmation, or shared bookmark link
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('admin_auth') === 'ok') {
@@ -416,6 +441,16 @@ export function App() {
     if (params.get('alert') === 'confirmed') {
       setAlertConfirmMsg('✅ Email alert subscription confirmed! You will receive notifications.');
       window.history.replaceState({}, '', window.location.pathname);
+    }
+    if (params.get('alert') === 'unsubscribed') {
+      setAlertConfirmMsg('You have been unsubscribed from DevRadar email alerts.');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    const shared = parseShareIdsFromSearch(window.location.search);
+    if (shared.length > 0) {
+      setSharedBookmarkIds(shared);
+      setIsBookmarksOpen(true);
+      // Keep ?bm= in the URL so the link remains shareable while viewing.
     }
   }, [loadAdminSession]);
 
@@ -541,7 +576,66 @@ export function App() {
       .map((d) => ({ ...d, bookmarked: true, alertEnabled: alertIds.has(d.id) }));
   }, [bookmarkIds, bookmarkCache.deals, aiDeals, alertIds]);
 
+  /** Shared-link view: resolve ids against cache + loaded catalogue (read-only). */
+  const sharedHackathons = useMemo(() => {
+    if (!sharedBookmarkIds?.length) return [];
+    return sharedBookmarkIds
+      .map(
+        (id) =>
+          bookmarkCache.hackathons[id] ??
+          hackathons.find((h) => h.id === id) ??
+          bookmarkedHackathons.find((h) => h.id === id),
+      )
+      .filter((h): h is Hackathon => Boolean(h))
+      .map((h) => ({ ...h, bookmarked: bookmarkIds.has(h.id), alertEnabled: alertIds.has(h.id) }));
+  }, [
+    sharedBookmarkIds,
+    bookmarkCache.hackathons,
+    hackathons,
+    bookmarkedHackathons,
+    bookmarkIds,
+    alertIds,
+  ]);
+
+  const sharedDeals = useMemo(() => {
+    if (!sharedBookmarkIds?.length) return [];
+    return sharedBookmarkIds
+      .map(
+        (id) =>
+          bookmarkCache.deals[id] ??
+          aiDeals.find((d) => d.id === id) ??
+          bookmarkedDeals.find((d) => d.id === id),
+      )
+      .filter((d): d is AIDeal => Boolean(d))
+      .map((d) => ({ ...d, bookmarked: bookmarkIds.has(d.id), alertEnabled: alertIds.has(d.id) }));
+  }, [sharedBookmarkIds, bookmarkCache.deals, aiDeals, bookmarkedDeals, bookmarkIds, alertIds]);
+
   const totalBookmarks = bookmarkIds.size;
+
+  const handleImportBookmarkIds = useCallback((ids: string[], mode: 'merge' | 'replace') => {
+    setBookmarkIds((prev) => {
+      if (mode === 'replace') return new Set(ids);
+      const next = new Set(prev);
+      for (const id of ids) next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleSaveSharedToLocal = useCallback(() => {
+    if (!sharedBookmarkIds?.length) return;
+    setBookmarkIds((prev) => {
+      const next = new Set(prev);
+      for (const id of sharedBookmarkIds) next.add(id);
+      return next;
+    });
+    setSharedBookmarkIds(null);
+    window.history.replaceState({}, '', window.location.pathname);
+  }, [sharedBookmarkIds]);
+
+  const handleClearShared = useCallback(() => {
+    setSharedBookmarkIds(null);
+    window.history.replaceState({}, '', window.location.pathname);
+  }, []);
 
   const displayHackCount = stats?.hackathonsActive ?? hackTotal;
   const displayDealCount = stats?.aiOffersActive ?? dealTotal;
@@ -578,7 +672,7 @@ export function App() {
 
         {catalogueError && filters.activeModule !== 'admin_queue' && filters.activeModule !== 'pipeline' && (
           <div className="max-w-6xl mx-auto px-4 lg:px-8 pt-4">
-            <div className="sharetopus-card p-4 rounded-2xl border-[1.5px] border-[#D97706] bg-[#D97706]/10 flex items-start gap-3 text-xs font-bold">
+            <div className="sharetopus-card p-4 rounded-2xl border-[1.5px] border-[#D97706] bg-[#D97706]/10 flex items-start gap-3 text-xs font-bold text-[#1C1B18] dark:text-[#F8FAF9]">
               <WifiOff className="w-5 h-5 text-[#D97706] shrink-0" />
               <div>
                 <div className="font-extrabold">Backend Offline — Showing Demo Data</div>
@@ -600,7 +694,7 @@ export function App() {
 
         {alertConfirmMsg && (
           <div className="max-w-6xl mx-auto px-4 lg:px-8 pt-3">
-            <div className="sharetopus-card p-3 rounded-2xl border-[1.5px] border-[#059669] bg-[#059669]/10 flex items-center justify-between text-xs font-bold text-[#059669]">
+            <div className="sharetopus-card p-3 rounded-2xl border-[1.5px] border-[#059669] bg-[#059669]/10 flex items-center justify-between text-xs font-bold text-[#059669] dark:text-[#34D399]">
               <span>{alertConfirmMsg}</span>
               <button type="button" onClick={() => setAlertConfirmMsg(null)} className="font-extrabold hover:opacity-70">×</button>
             </div>
@@ -656,23 +750,39 @@ export function App() {
                   </button>
                 </div>
               ) : (
-                <div
-                  className={
-                    viewLayout === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-6' : 'space-y-4'
-                  }
-                >
-                  {displayHackathons.map((hackathon) => (
-                    <HackathonCard
-                      key={hackathon.id}
-                      hackathon={hackathon}
-                      onSelect={handleSelectItem}
-                      onToggleBookmark={handleToggleBookmark}
-                      onToggleAlert={handleToggleAlert}
-                      onToggleCompare={handleToggleCompare}
-                      isCompared={compareItems.some((i) => i.id === hackathon.id)}
-                      viewLayout={viewLayout}
-                    />
-                  ))}
+                <div className="space-y-6">
+                  <div
+                    className={
+                      viewLayout === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-6' : 'space-y-4'
+                    }
+                  >
+                    {paginatedHackathons.map((hackathon) => (
+                      <HackathonCard
+                        key={hackathon.id}
+                        hackathon={hackathon}
+                        onSelect={handleSelectItem}
+                        onToggleBookmark={handleToggleBookmark}
+                        onToggleAlert={handleToggleAlert}
+                        onToggleCompare={handleToggleCompare}
+                        isCompared={compareItems.some((i) => i.id === hackathon.id)}
+                        viewLayout={viewLayout}
+                      />
+                    ))}
+                  </div>
+
+                  <Pagination
+                    currentPage={currentPage}
+                    totalItems={displayHackathons.length}
+                    rowsPerPage={rowsPerPage}
+                    onPageChange={(p) => {
+                      setCurrentPage(p);
+                      window.scrollTo({ top: 400, behavior: 'smooth' });
+                    }}
+                    onRowsPerPageChange={(r) => {
+                      setRowsPerPage(r);
+                      setCurrentPage(1);
+                    }}
+                  />
                 </div>
               )}
             </div>
@@ -704,21 +814,37 @@ export function App() {
                   </p>
                 </div>
               ) : (
-                <div
-                  className={
-                    viewLayout === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-6' : 'space-y-4'
-                  }
-                >
-                  {displayAiDeals.map((deal) => (
-                    <AIDealCard
-                      key={deal.id}
-                      deal={deal}
-                      onSelect={handleSelectItem}
-                      onToggleBookmark={handleToggleBookmark}
-                      onToggleAlert={handleToggleAlert}
-                      viewLayout={viewLayout}
-                    />
-                  ))}
+                <div className="space-y-6">
+                  <div
+                    className={
+                      viewLayout === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-6' : 'space-y-4'
+                    }
+                  >
+                    {paginatedAiDeals.map((deal) => (
+                      <AIDealCard
+                        key={deal.id}
+                        deal={deal}
+                        onSelect={handleSelectItem}
+                        onToggleBookmark={handleToggleBookmark}
+                        onToggleAlert={handleToggleAlert}
+                        viewLayout={viewLayout}
+                      />
+                    ))}
+                  </div>
+
+                  <Pagination
+                    currentPage={currentPage}
+                    totalItems={displayAiDeals.length}
+                    rowsPerPage={rowsPerPage}
+                    onPageChange={(p) => {
+                      setCurrentPage(p);
+                      window.scrollTo({ top: 400, behavior: 'smooth' });
+                    }}
+                    onRowsPerPageChange={(r) => {
+                      setRowsPerPage(r);
+                      setCurrentPage(1);
+                    }}
+                  />
                 </div>
               )}
             </div>
@@ -823,15 +949,33 @@ export function App() {
       <BookmarksDrawer
         isOpen={isBookmarksOpen}
         onClose={() => setIsBookmarksOpen(false)}
-        bookmarkedHackathons={bookmarkedHackathons}
-        bookmarkedDeals={bookmarkedDeals}
+        bookmarkedHackathons={
+          sharedBookmarkIds ? sharedHackathons : bookmarkedHackathons
+        }
+        bookmarkedDeals={sharedBookmarkIds ? sharedDeals : bookmarkedDeals}
         onRemoveBookmark={handleToggleBookmark}
         onToggleAlert={handleToggleAlert}
+        onImportIds={handleImportBookmarkIds}
+        sharedMode={Boolean(sharedBookmarkIds)}
+        sharedIds={sharedBookmarkIds ?? []}
+        onSaveSharedToLocal={handleSaveSharedToLocal}
+        onClearShared={handleClearShared}
       />
 
       <AlertSubscribeModal
         isOpen={isAlertModalOpen}
         onClose={() => setIsAlertModalOpen(false)}
+        defaultKind={
+          filters.activeModule === 'ai_deal'
+            ? 'ai_offer'
+            : filters.activeModule === 'hackathon'
+              ? 'hackathon'
+              : 'all'
+        }
+        defaultTechnology={filters.technology}
+        defaultMode={filters.mode}
+        defaultOnlyClosingSoon={filters.onlyClosingSoon}
+        defaultOnlyBigPrizes={filters.onlyBigPrizes}
       />
 
       <footer className="border-t border-[#D6D5CF] dark:border-slate-800 bg-[#E5E6DF] dark:bg-[#090C15] py-8 px-4 lg:px-8 text-xs font-mono text-[#1C1B18] dark:text-slate-200 font-bold">

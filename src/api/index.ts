@@ -31,12 +31,21 @@ export {
   saveAlertIds,
   saveBookmarkIds,
   toggleId,
+  buildBookmarkExport,
+  buildShareUrl,
+  parseBookmarkImport,
+  parseShareIdsFromSearch,
+  downloadBookmarkJson,
+  readBookmarkFile,
+  type BookmarkExportPayload,
 } from './bookmarks';
 export {
   createAlert,
+  buildAlertFilters,
   unsubscribeAlert,
   type AlertCreateInput,
   type AlertCreateResponse,
+  type AlertFilterInput,
 } from './alerts';
 export {
   combinedSearch,

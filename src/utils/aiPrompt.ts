@@ -140,11 +140,11 @@ const AI_DEAL_PROMPT_META: PromptMeta = {
   tabLabel: 'Integration Prompt',
   title: 'Integration & build prompt',
   blurb:
-    'Auto-generated build plan for this offer: what you get, 3 project ideas that fit ' +
-    `the quota, secure API integration, and cost controls. ${PASTE_TARGETS}`,
+    'Auto-generated build plan for this offer: what you get, a fit check for what ' +
+    `you're building, secure API integration, and cost controls. ${PASTE_TARGETS}`,
   sections: [
     { label: 'Offer details', icon: 'brief' },
-    { label: '3 project ideas', icon: 'ideas' },
+    { label: 'Fit check', icon: 'ideas' },
     { label: 'Integration', icon: 'build' },
     { label: 'Cost & quota', icon: 'cost' },
   ],
@@ -286,7 +286,8 @@ function buildAIDealPrompt(d: AIDeal): string {
     : 'the allowance runs out';
 
   return `You are an AI developer and cloud architecture consultant.
-I am claiming the AI deal / grant below and want a concrete build plan that maximizes its value.
+I am claiming the AI offer below and want a concrete plan for integrating it
+into a project without burning the allowance before the build is finished.
 
 ${reliabilityBlock(
   d,
@@ -295,7 +296,7 @@ ${reliabilityBlock(
 )}
 
 ==============================================================
-1. BRIEF DETAILS (from DevRadar)
+1. OFFER DETAILS (from DevRadar)
 ==============================================================
 ${timeAnchor(d.expiresAt, "the offer's expiry date")}
 
@@ -324,47 +325,49 @@ ${highlights}
 2. YOUR TASKS (answer in order)
 ==============================================================
 
-A. Three high-impact project ideas
-Propose exactly 3 practical apps or integrations that:
-- Use ${d.provider} / ${d.productName} as a core capability
-- Fit tags: ${tagsStr}
-- Produce something usable within a short build window
-- Stay inside typical free-tier / credit limits when possible (${d.offerValue})
+A. Fit check
+Before anything else, ask me one question: what am I planning to build (or what
+problem am I trying to solve)? Then in 3–5 sentences tell me:
+- Whether ${d.provider} / ${d.productName} is actually the right tool for it
+- Which single capability of the offer I would lean on hardest
+- One realistic alternative if the fit is weak — do not force a match
 
-${IDEA_FORMAT}
-Add one extra line per idea — "Credits burn: <rough estimate + what drives it>".
+If I say I have no project yet, propose ONE concrete integration idea that fits
+the offer and stops there. Do not brainstorm a list; a shortlist is what wastes
+the credits.
 
-B. Architecture & integration
-Wait for me to pick an idea before answering this section. Then give:
-- Suggested repo / file structure, in the language I tell you I use
-- How to integrate the provider API securely (env vars, server-side only keys)
-- Minimal data model / DB schema if persistence is needed
-- Error handling, rate limits, and fallbacks
-- Local dev + production deploy notes
+B. Secure integration (the core section)
+Wait for me to confirm the direction from A. Then produce a working integration
+plan:
+- Where the API key lives (server-side only, env vars, rotation) and what to
+  do the moment it leaks
+- Minimum viable request/response shape against ${d.provider}, with the exact
+  auth header / SDK call
+- Rate-limit and timeout handling; what to retry, what to fail fast
+- Fallback path when the provider is down or the quota is spent
+- Repo / file layout in the language I say I use — no boilerplate for
+  frameworks I did not mention
 
-C. Execution timeline (MVP)
-Plan phases from claim → first working build, ${hardStop}:
-1. Account / API key setup & smoke test
-2. Scaffold app + auth (if needed)
-3. Core feature using the offer
-4. Error handling & observability
-5. Hardening and cleanup
-
-D. Cost & quota control
+C. Cost & quota control (the other core section)
 The usual way an offer like this is wasted is burning the allowance before the
-build is finished, so treat this section as the important one:
-- Burn-rate estimate for the idea I picked: what one request/call costs, what
-  drives the cost, and roughly how far ${d.offerValue} goes. State plainly which
-  of those numbers you are unsure of rather than presenting estimates as facts.
+build is finished. Give me:
+- Burn-rate estimate: what one request/call costs, what drives the cost, and
+  roughly how far ${d.offerValue} goes. State plainly which numbers you are
+  unsure of rather than presenting estimates as facts.
 - Hard limits to set before the first real run — spend caps, rate limits, max
   tokens/requests, timeouts — and where each one is configured
 - What to log so I can see spend per feature instead of only a running total
-- Where the API key must live (server-side only, env vars, rotation) and the
-  steps to take if it leaks
-- Exit plan: what breaks when ${exhaustionCase}, and the cheapest
-  equivalent to fall back to
+- Exit plan: what breaks when ${exhaustionCase}, and the cheapest equivalent
+  to fall back to
 
-Let's begin with section A (3 project ideas).`;
+D. Timeline (short)
+Not a hackathon plan — just the order things should happen in, ${hardStop}:
+1. Claim + API key + smoke test
+2. Cost caps and logging (before writing feature code, not after)
+3. Core integration behind a thin interface I can swap
+4. Real usage against the caps, then adjust
+
+Let's start with A — ask me what I am building.`;
 }
 
 /** True when item looks like a catalogue hackathon row. */

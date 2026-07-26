@@ -54,7 +54,7 @@ interface DetailModalProps {
   onClose: () => void;
 }
 
-type DetailTab = 'overview' | 'audit' | 'prompt';
+type DetailTab = 'overview' | 'audit' | 'prompt' | 'claim';
 
 /**
  * Mirrors `MAX_*` in backend/app/ingestion/scoring.py. The maxima sum to 100,
@@ -241,20 +241,32 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
           </button>
         </div>
 
-        {/* Tab Navigation: Overview · Provenance · AI Agent Prompt (Raw JSON is accordion inside Prompt) */}
+        {/* Tab Navigation. Hackathons keep the "AI Agent Prompt" tab because
+            the brainstorm/execution prompt is the useful angle there. Deals
+            get a "How to Claim" tab instead — for a free-credits offer, what
+            a reader actually wants is who qualifies, when it expires, and the
+            claim link — not another AI-generated build plan. */}
         <div className="flex items-center gap-1 sm:gap-4 px-3 sm:px-6 border-b border-[#D6D5CF] dark:border-slate-800 bg-[#F3F4EF] dark:bg-[#131A29] text-[12px] sm:text-sm font-mono overflow-x-auto no-scrollbar shrink-0">
           {tabBtn('overview', 'Overview')}
           {tabBtn('audit', 'Provenance')}
-          {tabBtn(
-            'prompt',
-            <>
-              <Bot className="w-3.5 h-3.5 text-[#FF5A36]" />
-              <span>{promptMeta?.tabLabel}</span>
-              <span className="px-1.5 py-0.5 rounded-full bg-[#FF5A36]/15 text-[#9A3412] dark:text-[#FF8A6B] text-[10px] font-mono font-bold border border-[#FF5A36]">
-                NEW
-              </span>
-            </>,
-          )}
+          {isHackathon
+            ? tabBtn(
+                'prompt',
+                <>
+                  <Bot className="w-3.5 h-3.5 text-[#FF5A36]" />
+                  <span>{promptMeta?.tabLabel}</span>
+                  <span className="px-1.5 py-0.5 rounded-full bg-[#FF5A36]/15 text-[#9A3412] dark:text-[#FF8A6B] text-[10px] font-mono font-bold border border-[#FF5A36]">
+                    NEW
+                  </span>
+                </>,
+              )
+            : tabBtn(
+                'claim',
+                <>
+                  <ExternalLink className="w-3.5 h-3.5 text-[#7C3AED] dark:text-[#C4B5FD]" />
+                  <span>How to Claim</span>
+                </>,
+              )}
         </div>
 
         {/* Modal Body Content. Body text stays at normal weight; emphasis is
@@ -556,8 +568,8 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
             </div>
           )}
 
-          {/* TAB 3: AI AGENT BRAINSTORM & EXECUTION PROMPT */}
-          {activeTab === 'prompt' && (
+          {/* TAB 3a: AI AGENT BRAINSTORM & EXECUTION PROMPT (hackathon only) */}
+          {activeTab === 'prompt' && isHackathon && (
             <div className="space-y-4">
               <div className="sharetopus-card p-4 rounded-2xl bg-[#F8F9F4] dark:bg-[#1A2336] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="space-y-1 min-w-0">
@@ -651,6 +663,146 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* TAB 3b: HOW TO CLAIM (AI deal only). Every fact here is data the
+              catalogue already stores — nothing is invented. Written as an
+              action checklist so a reader can decide "am I eligible?" and
+              "when does this close?" without hunting through prose. */}
+          {activeTab === 'claim' && deal && (
+            <div className="space-y-5 text-sm">
+              {/* Headline stats: eligibility summary + expiry with countdown */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 font-mono">
+                <div className="sharetopus-card p-3.5 rounded-2xl bg-[#F8F9F4] dark:bg-[#1A2336] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] space-y-1">
+                  <div className="text-[11px] text-[#4A4845] dark:text-[#B8C4D2] font-semibold uppercase tracking-wide">Who qualifies</div>
+                  <div className="text-sm font-bold text-[#1C1B18] dark:text-white">
+                    {deal.targetUsers.length > 0 ? deal.targetUsers.join(', ') : 'See official terms'}
+                  </div>
+                </div>
+                <div className="sharetopus-card p-3.5 rounded-2xl bg-[#F8F9F4] dark:bg-[#1A2336] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] space-y-1">
+                  <div className="text-[11px] text-[#4A4845] dark:text-[#B8C4D2] font-semibold uppercase tracking-wide">Expires</div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-bold text-[#C2410C] dark:text-[#FF8A6B]">
+                      {deal.expiresAt
+                        ? new Date(deal.expiresAt).toLocaleDateString(undefined, {
+                            year: 'numeric', month: 'short', day: 'numeric',
+                          })
+                        : 'No fixed expiry'}
+                    </span>
+                    {dealExpiresInfo && (
+                      <span className={`urgency-badge urgency-${dealExpiresInfo.urgency}`}>
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>{dealExpiresInfo.label}</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Numbered steps. The numbers are anchored to real data: 1 uses
+                  requirements/targetUsers/regions, 2 links to the terms URL,
+                  3 is the actual claim URL. Nothing generic. */}
+              <ol className="space-y-3">
+                {/* 1. Check eligibility */}
+                <li className="sharetopus-card p-4 rounded-2xl border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-[#7C3AED]/15 text-[#6D28D9] dark:text-[#C4B5FD] border border-[#7C3AED] font-mono font-extrabold text-[12px] flex items-center justify-center shrink-0">
+                      1
+                    </span>
+                    <h4 className="font-bold text-[#1C1B18] dark:text-white text-sm">Check you qualify</h4>
+                  </div>
+
+                  {deal.requirements.length > 0 ? (
+                    <ul className="space-y-1.5 text-[13px] text-[#1C1B18] dark:text-[#E8ECF1]">
+                      {deal.requirements.map((req, idx) => (
+                        <li key={idx} className="flex items-start gap-2">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-[#047857] dark:text-[#34D399] shrink-0 mt-0.5" />
+                          <span>{req}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-[12px] text-[#4A4845] dark:text-[#B8C4D2] italic">
+                      No specific requirements listed by DevRadar — confirm on the official terms.
+                    </p>
+                  )}
+
+                  <div className="pt-2 border-t border-[#D6D5CF] dark:border-slate-700 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[12px]">
+                    <div className="text-[#4A4845] dark:text-[#B8C4D2]">
+                      <span className="font-semibold">Target users:</span>{' '}
+                      <span className="text-[#1C1B18] dark:text-white font-bold">
+                        {deal.targetUsers.length > 0 ? deal.targetUsers.join(', ') : '—'}
+                      </span>
+                    </div>
+                    <div className="text-[#4A4845] dark:text-[#B8C4D2]">
+                      <span className="font-semibold">Regions:</span>{' '}
+                      <span className="text-[#1C1B18] dark:text-white font-bold">
+                        {deal.supportedRegions.length > 0 ? deal.supportedRegions.join(', ') : 'See terms'}
+                      </span>
+                    </div>
+                  </div>
+                </li>
+
+                {/* 2. Read the official terms */}
+                <li className="sharetopus-card p-4 rounded-2xl border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-[#7C3AED]/15 text-[#6D28D9] dark:text-[#C4B5FD] border border-[#7C3AED] font-mono font-extrabold text-[12px] flex items-center justify-center shrink-0">
+                      2
+                    </span>
+                    <h4 className="font-bold text-[#1C1B18] dark:text-white text-sm">Confirm the terms</h4>
+                  </div>
+                  <p className="text-[12px] text-[#4A4845] dark:text-[#B8C4D2]">
+                    Quotas, pricing and eligibility change often — DevRadar last checked{' '}
+                    <strong className="text-[#1C1B18] dark:text-white font-bold">
+                      {new Date(deal.lastCheckedAt).toLocaleString(undefined, {
+                        year: 'numeric', month: 'short', day: 'numeric',
+                      })}
+                    </strong>
+                    . Read the official terms before you commit anything.
+                  </p>
+                  {deal.officialTermsUrl ? (
+                    <a
+                      href={deal.officialTermsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0369A1] dark:text-[#38BDF8] hover:underline font-mono break-all"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                      <span>{deal.officialTermsUrl}</span>
+                    </a>
+                  ) : (
+                    <p className="text-[12px] text-[#B45309] dark:text-[#FBBF24] italic">
+                      No terms URL on record — check the provider's site directly.
+                    </p>
+                  )}
+                </li>
+
+                {/* 3. Claim */}
+                <li className="sharetopus-card p-4 rounded-2xl border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-[#7C3AED]/15 text-[#6D28D9] dark:text-[#C4B5FD] border border-[#7C3AED] font-mono font-extrabold text-[12px] flex items-center justify-center shrink-0">
+                      3
+                    </span>
+                    <h4 className="font-bold text-[#1C1B18] dark:text-white text-sm">Claim the offer</h4>
+                  </div>
+                  <p className="text-[12px] text-[#4A4845] dark:text-[#B8C4D2]">
+                    Opens {deal.provider} in a new tab. DevRadar is not affiliated with the provider
+                    — you complete the claim on their site.
+                  </p>
+                  {deal.claimUrl && (
+                    <a
+                      href={deal.claimUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-sharetopus-primary text-xs py-2 px-4 bg-[#6D28D9] hover:bg-[#5B21B6] font-bold inline-flex items-center gap-1.5"
+                    >
+                      <span>Claim on {deal.provider}</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  )}
+                </li>
+              </ol>
             </div>
           )}
 

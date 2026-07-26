@@ -11,13 +11,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.audit.models import AdminAuditLog
 from app.auth.sessions import AdminIdentity
 from app.catalog.enums import (
+    ListingKind,
     ReviewCandidateType,
     ReviewItemState,
+    SubmissionState,
     VerificationStatus,
 )
+from app.catalog.models import Listing
 from app.config import Settings
 from app.db import create_engine, create_session_maker
-from app.errors import ConflictError
+from app.errors import ConflictError, ValidationError
 from app.review.models import ReviewItem
 from app.review.schemas import (
     ApproveReviewRequest,
@@ -25,6 +28,7 @@ from app.review.schemas import (
     RejectReviewRequest,
 )
 from app.review.service import ReviewService
+from app.submissions.models import CommunitySubmission
 from tests.factories import seed_hackathon
 
 
@@ -144,6 +148,127 @@ class TestReviewService:
             await svc.reject_review_item(
                 item.id,
                 RejectReviewRequest(expected_version=1, reason="stale"),
+                _admin(),
+            )
+
+    async def test_approve_community_submission_publishes_listing(
+        self, session: AsyncSession
+    ) -> None:
+        """Approving a submission publishes a real catalogue row."""
+        submission = CommunitySubmission(
+            tracking_id=f"track-{uuid4().hex[:12]}",
+            original_url="https://example.com/comm-approve",
+            canonical_url=f"https://example.com/comm-approve-{uuid4().hex[:6]}",
+            claimed_type="hackathon",
+            claimed_title="Community Hack",
+            ip_hash="deadbeef",
+            state=SubmissionState.QUEUED,
+            metadata_json={"host": "example.com"},
+        )
+        session.add(submission)
+        await session.flush()
+
+        item = ReviewItem(
+            candidate_type=ReviewCandidateType.COMMUNITY_SUBMISSION,
+            candidate_id=submission.id,
+            candidate_snapshot={
+                "source": "community_submission",
+                "trackingId": submission.tracking_id,
+                "url": submission.canonical_url,
+                "claimedTitle": submission.claimed_title,
+                "claimedType": submission.claimed_type,
+            },
+            reason="Community submission awaiting verification",
+            priority=60,
+            state=ReviewItemState.OPEN,
+            version=1,
+        )
+        session.add(item)
+        await session.flush()
+
+        svc = ReviewService(session)
+        result = await svc.approve_review_item(
+            item.id,
+            ApproveReviewRequest(
+                expected_version=1,
+                notes="Verified manually",
+                corrections={
+                    "fields": {
+                        "organizer": "Test Org",
+                        "mode": "online",
+                    }
+                },
+            ),
+            _admin(),
+        )
+        assert str(result.state) == ReviewItemState.APPROVED.value
+        assert result.listing_id is not None
+
+        listing = await session.get(Listing, result.listing_id)
+        assert listing is not None
+        assert str(listing.kind) == ListingKind.HACKATHON.value
+        assert str(listing.verification_status) == VerificationStatus.VERIFIED_ACTIVE.value
+        assert listing.title == "Community Hack"
+
+        await session.refresh(submission)
+        assert str(submission.state) == SubmissionState.ACCEPTED.value
+
+    async def test_reject_community_submission_updates_submission_state(
+        self, session: AsyncSession
+    ) -> None:
+        submission = CommunitySubmission(
+            tracking_id=f"track-{uuid4().hex[:12]}",
+            original_url="https://example.com/comm-reject",
+            canonical_url=f"https://example.com/comm-reject-{uuid4().hex[:6]}",
+            ip_hash="deadbeef",
+            state=SubmissionState.QUEUED,
+            metadata_json={},
+        )
+        session.add(submission)
+        await session.flush()
+
+        item = ReviewItem(
+            candidate_type=ReviewCandidateType.COMMUNITY_SUBMISSION,
+            candidate_id=submission.id,
+            candidate_snapshot={"trackingId": submission.tracking_id},
+            reason="Community submission awaiting verification",
+            priority=60,
+            state=ReviewItemState.OPEN,
+            version=1,
+        )
+        session.add(item)
+        await session.flush()
+
+        svc = ReviewService(session)
+        await svc.reject_review_item(
+            item.id,
+            RejectReviewRequest(expected_version=1, reason="Spam link"),
+            _admin(),
+        )
+        await session.refresh(submission)
+        assert str(submission.state) == SubmissionState.REJECTED.value
+
+    async def test_approve_submission_requires_publishable_fields(
+        self, session: AsyncSession
+    ) -> None:
+        """Missing kind or URL surfaces as a validation error, not a crash."""
+        item = ReviewItem(
+            candidate_type=ReviewCandidateType.COMMUNITY_SUBMISSION,
+            candidate_id=None,
+            candidate_snapshot={"trackingId": "no-url-no-kind"},
+            reason="Community submission awaiting verification",
+            priority=60,
+            state=ReviewItemState.OPEN,
+            version=1,
+        )
+        session.add(item)
+        await session.flush()
+
+        svc = ReviewService(session)
+        with pytest.raises(ValidationError):
+            await svc.approve_review_item(
+                item.id,
+                ApproveReviewRequest(expected_version=1),
                 _admin(),
             )
 

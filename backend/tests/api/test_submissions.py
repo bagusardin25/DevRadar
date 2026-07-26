@@ -75,7 +75,9 @@ class TestCreateSubmission:
     async def test_idempotency_key(self, api_client) -> None:
         client, enqueue = api_client
         key = f"key-{uuid4().hex}"
-        payload = _body(url="https://example.com/idem-api")
+        # Randomise the URL so reruns don't collide with the 24h duplicate window
+        # on the persistent test database.
+        payload = _body(url=f"https://example.com/idem-api-{uuid4().hex[:8]}")
         r1 = await client.post(
             "/api/v1/submissions",
             json=payload,

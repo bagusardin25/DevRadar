@@ -11,13 +11,13 @@ from uuid import UUID, uuid4
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.catalog.builders import build_ai_offer_create, build_hackathon_create
 from app.catalog.enums import (
     ListingKind,
     ReviewCandidateType,
     ReviewItemState,
     VerificationStatus,
 )
-from app.catalog.builders import build_ai_offer_create, build_hackathon_create
 from app.catalog.models import Listing
 from app.catalog.repository import ListingRepository
 from app.catalog.schemas import ListingCreateSchema

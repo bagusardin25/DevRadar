@@ -8,10 +8,13 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.catalog.enums import SubmissionState
+from sqlalchemy import select
+
+from app.catalog.enums import ReviewCandidateType, ReviewItemState, SubmissionState
 from app.config import Settings
 from app.db import create_engine, create_session_maker
 from app.errors import ForbiddenError, RateLimitError, ValidationError
+from app.review.models import ReviewItem
 from app.submissions.enqueue import InMemorySubmissionEnqueue
 from app.submissions.schemas import SubmissionCreateRequest
 from app.submissions.security import hash_ip, job_idempotency_key
@@ -110,8 +113,11 @@ class TestSubmissionService:
         service: SubmissionService,
         enqueue: InMemorySubmissionEnqueue,
     ) -> None:
+        # Random URL — the test database is persistent and enforces a 24h
+        # duplicate window per canonical URL.
+        url = f"https://devpost.com/software/awesome-{uuid4().hex[:8]}"
         receipt = await service.submit_candidate(
-            _cmd(url="https://devpost.com/software/awesome"),
+            _cmd(url=url),
             _abuse(),
         )
         assert receipt.status == SubmissionState.QUEUED
@@ -124,7 +130,7 @@ class TestSubmissionService:
         for hook in hooks:
             await hook()
         assert len(enqueue.calls) == 1
-        assert enqueue.calls[0]["canonical_url"] == "https://devpost.com/software/awesome"
+        assert enqueue.calls[0]["canonical_url"] == url
 
     async def test_honeypot_rejected(
         self, service: SubmissionService
@@ -217,7 +223,10 @@ class TestSubmissionService:
         service: SubmissionService,
     ) -> None:
         receipt = await service.submit_candidate(
-            _cmd(url="https://example.com/status-check", claimed_type="hackathon"),
+            _cmd(
+                url=f"https://example.com/status-check-{uuid4().hex[:8]}",
+                claimed_type="hackathon",
+            ),
             _abuse(),
         )
         await session.commit()
@@ -232,3 +241,76 @@ class TestSubmissionService:
 
         with pytest.raises(NotFoundError):
             await service.get_public_submission_status("does-not-exist")
+
+    async def test_queues_review_item_for_admin(
+        self,
+        session: AsyncSession,
+        service: SubmissionService,
+    ) -> None:
+        """A live submission must appear in the admin review queue immediately."""
+        url = f"https://example.com/for-admin-{uuid4().hex[:8]}"
+        receipt = await service.submit_candidate(
+            _cmd(
+                url=url,
+                claimed_title="Community Hack 2026",
+                claimed_type="hackathon",
+                notes="Found on Discord",
+            ),
+            _abuse(),
+        )
+        await session.commit()
+
+        items = list(
+            (
+                await session.execute(
+                    select(ReviewItem).where(
+                        ReviewItem.candidate_type
+                        == ReviewCandidateType.COMMUNITY_SUBMISSION.value
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        matching = [i for i in items if i.candidate_snapshot.get("trackingId") == receipt.tracking_id]
+        assert len(matching) == 1
+        item = matching[0]
+        assert item.state == ReviewItemState.OPEN
+        snapshot = item.candidate_snapshot
+        assert snapshot["url"] == url
+        assert snapshot["claimedTitle"] == "Community Hack 2026"
+        assert snapshot["claimedType"] == "hackathon"
+        # Submitter PII must never surface to reviewers.
+        assert "email" not in snapshot
+        assert "ipHash" not in snapshot
+
+    async def test_duplicate_submission_does_not_double_queue(
+        self,
+        session: AsyncSession,
+        service: SubmissionService,
+    ) -> None:
+        """Second submission of the same URL is a duplicate — no new queue item."""
+        url = f"https://example.com/dedupe-{uuid4().hex[:8]}"
+        first = await service.submit_candidate(_cmd(url=url), _abuse(ip_address="203.0.113.9"))
+        await session.commit()
+        session.info["after_commit_hooks"] = []
+
+        second = await service.submit_candidate(_cmd(url=url), _abuse(ip_address="203.0.113.10"))
+        await session.commit()
+
+        assert second.duplicate is True
+        items = list(
+            (
+                await session.execute(
+                    select(ReviewItem).where(
+                        ReviewItem.candidate_type
+                        == ReviewCandidateType.COMMUNITY_SUBMISSION.value
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        tracking_ids = {i.candidate_snapshot.get("trackingId") for i in items}
+        assert first.tracking_id in tracking_ids
+        assert second.tracking_id not in tracking_ids

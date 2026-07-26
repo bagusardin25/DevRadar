@@ -53,6 +53,40 @@ def _state_value(state: object) -> str:
     return state.value if hasattr(state, "value") else str(state)
 
 
+def _resolve_listing_kind(
+    snapshot: dict[str, Any], fields: dict[str, Any]
+) -> ListingKind | None:
+    for key in ("kind", "claimedType", "claimed_type"):
+        raw = snapshot.get(key) or fields.get(key)
+        if not raw:
+            continue
+        try:
+            return ListingKind(str(raw))
+        except ValueError:
+            continue
+    return None
+
+
+def _pick_title(snapshot: dict[str, Any], fields: dict[str, Any]) -> str:
+    for key in ("title", "claimedTitle", "claimed_title", "productName", "product_name"):
+        value = snapshot.get(key) or fields.get(key)
+        if value:
+            return str(value).strip()
+    return ""
+
+
+def _pick_url(snapshot: dict[str, Any], fields: dict[str, Any]) -> str:
+    for key in _URL_SNAPSHOT_KEYS:
+        value = snapshot.get(key)
+        if value:
+            return str(value).strip()
+    for key in _URL_FIELD_KEYS:
+        value = fields.get(key)
+        if value:
+            return str(value).strip()
+    return ""
+
+
 class ReviewService:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
@@ -111,10 +145,12 @@ class ReviewService:
             item.candidate_snapshot = snapshot
 
         if item.listing_id is None:
-            # Community submissions and other queue-only candidates have no
-            # catalogue row yet — approval is what publishes them.
-            published = await self._publish_from_snapshot(item, admin, command, now)
-            item.listing_id = published.id
+            # Community submissions arrive with no catalogue row — the admin's
+            # approval is what publishes them. Other queue-only candidate types
+            # keep the older no-op-approve behavior; there is nothing to publish.
+            if _state_value(item.candidate_type) == ReviewCandidateType.COMMUNITY_SUBMISSION.value:
+                published = await self._publish_from_snapshot(item, admin, command, now)
+                item.listing_id = published.id
         else:
             listing = await self._get_listing(item.listing_id)
             if listing is not None:
@@ -253,6 +289,114 @@ class ReviewService:
         await self._session.flush()
         await self._session.refresh(item)
         return item
+
+    async def _publish_from_snapshot(
+        self,
+        item: ReviewItem,
+        admin: AdminIdentity,
+        command: ApproveReviewRequest,
+        now: datetime,
+    ) -> Listing:
+        """Publish a listing from a queue-only candidate (no prior listing row).
+
+        Community submissions arrive with a URL + optional title/type; the admin
+        supplies whatever else is missing via ``corrections`` before approving.
+        Everything the approve endpoint validates flows through here.
+        """
+        snapshot = dict(item.candidate_snapshot or {})
+        fields = dict(snapshot.get("fields") or {})
+
+        kind = _resolve_listing_kind(snapshot, fields)
+        if kind is None:
+            raise ValidationError(
+                detail=(
+                    "Cannot publish: 'kind' (hackathon | ai_offer) is required. "
+                    "Pass it via corrections.kind on approve."
+                )
+            )
+
+        title = _pick_title(snapshot, fields)
+        if not title:
+            raise ValidationError(
+                detail=(
+                    "Cannot publish: title is required. "
+                    "Pass it via corrections.title on approve."
+                )
+            )
+
+        url = _pick_url(snapshot, fields)
+        if not url:
+            raise ValidationError(
+                detail=(
+                    "Cannot publish: an official URL is required. "
+                    "Pass it via corrections.fields.official_url on approve."
+                )
+            )
+
+        description = str(snapshot.get("description") or fields.get("description") or "")
+        source_hint = str(snapshot.get("source") or "review_publish")
+        score_breakdown = {
+            "source": source_hint,
+            "publishedVia": "admin_approval",
+            "reviewItemId": str(item.id),
+            "adminId": admin.github_id,
+            "notes": command.notes,
+        }
+
+        listing_data = ListingCreateSchema(
+            kind=kind,
+            slug=slugify_title(title),
+            title=title,
+            description=description,
+            verification_status=VerificationStatus.VERIFIED_ACTIVE,
+            confidence_score=ADMIN_APPROVAL_CONFIDENCE,
+            score_breakdown=score_breakdown,
+            published_at=now,
+            last_checked_at=now,
+        )
+
+        if kind == ListingKind.HACKATHON:
+            listing = await self._repo.create_hackathon(
+                listing_data,
+                build_hackathon_create(fields, official_url=url),
+            )
+        else:
+            listing = await self._repo.create_ai_offer(
+                listing_data,
+                build_ai_offer_create(fields, official_url=url, title=title),
+            )
+
+        self._session.add(
+            VerificationEvent(
+                listing_id=listing.id,
+                event_type="admin_approve_publish",
+                previous_status=None,
+                new_status=VerificationStatus.VERIFIED_ACTIVE,
+                notes=command.notes or f"Published from review item {item.id}",
+                actor_type=ActorType.ADMIN,
+                actor_id=admin.github_id,
+                checked_urls=[url],
+                score_breakdown=score_breakdown,
+            )
+        )
+        return listing
+
+    async def _sync_submission_state(
+        self, item: ReviewItem, new_state: SubmissionState
+    ) -> None:
+        """Reflect the admin's decision on the underlying community_submission.
+
+        Silent no-op for non-submission items; the tracking-id endpoint reads
+        this state so submitters see their tip's real fate.
+        """
+        if _state_value(item.candidate_type) != ReviewCandidateType.COMMUNITY_SUBMISSION.value:
+            return
+        if item.candidate_id is None:
+            return
+        submission = await self._session.get(CommunitySubmission, item.candidate_id)
+        if submission is None:
+            return
+        submission.state = new_state
 
     async def _load_for_mutation(
         self, item_id: UUID, expected_version: int

@@ -23,6 +23,12 @@ interface HeroSectionProps {
   filters: FilterState;
   setFilters: React.Dispatch<React.SetStateAction<FilterState>>;
   totalResults: number;
+  /**
+   * How many of the results carry `verified_active`. Omit when the loaded page
+   * does not cover `totalResults`, so the count is never shown against a
+   * denominator it was not measured over.
+   */
+  verifiedCount?: number;
   onTriggerLiveDiscovery: () => void;
   isSearchingLive: boolean;
 }
@@ -31,6 +37,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   filters,
   setFilters,
   totalResults,
+  verifiedCount,
   onTriggerLiveDiscovery,
   isSearchingLive
 }) => {
@@ -66,7 +73,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         {/* Sharetopus Headline */}
         <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-[-0.04em] text-[#1C1B18] dark:text-white leading-[1.05]">
           Find bounties.<br />
-          Win <span className="italic text-[#FF5A36]">everywhere.</span>
+          Win <span className="italic text-[#D23B14] dark:text-[#FF5A36]">everywhere.</span>
         </h1>
 
         {/* Issue 3 Fix: Subtitle Text - High Contrast Bold Black/White */}
@@ -74,7 +81,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           The simplest way to discover hackathons, claim free AI credits, and track model price drops across every ecosystem — without subscription fees or API key requirements.
         </p>
 
-        {/* Mode Selector (Indexed vs Live Web Discovery) */}
+        {/* Mode selector: query the existing catalogue vs scan registered sources now */}
         <div className="flex items-center justify-center gap-3 pt-2">
           <div className="inline-flex items-center gap-2 p-1.5 rounded-full bg-white dark:bg-[#131A29] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] shadow-[3px_3px_0_0_#1C1B18] dark:shadow-[3px_3px_0_0_#D6DCE5] text-xs font-bold">
             <button
@@ -86,7 +93,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               }`}
             >
               <Database className="w-3.5 h-3.5" />
-              <span>Indexed Search</span>
+              <span>Catalogue</span>
             </button>
 
             <button
@@ -97,12 +104,12 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               disabled={isSearchingLive}
               className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all ${
                 filters.searchExecutionMode === 'live_discovery'
-                  ? 'bg-[#FF5A36] text-white font-extrabold'
-                  : 'text-[#1C1B18] dark:text-slate-200 hover:text-[#FF5A36]'
+                  ? 'bg-[#D23B14] text-white font-extrabold'
+                  : 'text-[#1C1B18] dark:text-slate-200 hover:text-[#C2410C] dark:hover:text-[#FF8A6B]'
               }`}
             >
               <Globe className={`w-3.5 h-3.5 ${isSearchingLive ? 'animate-spin' : ''}`} />
-              <span>{isSearchingLive ? 'Scanning sources…' : 'Live Web Discovery'}</span>
+              <span>{isSearchingLive ? 'Scanning sources…' : 'Scan sources'}</span>
             </button>
           </div>
         </div>
@@ -188,7 +195,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               <button
                 key={idx}
                 onClick={chip.apply}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-full border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] text-[#1C1B18] dark:text-white font-extrabold text-xs shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5] hover:bg-[#FF5A36] hover:text-white transition-all"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-full border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] text-[#1C1B18] dark:text-white font-extrabold text-xs shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5] hover:bg-[#D23B14] hover:text-white transition-all"
               >
                 <ChipIcon className="w-3.5 h-3.5 text-[#FF5A36] group-hover:text-white" />
                 <span>{chip.label}</span>
@@ -318,12 +325,28 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           </div>
         )}
 
-        {/* Issue 4 Fix: Showing __ verified opportunities - 100% Bold High Contrast Display */}
-        <div className="flex items-center justify-between text-xs text-[#1C1B18] dark:text-[#F8FAF9] pt-2 font-mono max-w-3xl mx-auto font-extrabold">
+        {/* Result count. "verified" is reported as its own number rather than
+            applied to the whole set: most listings sit at likely_active, so
+            calling every result verified overstates what the pipeline knows. */}
+        <div className="flex items-center justify-between gap-3 flex-wrap text-xs text-[#1C1B18] dark:text-[#F8FAF9] pt-2 font-mono max-w-3xl mx-auto font-medium">
           <div>
-            Showing <strong className="text-[#FF5A36] dark:text-[#D6DCE5] text-sm font-extrabold mx-1">{totalResults}</strong> verified opportunities
+            {/* Explicit {' '} — JSX drops the whitespace around expressions on
+                their own line, which would read as "22opportunities" to a
+                screen reader and to anyone copying the text. */}
+            Showing{' '}
+            <strong className="text-[#C2410C] dark:text-[#D6DCE5] text-sm font-extrabold">{totalResults}</strong>{' '}
+            {totalResults === 1 ? 'opportunity' : 'opportunities'}
+            {verifiedCount != null && (
+              <span className="text-[#047857] dark:text-[#34D399]">
+                {' · '}
+                <strong className="font-extrabold">{verifiedCount}</strong> verified
+              </span>
+            )}
             {activeFilterCount > 0 && (
-              <span className="ml-1 text-[#FF5A36]">· {activeFilterCount} filter{activeFilterCount > 1 ? 's' : ''} active</span>
+              <span className="text-[#C2410C] dark:text-[#FF8A6B]">
+                {' · '}
+                {activeFilterCount} filter{activeFilterCount > 1 ? 's' : ''} active
+              </span>
             )}
           </div>
           <div className="flex items-center gap-3">

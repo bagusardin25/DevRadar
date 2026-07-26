@@ -11,7 +11,7 @@ import { BookmarksDrawer } from './components/BookmarksDrawer';
 import { AlertSubscribeModal } from './components/AlertSubscribeModal';
 import { Pagination } from './components/Pagination';
 
-import type { FilterState, Hackathon, AIDeal } from './types';
+import type { FilterState, Hackathon, AIDeal, VerificationStatus } from './types';
 import {
   ApiError,
   type AdminMe,
@@ -372,6 +372,29 @@ export function App() {
     [aiDeals, applyLocalFlags],
   );
 
+  /**
+   * How many loaded rows are actually `verified_active`, or undefined when the
+   * loaded set is smaller than the server-side total. Reporting a verified
+   * count measured over 50 rows against a total of 300 would be misleading, so
+   * in that case the header shows the plain total instead.
+   */
+  const countVerified = useCallback(
+    (rows: Array<{ verificationStatus: VerificationStatus }>, total: number) =>
+      rows.length >= total
+        ? rows.filter((r) => r.verificationStatus === 'verified_active').length
+        : undefined,
+    [],
+  );
+
+  const verifiedHackathonCount = useMemo(
+    () => countVerified(displayHackathons, hackTotal || displayHackathons.length),
+    [countVerified, displayHackathons, hackTotal],
+  );
+  const verifiedDealCount = useMemo(
+    () => countVerified(displayAiDeals, dealTotal || displayAiDeals.length),
+    [countVerified, displayAiDeals, dealTotal],
+  );
+
   const paginatedHackathons = useMemo(() => {
     if (rowsPerPage === 0) return displayHackathons;
     const start = (currentPage - 1) * rowsPerPage;
@@ -719,6 +742,7 @@ export function App() {
               filters={filters}
               setFilters={setFilters}
               totalResults={hackTotal || hackathons.length}
+              verifiedCount={verifiedHackathonCount}
               onTriggerLiveDiscovery={() => void handleTriggerLiveDiscovery()}
               isSearchingLive={isSearchingLive}
             />
@@ -757,7 +781,9 @@ export function App() {
                 <div className="space-y-6">
                   <div
                     className={
-                      viewLayout === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-6' : 'space-y-4'
+                      viewLayout === 'grid'
+                        ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6'
+                        : 'space-y-4'
                     }
                   >
                     {paginatedHackathons.map((hackathon) => (
@@ -799,6 +825,7 @@ export function App() {
               filters={filters}
               setFilters={setFilters}
               totalResults={dealTotal || aiDeals.length}
+              verifiedCount={verifiedDealCount}
               onTriggerLiveDiscovery={() => void handleTriggerLiveDiscovery()}
               isSearchingLive={isSearchingLive}
             />
@@ -821,7 +848,9 @@ export function App() {
                 <div className="space-y-6">
                   <div
                     className={
-                      viewLayout === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-6' : 'space-y-4'
+                      viewLayout === 'grid'
+                        ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6'
+                        : 'space-y-4'
                     }
                   >
                     {paginatedAiDeals.map((deal) => (

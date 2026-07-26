@@ -21,6 +21,17 @@
   --accent-cyan: #0284C7;
   --accent-emerald: #059669;
   --accent-purple: #7C3AED;
+
+  /* Text-safe variants of the accents (>= 4.5:1 on --bg-card / --bg-card-alt).
+     The base --accent-* values above stay for fills, borders and icons, where
+     the 4.5:1 text rule does not apply. Use these whenever the accent is used
+     as small text: prize amounts, mode tags, countdowns. */
+  --accent-orange-strong: #D23B14;
+  --accent-orange-strong-hover: #B93410;
+  --text-emerald: #047857;
+  --text-orange: #C2410C;
+  --text-amber: #B45309;
+  --text-red: #B91C1C;
   
   --shadow-neo: 4px 4px 0 0 #1C1B18;
   --shadow-neo-lg: 6px 6px 0 0 #1C1B18;
@@ -56,6 +67,12 @@
   --accent: #D6DCE5;
   --accent-bg: rgba(214, 220, 229, 0.08);
   --accent-border: rgba(214, 220, 229, 0.3);
+
+  /* On dark cards the accents need to go lighter, not darker, to clear 4.5:1. */
+  --text-emerald: #34D399;
+  --text-orange: #FF8A6B;
+  --text-amber: #FBBF24;
+  --text-red: #F87171;
 }
 
 * {
@@ -124,7 +141,8 @@ select option {
 
 /* Sharetopus Button Styles */
 .btn-sharetopus-primary {
-  background-color: var(--accent-orange);
+  /* Deeper orange than --accent-orange so the white label clears 4.5:1. */
+  background-color: var(--accent-orange-strong);
   color: #ffffff;
   font-family: var(--font-display);
   font-weight: 700;
@@ -140,7 +158,7 @@ select option {
 }
 
 .btn-sharetopus-primary:hover {
-  background-color: var(--accent-orange-hover);
+  background-color: var(--accent-orange-strong-hover);
   transform: translate(-1px, -1px);
   box-shadow: 4px 4px 0 0 var(--border-dark);
 }
@@ -334,28 +352,30 @@ html.tab-hidden .animate-marquee {
   white-space: nowrap;
 }
 
+/* Colours come from the --text-* tokens so light mode goes darker and dark
+   mode goes lighter; the tinted fills stay identical in both. */
 .urgency-critical {
   background: rgba(239, 68, 68, 0.12);
-  color: #EF4444;
+  color: var(--text-red);
   border: 1.5px solid rgba(239, 68, 68, 0.35);
   animation: urgency-pulse 2s ease-in-out infinite;
 }
 
 .urgency-warning {
   background: rgba(245, 158, 11, 0.12);
-  color: #F59E0B;
+  color: var(--text-amber);
   border: 1.5px solid rgba(245, 158, 11, 0.35);
 }
 
 .urgency-normal {
   background: rgba(16, 185, 129, 0.10);
-  color: #10B981;
+  color: var(--text-emerald);
   border: 1.5px solid rgba(16, 185, 129, 0.30);
 }
 
 .urgency-closed {
   background: rgba(156, 163, 175, 0.10);
-  color: #9CA3AF;
+  color: var(--ink-muted);
   border: 1.5px solid rgba(156, 163, 175, 0.25);
   text-decoration: line-through;
 }
@@ -425,7 +445,8 @@ html.tab-hidden .animate-marquee {
   font-weight: 800;
   font-size: 0.65rem;
   font-family: var(--font-mono);
-  background: var(--accent-orange);
+  /* Deeper orange so the white digit clears 4.5:1 at this size. */
+  background: var(--accent-orange-strong);
   color: #fff;
   border: 1.5px solid var(--border-dark);
   box-shadow: var(--shadow-neo-sm);

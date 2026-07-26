@@ -89,7 +89,9 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="max-w-6xl mx-auto flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 shrink-0 pr-2 sm:pr-4 bg-[#E5E6DF] dark:bg-[#090C15] z-10 font-bold">
             <Flame className="w-3.5 h-3.5 text-[#FF5A36]" />
-            <span className="text-[#FF5A36] whitespace-nowrap">HIGHLIGHTS</span>
+            {/* The ticker sits on #E5E6DF, darker than a card, so these accents
+                go one step deeper than the --text-* tokens to clear 4.5:1. */}
+            <span className="text-[#9A3412] dark:text-[#FF8A6B] whitespace-nowrap">HIGHLIGHTS</span>
           </div>
 
           <div className="overflow-hidden flex-1 relative min-w-0">
@@ -100,22 +102,24 @@ export const Header: React.FC<HeaderProps> = ({
                   <strong
                     className={
                       item.kind === 'closing'
-                        ? 'text-[#D97706]'
+                        ? 'text-[#92400E] dark:text-[#FBBF24]'
                         : item.kind === 'offer'
-                          ? 'text-[#7C3AED]'
-                          : 'text-[#059669]'
+                          ? 'text-[#6D28D9] dark:text-[#C4B5FD]'
+                          : 'text-[#065F46] dark:text-[#34D399]'
                     }
                   >
                     {item.emphasis}
                   </strong>
                   <span className="max-w-[200px] sm:max-w-none truncate">{item.label}</span>
-                  <span className="text-[#736F66] dark:text-[#A3A096] ml-2">•</span>
+                  {/* Decorative separator — hidden so it is not announced
+                      between every single ticker item. */}
+                  <span aria-hidden="true" className="text-[#5C594F] dark:text-[#A3A096] ml-2">•</span>
                 </span>
               ))}
             </div>
           </div>
 
-          <div className="hidden lg:flex items-center gap-2 text-[#059669] dark:text-emerald-400 shrink-0 font-bold text-[12px]">
+          <div className="hidden lg:flex items-center gap-2 text-[#065F46] dark:text-emerald-400 shrink-0 font-bold text-[12px]">
             <Unlock className="w-3.5 h-3.5" />
             <span>OPEN SOURCE · NO END-USER LOGIN</span>
           </div>
@@ -155,9 +159,11 @@ export const Header: React.FC<HeaderProps> = ({
                   type="button"
                   onClick={() => setViewLayout('grid')}
                   title="Grid View"
+                  aria-label="Grid view"
+                  aria-pressed={viewLayout === 'grid'}
                   className={`p-1.5 rounded-full transition-all ${
                     viewLayout === 'grid'
-                      ? 'bg-[#FF5A36] text-white font-bold'
+                      ? 'bg-[#D23B14] text-white font-bold'
                       : 'text-[#4A4845] dark:text-[#B8C4D2] hover:text-[#1C1B18]'
                   }`}
                 >
@@ -167,9 +173,11 @@ export const Header: React.FC<HeaderProps> = ({
                   type="button"
                   onClick={() => setViewLayout('compact')}
                   title="Compact List View"
+                  aria-label="Compact list view"
+                  aria-pressed={viewLayout === 'compact'}
                   className={`p-1.5 rounded-full transition-all ${
                     viewLayout === 'compact'
-                      ? 'bg-[#FF5A36] text-white font-bold'
+                      ? 'bg-[#D23B14] text-white font-bold'
                       : 'text-[#4A4845] dark:text-[#B8C4D2] hover:text-[#1C1B18]'
                   }`}
                 >
@@ -181,6 +189,7 @@ export const Header: React.FC<HeaderProps> = ({
                 type="button"
                 onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
                 title="Toggle Theme"
+                aria-label={theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
                 className="p-2 sm:p-2.5 rounded-full bg-white dark:bg-[#131A29] border-[1.5px] border-[#1C1B18] text-[#1C1B18] dark:text-white shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5] font-bold"
               >
                 {theme === 'light' ? (
@@ -195,6 +204,7 @@ export const Header: React.FC<HeaderProps> = ({
                 target="_blank"
                 rel="noreferrer"
                 title="GitHub"
+                aria-label="DevRadar on GitHub (opens in a new tab)"
                 className="hidden sm:flex p-2.5 rounded-full bg-white dark:bg-[#131A29] border-[1.5px] border-[#1C1B18] text-[#1C1B18] dark:text-white shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5] font-bold"
               >
                 <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
@@ -206,6 +216,7 @@ export const Header: React.FC<HeaderProps> = ({
                 type="button"
                 onClick={onOpenExtensionPanel}
                 title="Extension preview"
+                aria-label="Open browser extension preview"
                 className="hidden sm:flex p-2.5 rounded-full bg-white dark:bg-[#131A29] border-[1.5px] border-[#1C1B18] text-[#1C1B18] dark:text-white shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5] font-bold"
               >
                 <Globe className="w-4 h-4 text-[#FF5A36]" />
@@ -215,6 +226,7 @@ export const Header: React.FC<HeaderProps> = ({
                 type="button"
                 onClick={onOpenAlerts}
                 title="Email alerts"
+                aria-label="Subscribe to email alerts"
                 className="p-2 sm:p-2.5 rounded-full bg-white dark:bg-[#131A29] border-[1.5px] border-[#1C1B18] text-[#1C1B18] dark:text-white shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5] font-bold"
               >
                 <Bell className="w-4 h-4 text-[#7C3AED]" />
@@ -223,6 +235,10 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 onClick={onOpenSubmit}
+                // The label is hidden below `sm`, so without this the button
+                // announces as an unnamed "+" on mobile.
+                aria-label="Submit a missing opportunity"
+                title="Submit a missing opportunity"
                 className="btn-sharetopus-primary text-xs py-2 px-3 sm:px-4 font-bold"
               >
                 <Plus className="w-4 h-4" />
@@ -232,11 +248,20 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 onClick={onOpenBookmarks}
+                aria-label={
+                  bookmarkCount > 0
+                    ? `Saved opportunities (${bookmarkCount})`
+                    : 'Saved opportunities'
+                }
+                title="Saved opportunities"
                 className="relative p-2 sm:p-2.5 rounded-full bg-white dark:bg-[#131A29] border-[1.5px] border-[#1C1B18] text-[#1C1B18] dark:text-white shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5] font-bold"
               >
                 <Bookmark className="w-4 h-4 text-[#FF5A36]" />
                 {bookmarkCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#FF5A36] text-[12px] font-extrabold text-white shadow-md">
+                  <span
+                    aria-hidden="true"
+                    className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#D23B14] text-[12px] font-extrabold text-white shadow-md"
+                  >
                     {bookmarkCount}
                   </span>
                 )}
@@ -251,8 +276,8 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={() => setFilters((f) => ({ ...f, activeModule: 'hackathon' }))}
               className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-full transition-all whitespace-nowrap shrink-0 ${
                 filters.activeModule === 'hackathon'
-                  ? 'bg-[#FF5A36] text-white font-bold shadow-sm'
-                  : 'text-[#1C1B18] dark:text-[#D6DCE5] hover:text-[#FF5A36]'
+                  ? 'bg-[#D23B14] text-white font-bold shadow-sm'
+                  : 'text-[#1C1B18] dark:text-[#D6DCE5] hover:text-[#C2410C] dark:hover:text-[#FF8A6B]'
               }`}
             >
               <Radar className="w-4 h-4" />

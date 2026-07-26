@@ -9,22 +9,28 @@ export interface ListingBadge {
   title?: string;
 }
 
+/* Badge labels are 12px, so the text colour needs 4.5:1 against the tinted
+   fill. The light-mode values are one step darker than the border/fill hue for
+   that reason; dark mode goes lighter instead. */
 const TONE_CLASS: Record<BadgeTone, string> = {
   green:
-    'bg-[#059669]/15 text-[#059669] dark:text-[#34D399] border-[#059669]',
+    'bg-[#059669]/15 text-[#047857] dark:text-[#34D399] border-[#059669]',
   amber:
-    'bg-[#D97706]/15 text-[#D97706] dark:text-[#FBBF24] border-[#D97706]',
-  red: 'bg-[#DC2626]/15 text-[#DC2626] dark:text-[#F87171] border-[#DC2626]',
+    'bg-[#D97706]/15 text-[#92400E] dark:text-[#FBBF24] border-[#D97706]',
+  red: 'bg-[#DC2626]/15 text-[#B91C1C] dark:text-[#F87171] border-[#DC2626]',
   slate:
     'bg-[#F3F4EF] dark:bg-[#1A2336] text-[#1C1B18] dark:text-[#F8FAF9] border-[#1C1B18] dark:border-[#D6DCE5]',
-  blue: 'bg-[#0284C7]/15 text-[#0284C7] dark:text-[#38BDF8] border-[#0284C7]',
+  blue: 'bg-[#0284C7]/15 text-[#0369A1] dark:text-[#38BDF8] border-[#0284C7]',
   purple:
-    'bg-[#7C3AED]/15 text-[#7C3AED] dark:text-[#C4B5FD] border-[#7C3AED]',
+    'bg-[#7C3AED]/15 text-[#6D28D9] dark:text-[#C4B5FD] border-[#7C3AED]',
 };
 
 export function badgeToneClass(tone: BadgeTone): string {
   return TONE_CLASS[tone];
 }
+
+/** At or above this field score a listing counts as complete and stays unbadged. */
+export const COMPLETENESS_OK_SCORE = 85;
 
 export function statusBadge(status: VerificationStatus): ListingBadge {
   switch (status) {
@@ -92,16 +98,19 @@ export function completenessBadges(
     });
   }
 
+  // Only surface the field score when it is a caveat. A near-complete listing
+  // is the expected default, so a "100% FIELDS" badge costs a slot in the badge
+  // row without changing any decision the reader makes.
   const score = completeness.score ?? 0;
-  if (score > 0) {
+  if (score > 0 && score < COMPLETENESS_OK_SCORE) {
     out.push({
       key: 'complete',
       label: `${score}% FIELDS`,
-      tone: score >= 85 ? 'green' : score >= 60 ? 'blue' : 'amber',
+      tone: score >= 60 ? 'blue' : 'amber',
       title:
         completeness.missing?.length
-          ? `Missing: ${completeness.missing.join(', ')}`
-          : 'Core fields present',
+          ? `Incomplete listing — missing: ${completeness.missing.join(', ')}`
+          : 'Some core fields are missing',
     });
   }
 

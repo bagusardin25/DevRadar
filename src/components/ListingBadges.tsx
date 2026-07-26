@@ -33,7 +33,7 @@ export const ListingBadges: React.FC<ListingBadgesProps> = ({
         <span
           key={b.key}
           title={b.title}
-          className={`px-2.5 py-1 rounded-full border text-[12px] font-extrabold tracking-wide ${badgeToneClass(b.tone)}`}
+          className={`px-2.5 py-1 rounded-full border text-[12px] font-bold tracking-wide ${badgeToneClass(b.tone)}`}
         >
           {b.label}
         </span>

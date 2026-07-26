@@ -10,10 +10,12 @@ This guide is for **first-time contributors** and regulars. Setup detail also li
 
 | Kind | How |
 |------|-----|
-| **Bugs / ideas** | [GitHub Issues](https://github.com/bagusardin25/DevRadar/issues) (bug & feature templates) |
+| **Bugs / feature ideas** | [GitHub Issues](https://github.com/bagusardin25/DevRadar/issues) (bug & feature templates) |
 | **Code** | Backend (FastAPI), frontend (React/Vite), connectors, tests |
 | **Catalogue data** | Edit seed JSON **or** use in-app **Submit** (preferred over mocks) |
 | **Docs that ship** | README, this file, `SECURITY.md`, issue templates — **not** a private `docs/` folder |
+| **Security reports** | **Do not** open a public issue — follow [SECURITY.md](SECURITY.md) |
+| **Usage questions** | Fine to open an issue as `question` — please keep the tracker actionable (one topic per thread) |
 
 **Good first PRs:** typo/UI copy fix, one honest seed listing, badge/layout polish, a failing test that documents a bug.
 
@@ -26,6 +28,52 @@ This guide is for **first-time contributors** and regulars. Setup detail also li
 3. **Node.js 20+** and npm
 
 You do **not** need OpenAI, X/Twitter API, or GitHub OAuth to browse the seed catalogue.
+
+---
+
+## Your first pull request
+
+New to the project? This is the Git workflow. Setup commands are in **Development setup** below.
+
+1. **Fork** the repo via the GitHub UI (top-right **Fork** button).
+2. **Clone your fork** and add the upstream remote:
+
+   ```bash
+   git clone https://github.com/<your-username>/DevRadar.git
+   cd DevRadar
+   git remote add upstream https://github.com/bagusardin25/DevRadar.git
+   ```
+
+3. **Create a branch** off `main` with a type prefix — never commit directly to `main`:
+
+   ```bash
+   git checkout -b fix/short-description
+   ```
+
+   Prefixes: `feat/` (new capability), `fix/` (bug), `docs/` (docs-only), `refactor/`, `test/`, `chore/` (tooling / deps / build).
+
+4. Run the bootstrap (see next section), make your change, and run the checks in **Checks before a PR**.
+5. **Sync with upstream** before you push, to avoid conflicts:
+
+   ```bash
+   git fetch upstream
+   git rebase upstream/main
+   ```
+
+6. **Push** to your fork and open a PR against `bagusardin25/DevRadar:main`:
+
+   ```bash
+   git push origin fix/short-description
+   ```
+
+   Then open the PR from GitHub (it will offer a "Compare & pull request" button).
+7. Fill in the [PR checklist](#pull-request-checklist) at the bottom of this file.
+
+**Big or ambiguous changes?** Open an issue first so we can align on scope before you invest time. Typo fixes, one seed listing, or a failing test can go straight to PR.
+
+**Commit message style:** short imperative subject line ("Add X", "Fix Y", "Rename Z"). Check `git log` for examples.
+
+**If CI fails:** click the failing check on your PR, fix the issue locally, then `git push` again — the PR updates automatically.
 
 ---
 
@@ -50,10 +98,12 @@ Public app modules: **Radar** (hackathons), **AI Deals**.
 
 ### 1. Bootstrap (once)
 
+If you already cloned your fork in the previous section, skip the `git clone` line and just run the bootstrap script.
+
 **Windows (PowerShell):**
 
 ```powershell
-git clone https://github.com/bagusardin25/DevRadar.git
+git clone https://github.com/<your-username>/DevRadar.git
 cd DevRadar
 .\scripts\dev.ps1
 ```
@@ -61,7 +111,7 @@ cd DevRadar
 **macOS / Linux:**
 
 ```bash
-git clone https://github.com/bagusardin25/DevRadar.git
+git clone https://github.com/<your-username>/DevRadar.git
 cd DevRadar
 chmod +x scripts/dev.sh
 ./scripts/dev.sh
@@ -121,7 +171,15 @@ npm run build
 npm run lint
 ```
 
-CI runs the same class of checks on pull requests (frontend build/lint + backend pytest with services).
+### CI gates (required to merge)
+
+Every PR to `main` runs these on GitHub Actions (`.github/workflows/ci.yml`) — a green check is required to merge:
+
+- **Frontend build** — `npm ci && npm run build` on Node 22
+- **Frontend lint** — `npm run lint`
+- **Backend tests** — `pytest` against a real Postgres 16 + Redis 7 (services spun up in CI), after `alembic upgrade head`
+
+If a check goes red on your PR, click it → fix locally → `git push` again to re-run.
 
 ### The test database
 
@@ -188,6 +246,17 @@ uv run python scripts/recheck_listings.py --kind ai_offer --limit 25
 - [ ] No secrets / `.env` / personal keys  
 - [ ] If the **public** workflow changed: update **README** or this file  
 - [ ] Seed rows (if any) have honest prize / deadline / official URL fields  
+
+---
+
+## How we review
+
+Every PR gets two passes:
+
+1. **Automated first-pass** from [CodeRabbit](https://coderabbit.ai) — posts a summary in the PR description and inline suggestions on the diff. Configured via [`.coderabbit.yaml`](.coderabbit.yaml). It's a **helper, not a merge gate** — treat suggestions as prompts to double-check, not blockers.
+2. **Maintainer review** — a human always makes the final call on correctness, scope, and security. Aiming for a first response within a few days (best-effort — solo maintainer).
+
+You can re-trigger the bot in a PR comment: `@coderabbitai review` (fresh review) or `@coderabbitai resolve` (mark all suggestions resolved).
 
 ---
 

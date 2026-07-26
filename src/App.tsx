@@ -27,6 +27,11 @@ import {
   loadAlertIds,
   describeDiscoveryResult,
   loadBookmarkIds,
+  loadBookmarkSnapshots,
+  saveBookmarkSnapshots,
+  reconcileSnapshots,
+  upsertSnapshot,
+  removeSnapshot,
   parseShareIdsFromSearch,
   rejectReviewItem,
   saveAlertIds,
@@ -208,15 +213,24 @@ export function App() {
 
   const [bookmarkIds, setBookmarkIds] = useState<Set<string>>(() => loadBookmarkIds());
   const [alertIds, setAlertIds] = useState<Set<string>>(() => loadAlertIds());
-  /** Cache of bookmarked entities so the drawer works when filters change. */
+  /** Cache of bookmarked entities so the drawer works when filters change.
+      Persisted to localStorage — without persistence, a bookmark whose id
+      isn't on the currently-loaded catalogue page vanishes from the drawer. */
   const [bookmarkCache, setBookmarkCache] = useState<{
     hackathons: Record<string, Hackathon>;
     deals: Record<string, AIDeal>;
-  }>({ hackathons: {}, deals: {} });
+  }>(() => loadBookmarkSnapshots());
 
   useEffect(() => {
     saveBookmarkIds(bookmarkIds);
   }, [bookmarkIds]);
+
+  // Any change to the cache — refresh from a new fetch, toggle add, toggle
+  // remove — has to make it to storage; otherwise a reload puts us right back
+  // in the original bug.
+  useEffect(() => {
+    saveBookmarkSnapshots(bookmarkCache);
+  }, [bookmarkCache]);
 
   useEffect(() => {
     saveAlertIds(alertIds);
@@ -303,18 +317,14 @@ export function App() {
       setDealTotal(dealPage.totalEstimate);
       if (statsRes) setStats(statsRes);
       setIsOfflineMode(false);
-      // Refresh bookmark cache from freshly loaded rows that are still bookmarked.
-      setBookmarkCache((prev) => {
-        const nextH = { ...prev.hackathons };
-        const nextD = { ...prev.deals };
-        for (const h of hackPage.items) {
-          if (bookmarks.has(h.id)) nextH[h.id] = h;
-        }
-        for (const d of dealPage.items) {
-          if (bookmarks.has(d.id)) nextD[d.id] = d;
-        }
-        return { hackathons: nextH, deals: nextD };
-      });
+      // Refresh cached snapshots for any bookmarked row that reappeared in this
+      // page, and drop snapshots whose id is no longer bookmarked at all.
+      setBookmarkCache((prev) =>
+        reconcileSnapshots(prev, bookmarks, {
+          hackathons: hackPage.items,
+          deals: dealPage.items,
+        }),
+      );
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
       const message =
@@ -513,18 +523,14 @@ export function App() {
     setBookmarkIds((prev) => {
       const next = toggleId(prev, id);
       setBookmarkCache((cache) => {
-        const hackathonsMap = { ...cache.hackathons };
-        const dealsMap = { ...cache.deals };
         if (next.has(id)) {
           const h = hackathons.find((x) => x.id === id);
+          if (h) return upsertSnapshot(cache, h, 'hackathon');
           const d = aiDeals.find((x) => x.id === id);
-          if (h) hackathonsMap[id] = { ...h, bookmarked: true };
-          if (d) dealsMap[id] = { ...d, bookmarked: true };
-        } else {
-          delete hackathonsMap[id];
-          delete dealsMap[id];
+          if (d) return upsertSnapshot(cache, d, 'ai_deal');
+          return cache;
         }
-        return { hackathons: hackathonsMap, deals: dealsMap };
+        return removeSnapshot(cache, id);
       });
       return next;
     });

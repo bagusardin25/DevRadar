@@ -39,7 +39,13 @@ export {
   parseShareIdsFromSearch,
   downloadBookmarkJson,
   readBookmarkFile,
+  loadBookmarkSnapshots,
+  saveBookmarkSnapshots,
+  reconcileSnapshots,
+  upsertSnapshot,
+  removeSnapshot,
   type BookmarkExportPayload,
+  type BookmarkSnapshotStore,
 } from './bookmarks';
 export {
   createAlert,

@@ -250,23 +250,39 @@ export const BookmarksDrawer: React.FC<BookmarksDrawerProps> = ({
             )}
           </div>
         ) : (
-          <div className="space-y-3">
+          // Two visually distinct groups. Same-styled cards under a small
+          // label made the two types read as one long list; the section
+          // banners and the coloured left-accent make the boundary obvious
+          // at a glance, so a reader isn't guessing what kind of item
+          // they're looking at.
+          <div className="space-y-5">
             {bookmarkedHackathons.length > 0 && (
-              <div className="space-y-2">
-                <span className="font-mono text-[11px] font-extrabold text-[#FF5A36] uppercase">
-                  {sharedMode ? 'SHARED' : 'SAVED'} HACKATHONS ({bookmarkedHackathons.length})
-                </span>
+              <section className="space-y-2">
+                <header className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#FFF1EE] dark:bg-[#FF5A36]/15 border-[1.5px] border-[#FF5A36]">
+                  <Trophy className="w-4 h-4 text-[#C2410C] dark:text-[#FF8A6B] shrink-0" />
+                  <span className="font-mono text-[11px] font-extrabold text-[#C2410C] dark:text-[#FF8A6B] uppercase tracking-wide">
+                    {sharedMode ? 'Shared' : 'Saved'} Hackathons
+                  </span>
+                  <span className="ml-auto font-mono text-[11px] font-extrabold text-[#C2410C] dark:text-[#FF8A6B] bg-white dark:bg-[#131A29] border border-[#FF5A36] rounded-full px-2 py-0.5">
+                    {bookmarkedHackathons.length}
+                  </span>
+                </header>
+
                 {bookmarkedHackathons.map((h) => (
                   <div
                     key={h.id}
-                    className="sharetopus-card p-3 rounded-2xl border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-[#F8F9F4] dark:bg-[#1A2336] flex items-center justify-between gap-2"
+                    // Inline style, not a Tailwind class: `dark:border-[…]` in
+                    // the base rule beats `border-l-[…]` on cascade priority,
+                    // so the accent kept vanishing in dark mode.
+                    style={{ borderLeftWidth: '6px', borderLeftColor: '#FF5A36' }}
+                    className="sharetopus-card p-3 pl-4 rounded-2xl border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-[#F8F9F4] dark:bg-[#1A2336] flex items-center justify-between gap-2"
                   >
                     <div className="space-y-0.5 min-w-0">
                       <div className="font-extrabold text-[#1C1B18] dark:text-white text-xs truncate flex items-center gap-1.5">
-                        <Trophy className="w-3.5 h-3.5 text-[#FF5A36] shrink-0" />
+                        <Trophy className="w-3.5 h-3.5 text-[#C2410C] dark:text-[#FF8A6B] shrink-0" />
                         <span className="truncate">{h.title}</span>
                       </div>
-                      <div className="text-[11px] font-mono text-[#059669] font-extrabold">
+                      <div className="text-[11px] font-mono text-[#047857] dark:text-[#34D399] font-extrabold">
                         {formatPrizePool(h, { compact: true })}
                       </div>
                     </div>
@@ -276,7 +292,8 @@ export const BookmarksDrawer: React.FC<BookmarksDrawerProps> = ({
                         href={h.officialUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="p-1.5 rounded-full border border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#1A2336] text-[#1C1B18] dark:text-white hover:bg-[#FF5A36] hover:text-white"
+                        aria-label={`Open ${h.title} in a new tab`}
+                        className="p-1.5 rounded-full border border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] text-[#1C1B18] dark:text-white hover:bg-[#FF5A36] hover:text-white"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
                       </a>
@@ -284,8 +301,8 @@ export const BookmarksDrawer: React.FC<BookmarksDrawerProps> = ({
                         <button
                           type="button"
                           onClick={() => onRemoveBookmark(h.id)}
-                          className="p-1.5 rounded-full border border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#1A2336] text-[#FF5A36] hover:bg-[#FF5A36] hover:text-white"
-                          aria-label="Remove bookmark"
+                          className="p-1.5 rounded-full border border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] text-[#FF5A36] hover:bg-[#FF5A36] hover:text-white"
+                          aria-label={`Remove bookmark for ${h.title}`}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -293,25 +310,33 @@ export const BookmarksDrawer: React.FC<BookmarksDrawerProps> = ({
                     </div>
                   </div>
                 ))}
-              </div>
+              </section>
             )}
 
             {bookmarkedDeals.length > 0 && (
-              <div className="space-y-2 pt-2">
-                <span className="font-mono text-[11px] font-extrabold text-[#7C3AED] uppercase">
-                  {sharedMode ? 'SHARED' : 'SAVED'} AI DEALS ({bookmarkedDeals.length})
-                </span>
+              <section className="space-y-2">
+                <header className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#7C3AED]/10 dark:bg-[#7C3AED]/20 border-[1.5px] border-[#7C3AED]">
+                  <Gift className="w-4 h-4 text-[#6D28D9] dark:text-[#C4B5FD] shrink-0" />
+                  <span className="font-mono text-[11px] font-extrabold text-[#6D28D9] dark:text-[#C4B5FD] uppercase tracking-wide">
+                    {sharedMode ? 'Shared' : 'Saved'} AI Deals
+                  </span>
+                  <span className="ml-auto font-mono text-[11px] font-extrabold text-[#6D28D9] dark:text-[#C4B5FD] bg-white dark:bg-[#131A29] border border-[#7C3AED] rounded-full px-2 py-0.5">
+                    {bookmarkedDeals.length}
+                  </span>
+                </header>
+
                 {bookmarkedDeals.map((d) => (
                   <div
                     key={d.id}
-                    className="sharetopus-card p-3 rounded-2xl border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-[#F8F9F4] dark:bg-[#1A2336] flex items-center justify-between gap-2"
+                    style={{ borderLeftWidth: '6px', borderLeftColor: '#7C3AED' }}
+                    className="sharetopus-card p-3 pl-4 rounded-2xl border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-[#F8F9F4] dark:bg-[#1A2336] flex items-center justify-between gap-2"
                   >
                     <div className="space-y-0.5 min-w-0">
                       <div className="font-extrabold text-[#1C1B18] dark:text-white text-xs truncate flex items-center gap-1.5">
-                        <Gift className="w-3.5 h-3.5 text-[#7C3AED] shrink-0" />
+                        <Gift className="w-3.5 h-3.5 text-[#6D28D9] dark:text-[#C4B5FD] shrink-0" />
                         <span className="truncate">{d.productName}</span>
                       </div>
-                      <div className="text-[11px] font-mono text-[#7C3AED] font-extrabold">
+                      <div className="text-[11px] font-mono text-[#6D28D9] dark:text-[#C4B5FD] font-extrabold truncate">
                         {d.offerValue}
                       </div>
                     </div>
@@ -321,7 +346,8 @@ export const BookmarksDrawer: React.FC<BookmarksDrawerProps> = ({
                         href={d.claimUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="p-1.5 rounded-full border border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#1A2336] text-[#1C1B18] dark:text-white hover:bg-[#7C3AED] hover:text-white"
+                        aria-label={`Claim ${d.productName} in a new tab`}
+                        className="p-1.5 rounded-full border border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] text-[#1C1B18] dark:text-white hover:bg-[#7C3AED] hover:text-white"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
                       </a>
@@ -329,8 +355,8 @@ export const BookmarksDrawer: React.FC<BookmarksDrawerProps> = ({
                         <button
                           type="button"
                           onClick={() => onRemoveBookmark(d.id)}
-                          className="p-1.5 rounded-full border border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#1A2336] text-[#FF5A36] hover:bg-[#FF5A36] hover:text-white"
-                          aria-label="Remove bookmark"
+                          className="p-1.5 rounded-full border border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] text-[#FF5A36] hover:bg-[#FF5A36] hover:text-white"
+                          aria-label={`Remove bookmark for ${d.productName}`}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -338,7 +364,7 @@ export const BookmarksDrawer: React.FC<BookmarksDrawerProps> = ({
                     </div>
                   </div>
                 ))}
-              </div>
+              </section>
             )}
           </div>
         )}

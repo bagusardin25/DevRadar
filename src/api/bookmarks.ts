@@ -1,7 +1,18 @@
 /** Browser-only bookmark / alert preference storage (no server account). */
 
+import type { AIDeal, Hackathon } from '../types';
+
 const BOOKMARKS_KEY = 'devradar_bookmarks_v1';
 const ALERTS_KEY = 'devradar_alerts_v1';
+/**
+ * Snapshot of each bookmarked item's full row, keyed by id.
+ *
+ * Without this the drawer could only render bookmarks whose id happened to be
+ * on the currently-loaded catalogue page — bookmark something under filter A,
+ * switch to filter B, reload, and the item silently vanished from the drawer
+ * even though its id was still saved.
+ */
+const BOOKMARK_SNAPSHOTS_KEY = 'devradar_bookmark_snapshots_v1';
 
 /** Export format version for import/export JSON. */
 export const BOOKMARK_EXPORT_VERSION = 1 as const;
@@ -56,6 +67,98 @@ export function toggleId(ids: Set<string>, id: string): Set<string> {
   if (next.has(id)) next.delete(id);
   else next.add(id);
   return next;
+}
+
+/** Persisted snapshot of every bookmarked row, so the drawer works regardless
+    of which filter or page is currently loaded. */
+export interface BookmarkSnapshotStore {
+  hackathons: Record<string, Hackathon>;
+  deals: Record<string, AIDeal>;
+}
+
+/** Strip transient local flags so a snapshot never carries stale bookmarked /
+    alertEnabled state from a previous session. */
+function stripLocalFlags<T extends { bookmarked?: boolean; alertEnabled?: boolean }>(
+  item: T,
+): T {
+  const { bookmarked: _b, alertEnabled: _a, ...rest } = item;
+  void _b; void _a;
+  return rest as T;
+}
+
+export function loadBookmarkSnapshots(): BookmarkSnapshotStore {
+  try {
+    const raw = localStorage.getItem(BOOKMARK_SNAPSHOTS_KEY);
+    if (!raw) return { hackathons: {}, deals: {} };
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object') return { hackathons: {}, deals: {} };
+    const store = parsed as Partial<BookmarkSnapshotStore>;
+    return {
+      hackathons: store.hackathons && typeof store.hackathons === 'object' ? store.hackathons : {},
+      deals: store.deals && typeof store.deals === 'object' ? store.deals : {},
+    };
+  } catch {
+    return { hackathons: {}, deals: {} };
+  }
+}
+
+export function saveBookmarkSnapshots(store: BookmarkSnapshotStore): void {
+  try {
+    localStorage.setItem(BOOKMARK_SNAPSHOTS_KEY, JSON.stringify(store));
+  } catch {
+    // Quota errors are non-fatal — the in-memory cache still works this session.
+  }
+}
+
+/** Prune snapshots for ids that are no longer bookmarked and merge in updated
+    rows for ids that are. Returns a new store; input is not mutated. */
+export function reconcileSnapshots(
+  store: BookmarkSnapshotStore,
+  ids: Set<string>,
+  updates: { hackathons?: Hackathon[]; deals?: AIDeal[] } = {},
+): BookmarkSnapshotStore {
+  const hackathons: Record<string, Hackathon> = {};
+  const deals: Record<string, AIDeal> = {};
+  for (const id of ids) {
+    if (store.hackathons[id]) hackathons[id] = store.hackathons[id];
+    if (store.deals[id]) deals[id] = store.deals[id];
+  }
+  for (const h of updates.hackathons ?? []) {
+    if (ids.has(h.id)) hackathons[h.id] = stripLocalFlags(h);
+  }
+  for (const d of updates.deals ?? []) {
+    if (ids.has(d.id)) deals[d.id] = stripLocalFlags(d);
+  }
+  return { hackathons, deals };
+}
+
+export function upsertSnapshot(
+  store: BookmarkSnapshotStore,
+  item: Hackathon | AIDeal,
+  kind: 'hackathon' | 'ai_deal',
+): BookmarkSnapshotStore {
+  if (kind === 'hackathon') {
+    return {
+      hackathons: { ...store.hackathons, [item.id]: stripLocalFlags(item as Hackathon) },
+      deals: store.deals,
+    };
+  }
+  return {
+    hackathons: store.hackathons,
+    deals: { ...store.deals, [item.id]: stripLocalFlags(item as AIDeal) },
+  };
+}
+
+export function removeSnapshot(
+  store: BookmarkSnapshotStore,
+  id: string,
+): BookmarkSnapshotStore {
+  if (!store.hackathons[id] && !store.deals[id]) return store;
+  const hackathons = { ...store.hackathons };
+  const deals = { ...store.deals };
+  delete hackathons[id];
+  delete deals[id];
+  return { hackathons, deals };
 }
 
 /** Build a portable export document from current ids + optional titles. */

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
@@ -12,10 +13,21 @@ from sqlalchemy.orm import selectinload
 
 from app.audit.models import AdminAuditLog
 from app.auth.sessions import AdminIdentity
-from app.catalog.enums import ActorType, ReviewItemState, VerificationStatus
+from app.catalog.builders import build_ai_offer_create, build_hackathon_create
+from app.catalog.enums import (
+    ActorType,
+    ListingKind,
+    ReviewCandidateType,
+    ReviewItemState,
+    SubmissionState,
+    VerificationStatus,
+)
 from app.catalog.models import Listing
-from app.errors import ConflictError, NotFoundError
+from app.catalog.repository import ListingRepository
+from app.catalog.schemas import ListingCreateSchema
+from app.errors import ConflictError, NotFoundError, ValidationError
 from app.ingestion.models import VerificationEvent
+from app.ingestion.pipeline import slugify_title
 from app.review.models import ReviewItem
 from app.review.schemas import (
     ApproveReviewRequest,
@@ -23,10 +35,18 @@ from app.review.schemas import (
     RejectReviewRequest,
     ReviewItemPublic,
 )
+from app.submissions.models import CommunitySubmission
 
 _MUTABLE_STATES = frozenset(
     {ReviewItemState.OPEN.value, ReviewItemState.IN_PROGRESS.value}
 )
+
+# An admin vouching for a URL is stronger than an unscored candidate but weaker
+# than a full deterministic verification run, which can reach 1.0.
+ADMIN_APPROVAL_CONFIDENCE = Decimal("0.75")
+
+_URL_SNAPSHOT_KEYS = ("officialUrl", "url", "canonical_url", "claimUrl", "originalUrl")
+_URL_FIELD_KEYS = ("official_url", "official_terms_url", "claim_url")
 
 
 def _state_value(state: object) -> str:
@@ -36,6 +56,7 @@ def _state_value(state: object) -> str:
 class ReviewService:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
+        self._repo = ListingRepository(session)
 
     async def list_items(
         self,
@@ -79,10 +100,22 @@ class ReviewService:
 
         if command.corrections:
             snapshot = dict(item.candidate_snapshot or {})
-            snapshot.update(command.corrections)
+            corrections = dict(command.corrections)
+            # `fields` is merged key-by-key so an admin fixing one date does not
+            # wipe everything extraction already found.
+            if isinstance(corrections.get("fields"), dict):
+                merged_fields = dict(snapshot.get("fields") or {})
+                merged_fields.update(corrections.pop("fields"))
+                snapshot["fields"] = merged_fields
+            snapshot.update(corrections)
             item.candidate_snapshot = snapshot
 
-        if item.listing_id is not None:
+        if item.listing_id is None:
+            # Community submissions and other queue-only candidates have no
+            # catalogue row yet — approval is what publishes them.
+            published = await self._publish_from_snapshot(item, admin, command, now)
+            item.listing_id = published.id
+        else:
             listing = await self._get_listing(item.listing_id)
             if listing is not None:
                 prev = _state_value(listing.verification_status)
@@ -116,6 +149,7 @@ class ReviewService:
         }
         item.resolved_at = now
         item.version = item.version + 1
+        await self._sync_submission_state(item, SubmissionState.ACCEPTED)
 
         self._write_audit(
             admin,
@@ -148,6 +182,7 @@ class ReviewService:
         item.resolved_at = datetime.now(UTC)
         item.version = item.version + 1
         item.reason = command.reason
+        await self._sync_submission_state(item, SubmissionState.REJECTED)
 
         self._write_audit(
             admin,
@@ -189,6 +224,8 @@ class ReviewService:
         }
         item.resolved_at = datetime.now(UTC)
         item.version = item.version + 1
+        # The opportunity is in the catalogue, just under an existing row.
+        await self._sync_submission_state(item, SubmissionState.ACCEPTED)
 
         self._session.add(
             VerificationEvent(

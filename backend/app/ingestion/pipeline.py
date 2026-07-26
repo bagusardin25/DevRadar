@@ -17,13 +17,10 @@ from app.catalog.enums import (
     ReviewItemState,
     VerificationStatus,
 )
+from app.catalog.builders import build_ai_offer_create, build_hackathon_create
 from app.catalog.models import Listing
 from app.catalog.repository import ListingRepository
-from app.catalog.schemas import (
-    AIOfferCreateSchema,
-    HackathonCreateSchema,
-    ListingCreateSchema,
-)
+from app.catalog.schemas import ListingCreateSchema
 from app.ingestion.models import VerificationEvent
 from app.ingestion.normalizer import CandidateListing
 from app.ingestion.verifier import VerificationEvidence, VerificationResult, verify
@@ -44,7 +41,7 @@ class PipelineOutcome:
     reasons: list[str]
 
 
-def _slugify(title: str) -> str:
+def slugify_title(title: str) -> str:
     import re
 
     base = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:60] or "listing"
@@ -219,7 +216,7 @@ class IngestionPipeline:
         force_status: VerificationStatus | None = None,
     ) -> Listing:
         status = force_status or result.status
-        slug = _slugify(candidate.title)
+        slug = slugify_title(candidate.title)
         listing_data = ListingCreateSchema(
             kind=candidate.kind,
             slug=slug,
@@ -238,42 +235,18 @@ class IngestionPipeline:
         if candidate.kind == ListingKind.HACKATHON:
             return await self._repo.create_hackathon(
                 listing_data,
-                HackathonCreateSchema(
-                    organizer=str(f.get("organizer") or "Unknown"),
-                    registration_open_at=f.get("registration_open_at"),
-                    registration_deadline=f.get("registration_deadline"),
-                    submission_deadline=f.get("submission_deadline"),
-                    mode=f.get("mode") or "online",
-                    location=f.get("location"),
-                    eligible_countries=list(f.get("eligible_countries") or []),
-                    eligibility=list(f.get("eligibility") or []),
-                    team_min=int(f.get("team_min") or 1),
-                    team_max=int(f.get("team_max") or 1),
-                    prize_value=Decimal(str(f.get("prize_value") or 0)),
-                    prize_label=str(f.get("prize_label") or "").strip(),
-                    prize_currency=str(f.get("prize_currency") or "USD"),
-                    technologies=list(f.get("technologies") or []),
+                build_hackathon_create(
+                    f,
                     official_url=candidate.official_url,
                     suitable_reasons=list(result.reasons),
                 ),
             )
         return await self._repo.create_ai_offer(
             listing_data,
-            AIOfferCreateSchema(
-                product_name=str(f.get("product_name") or candidate.title),
-                provider=str(f.get("provider") or "Unknown"),
-                offer_type=f.get("offer_type") or "free_tier",
-                offer_value=str(f.get("offer_value") or ""),
-                target_users=list(f.get("target_users") or []),
-                requirements=list(f.get("requirements") or []),
-                starts_at=f.get("starts_at"),
-                expires_at=f.get("expires_at"),
-                supported_regions=list(f.get("supported_regions") or []),
-                official_terms_url=str(
-                    f.get("official_terms_url") or candidate.official_url
-                ),
-                claim_url=str(f.get("claim_url") or candidate.official_url),
-                tags=list(f.get("tags") or []),
+            build_ai_offer_create(
+                f,
+                official_url=candidate.official_url,
+                title=candidate.title,
                 suitable_reasons=list(result.reasons),
             ),
         )

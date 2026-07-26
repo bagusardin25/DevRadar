@@ -12,9 +12,15 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.catalog.enums import ListingKind, SubmissionState
+from app.catalog.enums import (
+    ListingKind,
+    ReviewCandidateType,
+    ReviewItemState,
+    SubmissionState,
+)
 from app.config import Settings
 from app.errors import ForbiddenError, NotFoundError, RateLimitError, ValidationError
+from app.review.models import ReviewItem
 from app.submissions.enqueue import SubmissionEnqueuePort
 from app.submissions.models import CommunitySubmission
 from app.submissions.schemas import (
@@ -35,6 +41,10 @@ MIN_SUBMIT_SECONDS = 2.0
 RATE_LIMIT_MAX = 10
 RATE_LIMIT_WINDOW_SECONDS = 3600
 DUPLICATE_URL_WINDOW = timedelta(hours=24)
+# Above the pipeline default (50), below tier-3-only candidates (80): a human
+# vouched for the URL, but nothing has verified it yet.
+SUBMISSION_REVIEW_PRIORITY = 60
+SUBMISSION_REVIEW_REASON = "Community submission awaiting verification"
 
 STATUS_MESSAGES: dict[SubmissionState, str] = {
     SubmissionState.RECEIVED: "We received your submission.",
@@ -135,6 +145,10 @@ class SubmissionService:
         await self._session.flush()
 
         if state != SubmissionState.DUPLICATE:
+            # Land in the admin queue immediately: verification enriches the item
+            # later, but an admin can review the submission even if no worker runs.
+            self._session.add(self._build_review_item(submission, command))
+            await self._session.flush()
             self._register_after_commit(
                 submission.id,
                 job_key,
@@ -162,6 +176,37 @@ class SubmissionService:
             submitted_at=submission.created_at,
             claimed_type=claimed,
             message=STATUS_MESSAGES.get(state, "Status updated."),
+        )
+
+    @staticmethod
+    def _build_review_item(
+        submission: CommunitySubmission,
+        command: SubmissionCreateRequest,
+    ) -> ReviewItem:
+        """Queue the submission for a human admin.
+
+        The snapshot carries only what a reviewer needs to judge the tip — never
+        the submitter email, IP, or user agent.
+        """
+        submitted_at = submission.created_at or datetime.now(UTC)
+        return ReviewItem(
+            candidate_type=ReviewCandidateType.COMMUNITY_SUBMISSION,
+            candidate_id=submission.id,
+            candidate_snapshot={
+                "source": "community_submission",
+                "trackingId": submission.tracking_id,
+                "url": submission.canonical_url,
+                "originalUrl": submission.original_url,
+                "claimedTitle": command.claimed_title,
+                "claimedType": command.claimed_type,
+                "notes": command.notes,
+                "host": submission.metadata_json.get("host"),
+                "hasSubmitterEmail": bool(command.email),
+                "submittedAt": submitted_at.isoformat(),
+            },
+            reason=SUBMISSION_REVIEW_REASON,
+            priority=SUBMISSION_REVIEW_PRIORITY,
+            state=ReviewItemState.OPEN,
         )
 
     def _register_after_commit(

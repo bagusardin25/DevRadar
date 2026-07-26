@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Seed sources that Live Web Discovery can actually crawl.
+"""Seed sources that a discovery run (the hero's "Scan sources") can actually crawl.
 
 Only two connectors have a real implementation: `official_site` (curated seed
 URLs) and `rss` (a feed fetched live). The devpost/mlh/hackerearth connectors

@@ -90,9 +90,9 @@ If the UI shows **Backend Offline**, Docker or the API is not up.
 
 ### 3. Background worker (optional)
 
-Only needed for jobs that run outside a request: **Live Web Discovery**,
-scheduled catalogue rechecks, and alert scans. Browsing the catalogue works
-without it.
+Only needed for jobs that run outside a request: source scans (the hero's
+**Scan sources** toggle), scheduled catalogue rechecks, and alert scans. Browsing
+the catalogue works without it.
 
 ```powershell
 # Terminal C — Celery worker

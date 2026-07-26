@@ -46,6 +46,12 @@ from app.catalog.schemas import (  # noqa: E402
 from app.config import get_settings  # noqa: E402
 from app.db import create_engine, create_session_maker  # noqa: E402
 from app.ingestion.models import DiscoverySignal, ListingSource, VerificationEvent  # noqa: E402
+from app.ingestion.scoring import (  # noqa: E402
+    ScoreBreakdown,
+    ScoringInput,
+    keyword_hits_from_fields,
+    score_verification,
+)
 from app.sources.models import Source  # noqa: E402
 
 DEFAULT_JSON = (
@@ -55,12 +61,29 @@ DEFAULT_JSON = (
     / "seed_listings.json"
 )
 
-SCORE_DEFAULT = {
-    "statusAndDeadline": 30,
-    "keywordMatch": 22,
-    "sourceCredibility": 16,
-    "freshness": 13,
-    "completeness": 4,
+# Fields a listing of each kind is expected to carry. Used for the
+# completeness component of the score.
+_REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
+    "hackathon": (
+        "title",
+        "description",
+        "official_url",
+        "registration_deadline",
+        "submission_deadline",
+        "prize_value",
+        "technologies",
+        "eligibility",
+    ),
+    "ai_offer": (
+        "title",
+        "description",
+        "product_name",
+        "provider",
+        "offer_type",
+        "offer_value",
+        "claim_url",
+        "target_users",
+    ),
 }
 
 
@@ -68,6 +91,89 @@ def _parse_dt(value: str | None) -> datetime | None:
     if not value:
         return None
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def _score_for(item: dict[str, Any], kind: str, now: datetime) -> ScoreBreakdown:
+    """Score a seed row with the same function the ingestion pipeline uses.
+
+    Seeds previously carried a hand-written ``confidence_score`` next to a
+    frozen breakdown constant, so the headline number and the bars meant to
+    explain it came from two unrelated places: every listing showed identical
+    components while the confidence varied, and neither added up to the other.
+    Deriving both here keeps the scorecard auditable.
+    """
+    if kind == "hackathon":
+        opens = _parse_dt(item.get("registration_open_at"))
+        reg = _parse_dt(item.get("registration_deadline"))
+        sub = _parse_dt(item.get("submission_deadline"))
+        deadlines = [d for d in (reg, sub) if d is not None]
+        milestones = [d for d in (opens, reg, sub) if d is not None]
+        has_valid_dates = len(deadlines) > 0
+        dates_ordered = milestones == sorted(milestones)
+        deadline_in_future = bool(deadlines) and max(deadlines) > now
+        link_ok = bool(item.get("official_url"))
+    else:
+        expires = _parse_dt(item.get("expires_at")) if item.get("expires_at") else None
+        starts = _parse_dt(item.get("starts_at")) if item.get("starts_at") else None
+        # An open-ended free tier has no expiry; that is a valid, ordered state
+        # rather than missing data.
+        has_valid_dates = True
+        dates_ordered = not (starts and expires) or starts <= expires
+        deadline_in_future = expires is None or expires > now
+        link_ok = bool(item.get("claim_url") or item.get("official_terms_url"))
+
+    required = _REQUIRED_FIELDS[kind]
+    present = sum(1 for field in required if item.get(field))
+
+    return score_verification(
+        ScoringInput(
+            has_valid_dates=has_valid_dates,
+            deadline_in_future=deadline_in_future,
+            dates_ordered=dates_ordered,
+            keyword_hits=keyword_hits_from_fields(kind, item),
+            # The seed always attaches the organiser's own page as primary.
+            source_tier="tier_1",
+            cross_source_count=len(item.get("x_posts") or []),
+            last_checked_at=now,
+            now=now,
+            required_fields_present=present,
+            required_fields_total=len(required),
+            link_ok=link_ok,
+        )
+    )
+
+
+def _apply_rescore(
+    session: Any,
+    listing: Any,
+    item: dict[str, Any],
+    kind: str,
+    checked_url: str,
+) -> None:
+    """Rescore a listing and record the result as a verification event.
+
+    The public API reads ``confidence_score`` off the listing row but takes
+    ``score_breakdown`` from the newest verification event
+    (``app/catalog/service.py::_build_audit``). Writing only the row would
+    leave the scorecard rendering a stale breakdown against a fresh
+    confidence, so both are updated together.
+    """
+    scored = _score_for(item, kind, datetime.now(UTC))
+    status = VerificationStatus(str(listing.verification_status))
+
+    listing.confidence_score = Decimal(str(scored.confidence))
+    listing.score_breakdown = scored.as_dict()
+    session.add(
+        VerificationEvent(
+            listing_id=listing.id,
+            event_type="seed_rescore",
+            previous_status=status,
+            new_status=status,
+            checked_urls=[checked_url] if checked_url else [],
+            score_breakdown=scored.as_dict(),
+            notes="Rescored from seed evidence with app.ingestion.scoring.",
+        )
+    )
 
 
 def _effort(value: str | None) -> EffortEstimate:
@@ -190,6 +296,9 @@ async def _update_hackathon_prize(
         h.registration_deadline = _parse_dt(item.get("registration_deadline"))
     if item.get("submission_deadline") is not None:
         h.submission_deadline = _parse_dt(item.get("submission_deadline"))
+    # Deadlines and fields just changed, so the old score no longer describes
+    # this row — rescore from the same evidence the scorecard displays.
+    _apply_rescore(session, existing, item, "hackathon", item["official_url"])
     await session.flush()
     return f"upd   hackathon {slug}"
 
@@ -218,8 +327,9 @@ async def _seed_hackathon(
 
     now = datetime.now(UTC)
     status = _status(item["status"])
-    score = Decimal(str(item.get("confidence_score", 0.85)))
-    breakdown = dict(SCORE_DEFAULT)
+    scored = _score_for(item, "hackathon", now)
+    score = Decimal(str(scored.confidence))
+    breakdown = scored.as_dict()
 
     listing = await repo.create_hackathon(
         ListingCreateSchema(
@@ -354,8 +464,15 @@ async def _update_ai_offer(
         existing.title = item["title"]
     if item.get("status"):
         existing.verification_status = _status(item["status"])
-    if item.get("confidence_score") is not None:
-        existing.confidence_score = Decimal(str(item["confidence_score"]))
+    # Rescore rather than copying a hand-written number, so confidence and
+    # breakdown stay derived from the same evidence.
+    _apply_rescore(
+        session,
+        existing,
+        item,
+        "ai_offer",
+        item.get("claim_url") or item.get("official_terms_url") or "",
+    )
     o.product_name = item.get("product_name") or o.product_name
     o.provider = item.get("provider") or o.provider
     if item.get("offer_type"):
@@ -406,8 +523,9 @@ async def _seed_ai_offer(
 
     now = datetime.now(UTC)
     status = _status(item["status"])
-    score = Decimal(str(item.get("confidence_score", 0.85)))
-    breakdown = dict(SCORE_DEFAULT)
+    scored = _score_for(item, "ai_offer", now)
+    score = Decimal(str(scored.confidence))
+    breakdown = scored.as_dict()
     expires = _parse_dt(item.get("expires_at")) if item.get("expires_at") else None
 
     listing = await repo.create_ai_offer(

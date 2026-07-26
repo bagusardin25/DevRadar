@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from typing import Annotated, Any, Self
 
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
@@ -55,6 +58,10 @@ class Settings(BaseSettings):
     github_client_id: str = ""
     github_client_secret: str = ""
     admin_github_ids: Annotated[list[str], NoDecode] = []
+    # Public origin of THIS API (scheme + host [+ port]), used to build the OAuth
+    # callback URL. Must match the Authorization callback URL registered on the
+    # GitHub OAuth App. Empty falls back to the local dev API in non-production.
+    oauth_redirect_base_url: str = ""
 
     # Email (console | resend | smtp)
     email_provider: str = "console"
@@ -110,6 +117,31 @@ class Settings(BaseSettings):
         if isinstance(v, list):
             return [str(item) for item in v]
         return []
+
+    @field_validator("admin_github_ids", mode="after")
+    @classmethod
+    def keep_numeric_github_ids(cls, v: list[str]) -> list[str]:
+        """Keep only numeric GitHub user IDs on the admin allowlist.
+
+        Logins are dropped rather than trusted: GitHub lets an account rename
+        itself, and the freed handle is then claimable by anyone else — who would
+        inherit admin access. Numeric IDs never change hands.
+        """
+        numeric: list[str] = []
+        dropped: list[str] = []
+        for item in v:
+            if item.isascii() and item.isdigit():
+                numeric.append(item)
+            else:
+                dropped.append(item)
+        if dropped:
+            logger.warning(
+                "Ignoring non-numeric ADMIN_GITHUB_IDS entries: %s. Use numeric user IDs "
+                "(https://api.github.com/users/<login> -> id); logins are not accepted "
+                "because a renamed account frees its handle for anyone to claim.",
+                ", ".join(dropped),
+            )
+        return numeric
 
     @model_validator(mode="after")
     def fill_openai_api_key_alias(self) -> Self:

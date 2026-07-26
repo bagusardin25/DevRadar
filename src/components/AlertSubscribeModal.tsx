@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Bell, X, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { createAlert } from '../api/alerts';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 interface AlertSubscribeModalProps {
   isOpen: boolean;
@@ -22,6 +23,8 @@ export const AlertSubscribeModal: React.FC<AlertSubscribeModalProps> = ({
   defaultOnlyClosingSoon = false,
   defaultOnlyBigPrizes = false,
 }) => {
+  // Called before the `!isOpen` early return below — hooks must run every render.
+  const dialogRef = useModalA11y<HTMLDivElement>(isOpen, onClose);
   const [email, setEmail] = useState('');
   const [targetType, setTargetType] = useState<'all' | 'hackathon' | 'ai_offer'>(defaultKind);
   const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'instant'>('weekly');
@@ -99,9 +102,15 @@ export const AlertSubscribeModal: React.FC<AlertSubscribeModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="sharetopus-card max-w-md w-full max-h-[90vh] overflow-y-auto p-6 rounded-[28px] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] shadow-[6px_6px_0_0_#1C1B18] dark:shadow-[6px_6px_0_0_#D6DCE5] space-y-5">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="alert-modal-title"
+        className="sharetopus-card max-w-md w-full max-h-[90vh] overflow-y-auto p-6 rounded-[28px] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] shadow-[6px_6px_0_0_#1C1B18] dark:shadow-[6px_6px_0_0_#D6DCE5] space-y-5"
+      >
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-extrabold text-[#1C1B18] dark:text-white flex items-center gap-2">
+          <h2 id="alert-modal-title" className="text-xl font-extrabold text-[#1C1B18] dark:text-white flex items-center gap-2">
             <Bell className="w-5 h-5 text-[#1C1B18] dark:text-white" />
             Subscribe to Alerts
           </h2>

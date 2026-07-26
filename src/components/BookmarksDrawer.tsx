@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { formatPrizePool } from '../utils/formatPrize';
 import type { Hackathon, AIDeal } from '../types';
+import { useModalA11y } from '../hooks/useModalA11y';
 import {
   buildBookmarkExport,
   buildShareUrl,
@@ -49,6 +50,8 @@ export const BookmarksDrawer: React.FC<BookmarksDrawerProps> = ({
   onSaveSharedToLocal,
   onClearShared,
 }) => {
+  // Called before the `!isOpen` early return below — hooks must run every render.
+  const dialogRef = useModalA11y<HTMLDivElement>(isOpen, onClose);
   const fileRef = useRef<HTMLInputElement>(null);
   const [shareCopied, setShareCopied] = useState(false);
   const [importMsg, setImportMsg] = useState<string | null>(null);
@@ -112,7 +115,13 @@ export const BookmarksDrawer: React.FC<BookmarksDrawerProps> = ({
   };
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 w-full sm:w-[420px] bg-white dark:bg-[#131A29] border-l-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] shadow-[8px_0_0_0_#1C1B18] dark:shadow-[8px_0_0_0_#D6DCE5] flex flex-col justify-between animate-in slide-in-from-right duration-300 font-sans">
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="bookmarks-drawer-title"
+      className="fixed inset-y-0 right-0 z-50 w-full sm:w-[420px] bg-white dark:bg-[#131A29] border-l-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] shadow-[8px_0_0_0_#1C1B18] dark:shadow-[8px_0_0_0_#D6DCE5] flex flex-col justify-between animate-in slide-in-from-right duration-300 font-sans"
+    >
       {/* Drawer Header */}
       <div className="p-4 border-b border-[#D6D5CF] dark:border-slate-800 bg-[#F8F9F4] dark:bg-[#1A2336] flex items-center justify-between">
         <div className="flex items-center gap-2.5">
@@ -120,7 +129,7 @@ export const BookmarksDrawer: React.FC<BookmarksDrawerProps> = ({
             <Bookmark className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-base font-extrabold text-[#1C1B18] dark:text-white">
+            <h3 id="bookmarks-drawer-title" className="text-base font-extrabold text-[#1C1B18] dark:text-white">
               {sharedMode ? 'Shared list (read-only)' : 'Saved Opportunities'}
             </h3>
             <p className="text-xs font-mono font-bold text-[#1C1B18] dark:text-[#B8C4D2]">

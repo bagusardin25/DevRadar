@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { X, PlusCircle, CheckCircle2, Info, AlertCircle } from 'lucide-react';
 import { createSubmission, ApiError } from '../api';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 interface SubmitModalProps {
   isOpen: boolean;
@@ -17,6 +18,8 @@ export const SubmitModal: React.FC<SubmitModalProps> = ({
   onClose,
   onSubmitted,
 }) => {
+  // Called before the `!isOpen` early return below — hooks must run every render.
+  const dialogRef = useModalA11y<HTMLDivElement>(isOpen, onClose);
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
   const [type, setType] = useState<'hackathon' | 'ai_offer'>('hackathon');
@@ -80,7 +83,13 @@ export const SubmitModal: React.FC<SubmitModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 font-sans">
-      <div className="sharetopus-card w-full max-w-lg rounded-[28px] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] shadow-[8px_8px_0_0_#1C1B18] dark:shadow-[8px_8px_0_0_#D6DCE5] overflow-hidden animate-in zoom-in-95 duration-200">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="submit-modal-title"
+        className="sharetopus-card w-full max-w-lg rounded-[28px] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] shadow-[8px_8px_0_0_#1C1B18] dark:shadow-[8px_8px_0_0_#D6DCE5] overflow-hidden animate-in zoom-in-95 duration-200"
+      >
         {/* Header — match DetailModal */}
         <div className="flex items-center justify-between p-5 border-b border-[#D6D5CF] dark:border-slate-800 bg-[#F8F9F4] dark:bg-[#1A2336]">
           <div className="flex items-center gap-3">
@@ -88,7 +97,7 @@ export const SubmitModal: React.FC<SubmitModalProps> = ({
               <PlusCircle className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-lg font-extrabold text-[#1C1B18] dark:text-white tracking-tight">
+              <h3 id="submit-modal-title" className="text-lg font-extrabold text-[#1C1B18] dark:text-white tracking-tight">
                 Submit Missing Opportunity
               </h3>
               <p className="text-[11px] font-bold text-[#1C1B18]/70 dark:text-slate-300">
@@ -99,6 +108,7 @@ export const SubmitModal: React.FC<SubmitModalProps> = ({
           <button
             type="button"
             onClick={onClose}
+            aria-label="Close submit form"
             className="p-2 rounded-full border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] text-[#1C1B18] dark:text-white hover:bg-[#FF5A36] hover:text-white transition-all font-bold"
           >
             <X className="w-5 h-5" />

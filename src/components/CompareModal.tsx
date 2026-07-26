@@ -2,6 +2,7 @@ import React from 'react';
 import { X } from 'lucide-react';
 import { formatPrizePool } from '../utils/formatPrize';
 import type { Hackathon } from '../types';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 interface CompareModalProps {
   items: Hackathon[];
@@ -14,15 +15,24 @@ export const CompareModal: React.FC<CompareModalProps> = ({
   onClose,
   onRemove,
 }) => {
+  // Called before the early return below — hooks must run every render.
+  const dialogRef = useModalA11y<HTMLDivElement>(items.length > 0, onClose);
+
   if (items.length === 0) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/65 overflow-y-auto font-sans">
-      <div className="sharetopus-card w-full max-w-5xl rounded-t-[28px] sm:rounded-[28px] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] shadow-[8px_8px_0_0_#1C1B18] dark:shadow-[8px_8px_0_0_#D6DCE5] overflow-hidden my-0 sm:my-8 max-h-[95vh] flex flex-col">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="compare-modal-title"
+        className="sharetopus-card w-full max-w-5xl rounded-t-[28px] sm:rounded-[28px] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] shadow-[8px_8px_0_0_#1C1B18] dark:shadow-[8px_8px_0_0_#D6DCE5] overflow-hidden my-0 sm:my-8 max-h-[95vh] flex flex-col"
+      >
         {/* Header */}
         <div className="flex items-start sm:items-center justify-between gap-3 p-4 sm:p-5 border-b border-[#D6D5CF] dark:border-slate-800 bg-[#F8F9F4] dark:bg-[#1A2336] shrink-0">
           <div className="min-w-0">
-            <h2 className="text-base sm:text-lg font-extrabold text-[#1C1B18] dark:text-white tracking-tight">
+            <h2 id="compare-modal-title" className="text-base sm:text-lg font-extrabold text-[#1C1B18] dark:text-white tracking-tight">
               Compare opportunities
             </h2>
             <p className="text-xs sm:text-sm text-[#4A4845] dark:text-[#B8C4D2] font-bold mt-0.5">

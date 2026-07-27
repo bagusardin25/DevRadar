@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "noEmit": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "types": ["chrome"]
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["dist", "dist-firefox", "node_modules"]
+}

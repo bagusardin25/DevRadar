@@ -1,0 +1,30 @@
+{
+  "name": "devradar-extension",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DevRadar — Analyze any page for hackathon and AI offer opportunities",
+  "type": "module",
+  "scripts": {
+    "dev": "node build.mjs --watch",
+    "build": "node build.mjs",
+    "build:firefox": "node build.mjs --firefox",
+    "clean": "node -e \"import('fs').then(f=>f.rmSync('dist',{recursive:true,force:true})).then(()=>import('fs').then(f=>f.rmSync('dist-firefox',{recursive:true,force:true})))\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "lucide-react": "^1.26.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/chrome": "^0.0.304",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "esbuild": "^0.28.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~6.0.2",
+    "vite": "^8.1.1"
+  }
+}

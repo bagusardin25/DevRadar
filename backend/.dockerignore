@@ -1,0 +1,86 @@
+# Build context is `backend/`. Keep the image free of secrets, caches, and tests.
+
+# --- Secrets & local env ---
+.env
+.env.*
+!.env.example
+*.env
+!*.env.example
+.envrc
+.direnv/
+*.pem
+*.p12
+*.pfx
+*.jks
+id_rsa*
+id_ed25519*
+**/credentials.json
+**/service-account*.json
+.secrets/
+secrets/
+
+# --- Virtualenvs & package managers ---
+.venv/
+venv/
+env/
+.uv/
+**/.python-version
+
+# --- Python caches & tooling ---
+**/__pycache__/
+**/*.py[cod]
+**/*$py.class
+*.egg-info/
+.eggs/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.dmypy.json
+dmypy.json
+
+# --- Local data & dumps ---
+data/
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.sql.gz
+dump.rdb
+celerybeat-schedule
+celerybeat-schedule.*
+*.pid
+
+# --- Tests & local scripts noise (image runs the app, not the suite) ---
+tests/
+**/conftest.py
+
+# --- VCS / editor / OS ---
+.git/
+.gitignore
+.gitattributes
+.editorconfig
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+Desktop.ini
+*~
+*.bak
+*.orig
+*.swp
+*.swo
+
+# --- Docs & misc that do not belong in the runtime image ---
+**/*.md
+!README.md
+Dockerfile*
+.dockerignore
+.gitleaks.toml

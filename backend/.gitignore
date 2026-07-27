@@ -5,17 +5,26 @@
 *.env
 !*.env.example
 .envrc
+.direnv/
 
 # Private keys & cloud credentials
 *.pem
 *.p12
 *.pfx
 *.jks
+*.keystore
 id_rsa*
 id_ed25519*
+id_dsa*
+*.ppk
 **/credentials.json
 **/service-account*.json
+**/*-service-account*.json
+**/secrets.yaml
+**/secrets.yml
+**/secrets.json
 .secrets/
+secrets/
 
 # Python
 __pycache__/
@@ -23,22 +32,31 @@ __pycache__/
 *$py.class
 *.egg-info/
 .eggs/
-dist/
-build/
 *.egg
-
-# Virtual environments
 .venv/
 venv/
+env/
+.uv/
 
 # Test / type / lint caches
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.tox/
+.nox/
+.hypothesis/
 .coverage
 .coverage.*
 htmlcov/
 coverage.xml
+.dmypy.json
+dmypy.json
+
+# Worker / process state
+celerybeat-schedule
+celerybeat-schedule.*
+*.pid
+dump.rdb
 
 # Local tooling
 .python-version
@@ -49,5 +67,16 @@ data/
 # Local DB dumps
 *.sqlite
 *.sqlite3
+*.db
 *.dump
 *.sql.gz
+
+# Editor / OS / backups
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*~
+*.bak
+*.orig
+*.swp

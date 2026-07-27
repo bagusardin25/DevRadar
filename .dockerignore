@@ -1,0 +1,85 @@
+# Root-level ignore if anyone builds with context `.` (app image lives under backend/).
+# Prefer: docker build -f backend/Dockerfile backend
+
+# Dependencies & build output
+node_modules/
+dist/
+dist-ssr/
+build/
+coverage/
+.turbo/
+.vite/
+*.tsbuildinfo
+
+# Secrets
+.env
+.env.*
+!.env.example
+!**/.env.example
+*.env
+!*.env.example
+.envrc
+.direnv/
+*.pem
+*.p12
+*.pfx
+**/credentials.json
+**/service-account*.json
+.secrets/
+secrets/
+
+# Backend local noise (if monorepo context is used)
+backend/.venv/
+backend/venv/
+backend/.pytest_cache/
+backend/.mypy_cache/
+backend/.ruff_cache/
+backend/.env
+backend/data/
+backend/tests/
+**/__pycache__/
+**/*.py[cod]
+.uv/
+
+# Local data
+data/manual-collection/candidates.jsonl
+*.sqlite
+*.sqlite3
+*.dump
+*.sql.gz
+dump.rdb
+
+# Tooling / VCS / editors
+.git/
+.github/
+.grok/
+.claude/
+.cursor/
+.agent/
+.agents/
+.vscode/
+.idea/
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+docs/
+*.md
+!**/README.md
+!CONTRIBUTING.md
+!SECURITY.md
+!CODE_OF_CONDUCT.md
+.DS_Store
+Thumbs.db
+*~
+*.bak
+*.orig
+
+# Frontend sources are not part of the backend image
+src/
+public/
+index.html
+package.json
+package-lock.json
+vite.config.ts
+tsconfig*.json
+.oxlintrc.json

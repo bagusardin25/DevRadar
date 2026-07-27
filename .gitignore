@@ -1,9 +1,16 @@
-# --- Dependencies & build ---
+# --- Dependencies & build (frontend) ---
 node_modules/
 dist/
 dist-ssr/
 build/
+out/
+coverage/
+.turbo/
+.vite/
+*.tsbuildinfo
 *.local
+.eslintcache
+.stylelintcache
 
 # --- Logs ---
 logs/
@@ -60,7 +67,7 @@ backend/data/
 !backend/tests/**/*.db
 *.dump
 *.sql.gz
-
+dump.rdb
 
 # --- Python ---
 __pycache__/
@@ -71,28 +78,43 @@ __pycache__/
 *.egg
 .venv/
 venv/
+env/
+.uv/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.tox/
+.nox/
+.hypothesis/
 .coverage
 .coverage.*
 htmlcov/
 coverage.xml
-.tox/
-.nox/
+.dmypy.json
+dmypy.json
+celerybeat-schedule
+celerybeat-schedule.*
+*.pid
 
-# --- Editor / OS ---
+# --- Editor / OS / backups ---
 .vscode/*
 !.vscode/extensions.json
 .idea/
 .DS_Store
 Thumbs.db
+ehthumbs.db
 Desktop.ini
+$RECYCLE.BIN/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+*~
+*.bak
+*.orig
+*.tmp
+*.temp
 
 # --- Local AI / agent tooling ---
 .claude/

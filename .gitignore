@@ -16,9 +16,10 @@ bower_components/
 !.yarn/releases
 !.yarn/versions
 
-# --- Build output (frontend) ---
+# --- Build output (frontend + extension) ---
 dist/
 dist-ssr/
+dist-firefox/
 build/
 out/
 .turbo/

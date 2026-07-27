@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "DevRadar — Hackathon & AI Offer Finder",
+  "version": "1.0.0",
+  "description": "Analyze any web page for hackathon and AI offer opportunities. Client-side extraction with optional backend verification.",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  "action": {
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    },
+    "default_title": "Open DevRadar"
+  },
+  "sidebar_action": {
+    "default_panel": "sidepanel/index.html",
+    "default_title": "DevRadar",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "48": "icons/icon-48.png"
+    }
+  },
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "devradar@devradar.app",
+      "strict_min_version": "109.0"
+    }
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}

@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 
 from app.api.admin import auth as admin_auth
+from app.api.admin import catalogue as admin_catalogue
 from app.api.admin import pipeline as admin_pipeline
 from app.api.admin import review as admin_review
 from app.api.admin import sources as admin_sources
@@ -16,6 +17,7 @@ api_router.include_router(submissions.router)
 api_router.include_router(alerts.router)
 api_router.include_router(discovery.router)
 api_router.include_router(admin_auth.router)
+api_router.include_router(admin_catalogue.router)
 api_router.include_router(admin_review.router)
 api_router.include_router(admin_sources.router)
 api_router.include_router(admin_pipeline.router)

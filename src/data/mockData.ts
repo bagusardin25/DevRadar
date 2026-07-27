@@ -2,7 +2,7 @@
  * Story / offline fixtures only. Production UI loads the catalogue from the API
  * (`src/api/*`). Do not import these into App.tsx.
  */
-import type { Hackathon, AIDeal, UnverifiedSignal } from '../types';
+import type { Hackathon, AIDeal } from '../types';
 
 export const MOCK_HACKATHONS: Hackathon[] = [
   {
@@ -422,46 +422,5 @@ export const MOCK_AI_DEALS: AIDeal[] = [
       checkedUrls: ['https://platform.deepseek.com/api-docs/pricing'],
       pipelineStep: 'verified'
     }
-  }
-];
-
-export const MOCK_UNVERIFIED_SIGNALS: UnverifiedSignal[] = [
-  {
-    id: 'sig-101',
-    sourceType: 'x_post',
-    postId: '18977200192',
-    author: '@tech_builder_xyz',
-    rawText: 'Just launched the Web3 AI Hackathon! $10,000 in prizes for best Solana + Claude integration! Register here: https://solana-ai-hack.dev #hackathon #solana #ai',
-    createdAt: '2026-07-23T20:12:00Z',
-    discoveredUrls: ['https://solana-ai-hack.dev'],
-    candidateType: 'hackathon',
-    extractedInfo: {
-      title: 'Solana AI Hackathon 2026',
-      organizer: 'Solana Ecosystem Labs',
-      prizeValue: 10000,
-      prizeCurrency: 'USD',
-      mode: 'online',
-      technologies: ['Solana', 'AI', 'Rust', 'TypeScript']
-    },
-    verificationStatus: 'needs_review',
-    confidenceScore: 0.52
-  },
-  {
-    id: 'sig-102',
-    sourceType: 'x_post',
-    postId: '18978110931',
-    author: '@ai_promos_daily',
-    rawText: 'Get $500 free credits on Mistral AI API for new startup accounts! Use code MISTRALSTART2026 at checkout https://console.mistral.ai/offers',
-    createdAt: '2026-07-23T18:45:00Z',
-    discoveredUrls: ['https://console.mistral.ai/offers'],
-    candidateType: 'ai_deal',
-    extractedInfo: {
-      productName: 'Mistral AI Startup Credits',
-      provider: 'Mistral AI',
-      offerValue: '$500 Credits',
-      offerType: 'free_credits'
-    },
-    verificationStatus: 'needs_review',
-    confidenceScore: 0.64
   }
 ];

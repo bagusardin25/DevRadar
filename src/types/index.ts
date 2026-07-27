@@ -122,20 +122,6 @@ export interface AIDeal {
   alertEnabled?: boolean;
 }
 
-export interface UnverifiedSignal {
-  id: string;
-  sourceType: 'x_post' | 'reddit_post' | 'discord_announcement';
-  postId: string;
-  author: string;
-  rawText: string;
-  createdAt: string;
-  discoveredUrls: string[];
-  candidateType: 'hackathon' | 'ai_deal';
-  extractedInfo: Partial<Hackathon> | Partial<AIDeal>;
-  verificationStatus: 'needs_review' | 'flagged';
-  confidenceScore: number;
-}
-
 export interface FilterState {
   searchQuery: string;
   activeModule: 'hackathon' | 'ai_deal' | 'pipeline' | 'admin_queue' | 'catalogue' | 'sources';

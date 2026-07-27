@@ -44,7 +44,7 @@ from app.sources.models import Source, SourceQuery  # noqa: E402
 
 DEFAULT_INTERVAL = 12 * 60 * 60
 
-# Official pricing / terms pages already curated by scripts/refresh_ai_offers.py.
+# Official pricing / terms pages already curated in the seed catalogue.
 AI_OFFER_SEED_URLS = [
     "https://ai.google.dev/pricing",
     "https://console.groq.com/docs/rate-limits",

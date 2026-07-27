@@ -69,7 +69,18 @@ class TestOpenAILLMProvider:
     async def test_extract_json_calls_chat_completions(self) -> None:
         message = SimpleNamespace(content='{"title": "From OpenAI", "mode": "online"}')
         choice = SimpleNamespace(message=message)
-        response = SimpleNamespace(choices=[choice])
+        usage = SimpleNamespace(
+            prompt_tokens=1_200,
+            completion_tokens=100,
+            total_tokens=1_300,
+            prompt_tokens_details=SimpleNamespace(cached_tokens=200),
+        )
+        response = SimpleNamespace(
+            choices=[choice],
+            usage=usage,
+            model="gpt-4o-mini-2024-07-18",
+            service_tier="default",
+        )
 
         mock_create = AsyncMock(return_value=response)
         mock_client = MagicMock()
@@ -90,8 +101,14 @@ class TestOpenAILLMProvider:
             )
 
         mock_ctor.assert_called_once()
-        assert result["title"] == "From OpenAI"
-        assert result["mode"] == "online"
+        assert result.payload["title"] == "From OpenAI"
+        assert result.payload["mode"] == "online"
+        assert result.usage is not None
+        assert result.usage.prompt_tokens == 1_200
+        assert result.usage.cached_prompt_tokens == 200
+        assert result.usage.completion_tokens == 100
+        assert result.usage.total_tokens == 1_300
+        assert str(result.usage.estimated_cost_usd()) == "0.00022500"
         kwargs = mock_create.await_args.kwargs
         assert kwargs["model"] == "gpt-4o-mini"
         assert kwargs["response_format"] == {"type": "json_object"}

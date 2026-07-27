@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from app.config import Settings
+from app.llm_usage import LLMCallUsage, LLMJsonResult
 
 logger = logging.getLogger(__name__)
 
@@ -25,14 +26,14 @@ class ExtractionRequest:
 
 
 class LLMProvider(Protocol):
-    async def extract_json(self, request: ExtractionRequest) -> dict[str, object]: ...
+    async def extract_json(self, request: ExtractionRequest) -> LLMJsonResult: ...
 
 
 class DisabledLLMProvider:
     """Default: no LLM calls; extractor stays rule-only."""
 
-    async def extract_json(self, request: ExtractionRequest) -> dict[str, object]:
-        return {}
+    async def extract_json(self, request: ExtractionRequest) -> LLMJsonResult:
+        return LLMJsonResult(payload={})
 
 
 class EchoLLMProvider:
@@ -43,16 +44,18 @@ class EchoLLMProvider:
         payload: dict[str, object] | None = None,
         *,
         error: Exception | None = None,
+        usage: LLMCallUsage | None = None,
     ) -> None:
         self.payload = payload or {}
         self.error = error
+        self.usage = usage
         self.calls: list[ExtractionRequest] = []
 
-    async def extract_json(self, request: ExtractionRequest) -> dict[str, object]:
+    async def extract_json(self, request: ExtractionRequest) -> LLMJsonResult:
         self.calls.append(request)
         if self.error is not None:
             raise self.error
-        return dict(self.payload)
+        return LLMJsonResult(payload=dict(self.payload), usage=self.usage)
 
 
 _HACKATHON_SCHEMA_HINT = """
@@ -117,7 +120,7 @@ class OpenAILLMProvider:
         self._model = model or "gpt-4o-mini"
         self._timeout = timeout_seconds
 
-    async def extract_json(self, request: ExtractionRequest) -> dict[str, object]:
+    async def extract_json(self, request: ExtractionRequest) -> LLMJsonResult:
         from openai import AsyncOpenAI
 
         client = AsyncOpenAI(api_key=self._api_key, timeout=self._timeout)
@@ -156,7 +159,14 @@ class OpenAILLMProvider:
         choice = response.choices[0].message.content if response.choices else None
         if not choice:
             raise ValueError("Empty OpenAI completion")
-        return _parse_json_content(choice)
+        return LLMJsonResult(
+            payload=_parse_json_content(choice),
+            usage=LLMCallUsage.from_openai_response(
+                response,
+                operation="extraction",
+                requested_model=self._model,
+            ),
+        )
 
 
 def build_llm_provider(settings: Settings) -> LLMProvider:

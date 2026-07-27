@@ -19,6 +19,7 @@ from app.ingestion.llm_provider import (
     LLMProvider,
 )
 from app.ingestion.parser import ParsedDocument
+from app.llm_usage import LLMCallUsage
 
 EXTRACTOR_VERSION = "1.0.0"
 
@@ -85,6 +86,7 @@ class ExtractionResult:
     field_sources: dict[str, str] = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
     llm_attempted: bool = False
+    llm_usage: LLMCallUsage | None = None
 
 
 def _parse_date(raw: str) -> datetime | None:
@@ -356,6 +358,7 @@ class Extractor:
 
         method: Literal["rules", "llm", "hybrid", "failed"] = "rules"
         llm_attempted = False
+        llm_usage: LLMCallUsage | None = None
         merged = dict(raw_rules)
 
         # When LLM is enabled: fill empty fields only (rules already set win).
@@ -372,9 +375,12 @@ class Extractor:
                     url=parsed.url,
                     schema_version=EXTRACTION_SCHEMA_VERSION,
                 )
-                llm_raw = await self._llm.extract_json(req)
+                llm_response = await self._llm.extract_json(req)
+                llm_usage = llm_response.usage
                 # Validate strictly; reject malformed entirely for LLM portion
-                validated = validate_extraction_payload(kind.value, llm_raw)
+                validated = validate_extraction_payload(
+                    kind.value, llm_response.payload
+                )
                 llm_fields = validated.model_dump(exclude_none=True)
                 before = set(field_sources)
                 merged = _merge_fields(
@@ -406,6 +412,7 @@ class Extractor:
                 field_sources=field_sources,
                 errors=errors,
                 llm_attempted=llm_attempted,
+                llm_usage=llm_usage,
             )
 
         return ExtractionResult(
@@ -417,6 +424,7 @@ class Extractor:
             field_sources=field_sources,
             errors=errors,
             llm_attempted=llm_attempted,
+            llm_usage=llm_usage,
         )
 
 

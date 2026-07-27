@@ -10,6 +10,7 @@ from app.catalog.enums import ListingKind
 from app.ingestion.extractor import Extractor
 from app.ingestion.llm_provider import DisabledLLMProvider, EchoLLMProvider
 from app.ingestion.parser import parse_document
+from app.llm_usage import LLMCallUsage
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "documents"
 
@@ -90,13 +91,24 @@ class TestRuleExtractor:
             url="https://fixture.example/gap",
             content_type="text/plain",
         )
+        usage = LLMCallUsage(
+            operation="extraction",
+            provider="openai",
+            model="gpt-4o-mini",
+            service_tier="default",
+            prompt_tokens=900,
+            cached_prompt_tokens=0,
+            completion_tokens=100,
+            total_tokens=1_000,
+        )
         llm = EchoLLMProvider(
             payload={
                 "title": "LLM Filled Hackathon",
                 "organizer": "LLM Org",
                 "mode": "online",
                 "submission_deadline": "2026-12-01T00:00:00+00:00",
-            }
+            },
+            usage=usage,
         )
         result = await Extractor(llm).extract(parsed, ListingKind.HACKATHON)
         assert result.llm_attempted is True
@@ -106,6 +118,7 @@ class TestRuleExtractor:
             result.field_sources.get("title") == "llm"
         )
         assert result.method in {"hybrid", "llm", "rules"}
+        assert result.llm_usage is usage
 
     @pytest.mark.asyncio
     async def test_deterministic_twice(self) -> None:

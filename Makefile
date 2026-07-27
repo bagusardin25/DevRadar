@@ -11,7 +11,9 @@
 help:
 	@echo "DevRadar targets (aligned with CI where noted):"
 	@echo "  make bootstrap       Docker up + uv sync + migrate + seed"
-	@echo "  make up / down       Start/stop infra (Postgres, Redis, MinIO)"
+	@echo "  make up / down       Start/stop infra (Postgres, Redis; MinIO via profile)"
+	@echo "  make up-minio        Infra + MinIO object-storage profile"
+	@echo "  make docker-build    Build API image (context=backend/, no secrets)"
 	@echo "  make sync-backend    uv sync --all-extras --frozen  (CI install)"
 	@echo "  make migrate         alembic upgrade head           (CI migrate)"
 	@echo "  make lint-backend    ruff check app tests           (CI lint)"
@@ -29,8 +31,15 @@ help:
 up:
 	docker compose -f infra/compose.yaml up -d
 
+up-minio:
+	docker compose -f infra/compose.yaml --profile object-storage up -d
+
 down:
 	docker compose -f infra/compose.yaml down
+
+# Build context is backend/ so root monorepo files never enter the daemon.
+docker-build:
+	docker build -f backend/Dockerfile -t devradar-api:local backend
 
 bootstrap:
 	@bash scripts/dev.sh

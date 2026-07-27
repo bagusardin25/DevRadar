@@ -1,5 +1,7 @@
-# Root-level ignore if anyone builds with context `.` (app image lives under backend/).
-# Prefer: docker build -f backend/Dockerfile backend
+# =============================================================================
+# Root context fallback. Prefer: docker build -f backend/Dockerfile backend
+# If someone builds with context `.`, keep secrets and frontend out.
+# =============================================================================
 
 # Dependencies & build output
 node_modules/
@@ -11,13 +13,10 @@ coverage/
 .vite/
 *.tsbuildinfo
 
-# Secrets
+# Secrets — never send real env files
 .env
 .env.*
-!.env.example
-!**/.env.example
 *.env
-!*.env.example
 .envrc
 .direnv/
 *.pem
@@ -28,17 +27,17 @@ coverage/
 .secrets/
 secrets/
 
-# Backend local noise (if monorepo context is used)
+# Backend local noise
 backend/.venv/
 backend/venv/
 backend/.pytest_cache/
 backend/.mypy_cache/
 backend/.ruff_cache/
 backend/.env
+backend/.env.*
 backend/data/
 backend/tests/
-**/__pycache__/
-**/*.py[cod]
+backend/**/__pycache__/
 .uv/
 
 # Local data
@@ -63,18 +62,14 @@ dump.rdb
 .pytest_cache/
 .mypy_cache/
 docs/
-*.md
-!**/README.md
-!CONTRIBUTING.md
-!SECURITY.md
-!CODE_OF_CONDUCT.md
+**/*.md
 .DS_Store
 Thumbs.db
 *~
 *.bak
 *.orig
 
-# Frontend sources are not part of the backend image
+# Frontend is not part of the backend image
 src/
 public/
 index.html
@@ -83,3 +78,9 @@ package-lock.json
 vite.config.ts
 tsconfig*.json
 .oxlintrc.json
+.nvmrc
+.coderabbit.yaml
+.gitleaks.toml
+Makefile
+scripts/
+infra/

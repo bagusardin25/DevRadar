@@ -1,11 +1,19 @@
+# Local development infrastructure ONLY.
+# - Binds Postgres/Redis/MinIO to 127.0.0.1 (not the LAN).
+# - Uses weak well-known passwords — never use this file as production deploy.
+# - API / Celery / frontend still run on the host (see README).
+#
+#   docker compose -f infra/compose.yaml up -d
+#
 name: devradar
 
 services:
   postgres:
     image: postgres:16-alpine
     ports:
+      # Host-only bind: avoids exposing Compose DB on the LAN.
       # 5434 avoids clash with a local Windows PostgreSQL often bound to 5433.
-      - "5434:5432"
+      - "127.0.0.1:5434:5432"
     environment:
       POSTGRES_USER: devradar
       POSTGRES_PASSWORD: devradar
@@ -20,12 +28,14 @@ services:
       retries: 5
     networks:
       - devradar-net
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
-    command: redis-server --appendonly yes
+      - "127.0.0.1:6379:6379"
+    # No password: local-only bind. Production Redis must require AUTH + TLS.
+    command: redis-server --appendonly yes --protected-mode yes
     volumes:
       - redis-data:/data
     healthcheck:
@@ -35,14 +45,16 @@ services:
       retries: 5
     networks:
       - devradar-net
+    restart: unless-stopped
 
-  # Optional S3-compatible storage. App default is OBJECT_STORAGE_BACKEND=local
-  # (filesystem under backend/data/raw); switch to s3 + keys in backend/.env to use MinIO.
+  # Optional S3-compatible storage. App default is OBJECT_STORAGE_BACKEND=local.
+  # Enable: docker compose -f infra/compose.yaml --profile object-storage up -d
   minio:
     image: minio/minio:latest
+    profiles: ["object-storage"]
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     environment:
       MINIO_ROOT_USER: devradar
       MINIO_ROOT_PASSWORD: devradar123
@@ -58,6 +70,7 @@ services:
       start_period: 10s
     networks:
       - devradar-net
+    restart: unless-stopped
 
 volumes:
   postgres-data:

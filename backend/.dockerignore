@@ -1,30 +1,41 @@
-# Build context is `backend/`. Keep the image free of secrets, caches, and tests.
+# =============================================================================
+# Docker build context for: docker build -f backend/Dockerfile backend
+# Only pyproject.toml, uv.lock, app/, alembic/, alembic.ini, scripts/ are needed.
+# Never send secrets, tests, caches, or local data into the daemon.
+# =============================================================================
 
-# --- Secrets & local env ---
+# --- Secrets & env (no .env of any kind enters the context) ---
 .env
 .env.*
-!.env.example
 *.env
-!*.env.example
 .envrc
 .direnv/
 *.pem
 *.p12
 *.pfx
 *.jks
+*.keystore
 id_rsa*
 id_ed25519*
+id_dsa*
+*.ppk
 **/credentials.json
 **/service-account*.json
+**/*-service-account*.json
+**/secrets.yaml
+**/secrets.yml
+**/secrets.json
 .secrets/
 secrets/
 
-# --- Virtualenvs & package managers ---
+# --- Virtualenvs & package caches ---
 .venv/
 venv/
 env/
 .uv/
 **/.python-version
+wheels/
+pip-wheel-metadata/
 
 # --- Python caches & tooling ---
 **/__pycache__/
@@ -39,14 +50,16 @@ env/
 .tox/
 .nox/
 .hypothesis/
+.cache/
 .coverage
 .coverage.*
 htmlcov/
 coverage.xml
+nosetests.xml
 .dmypy.json
 dmypy.json
 
-# --- Local data, logs, dumps (runtime — not build inputs) ---
+# --- Runtime data / logs / dumps ---
 data/
 logs/
 *.log
@@ -61,25 +74,24 @@ celerybeat-schedule
 celerybeat-schedule.*
 *.pid
 
-# --- Tests & coverage (image runs the app, not the suite) ---
+# --- Tests (never bake into the runtime image) ---
 tests/
 **/conftest.py
-htmlcov/
-coverage.xml
-.coverage
-.coverage.*
-.hypothesis/
-.cache/
-wheels/
-pip-wheel-metadata/
+**/test_*.py
+**/*_test.py
 
-# --- VCS / editor / OS ---
+# --- VCS / editor / OS / agent tooling ---
 .git/
 .gitignore
 .gitattributes
 .editorconfig
 .vscode/
 .idea/
+.claude/
+.grok/
+.cursor/
+.agent/
+.agents/
 .DS_Store
 Thumbs.db
 Desktop.ini
@@ -90,9 +102,9 @@ Desktop.ini
 *.swo
 *.tmp
 
-# --- Docs & misc that do not belong in the runtime image ---
+# --- Docs & files not required at runtime ---
 **/*.md
-!README.md
 Dockerfile*
 .dockerignore
 .gitleaks.toml
+*.example

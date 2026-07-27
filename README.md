@@ -142,8 +142,16 @@ With `APP_ENV=production` the API **refuses** placeholder secrets and Compose DB
 
 ### Docker notes
 
-- **Day-to-day dev:** Compose for infra only; API/worker/frontend run on the host (as above).
-- **API image:** `docker build -f backend/Dockerfile backend` — production-style image from `uv.lock` (**no** dev extras). Not required for local contribution.
+- **Day-to-day dev:** Compose for infra only (`127.0.0.1` binds); API/worker/frontend run on the host (as above).
+- **Optional MinIO:** `docker compose -f infra/compose.yaml --profile object-storage up -d`
+- **API image** (secrets never baked in; non-root multi-stage build):
+
+  ```bash
+  docker build -f backend/Dockerfile -t devradar-api:local backend
+  docker run --rm -p 127.0.0.1:8000:8000 --env-file backend/.env devradar-api:local
+  ```
+
+  Prefer a production env file from `backend/.env.production.example` (not the seed-demo `.env`). See [SECURITY.md](SECURITY.md#docker-build-context--deployment).
 
 ---
 

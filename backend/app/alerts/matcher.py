@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
@@ -173,9 +174,8 @@ def match_listing(
 
     # Region
     region = str(filters.get("region") or "").strip().lower()
-    if region:
-        if region not in _region_blob(listing):
-            return False
+    if region and region not in _region_blob(listing):
+        return False
 
     # Offer type (AI deals)
     offer_type = filters.get("offerType") or filters.get("offer_type")
@@ -264,7 +264,9 @@ def normalize_alert_filters(raw: dict[str, Any] | None) -> dict[str, Any]:
 
     status = raw.get("status") or raw.get("verificationStatus")
     if status and str(status).strip():
-        out["status"] = str(status).strip() if isinstance(status, str) else ",".join(_as_list(status))
+        out["status"] = (
+            str(status).strip() if isinstance(status, str) else ",".join(_as_list(status))
+        )
 
     min_prize = (
         raw.get("minPrize")
@@ -273,10 +275,8 @@ def normalize_alert_filters(raw: dict[str, Any] | None) -> dict[str, Any]:
         or raw.get("prize_min")
     )
     if min_prize is not None and str(min_prize).strip() != "":
-        try:
+        with contextlib.suppress(TypeError, ValueError):
             out["minPrize"] = float(min_prize)
-        except (TypeError, ValueError):
-            pass
     elif raw.get("onlyBigPrizes") or raw.get("only_big_prizes"):
         out["onlyBigPrizes"] = True
 

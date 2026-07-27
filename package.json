@@ -10,8 +10,10 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "check": "npm run build && npm run lint",
     "preview": "vite preview",
     "clean": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/clean.ps1",
+    "check:all": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/check.ps1",
     "bootstrap": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/dev.ps1"
   },
   "dependencies": {

@@ -48,10 +48,7 @@ async def _recheck(
     engine = create_engine(settings)
     session_maker = create_session_maker(engine)
     kind_enum: ListingKind | None
-    if kind is None or kind == "all":
-        kind_enum = None
-    else:
-        kind_enum = ListingKind(kind)
+    kind_enum = None if kind is None or kind == "all" else ListingKind(kind)
     try:
         async with session_maker() as session:
             summary = await recheck_catalogue(

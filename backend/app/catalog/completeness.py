@@ -47,10 +47,8 @@ def is_weak_official_url(url: str | None) -> bool:
     if any(host == s or host.endswith("." + s) for s in _WEAK_HOST_SUFFIXES):
         return True
     path = (parsed.path or "").strip("/")
-    if host in _WEAK_BARE_HOSTS and not path:
-        return True
-    # Bare luma path with only event id is OK; bare domain is weak (above).
-    return False
+    # Bare luma path with only event id is OK; bare domain is weak.
+    return host in _WEAK_BARE_HOSTS and not path
 
 
 def _as_decimal(value: Any) -> Decimal:
@@ -64,11 +62,9 @@ def _has_meaningful_prize(hackathon: Hackathon) -> bool:
     if _as_decimal(hackathon.prize_value) > 0:
         return True
     label = (hackathon.prize_label or "").strip().lower()
-    if not label:
-        return False
     # Explicit free / TBA still counts as "documented" prize field for completeness,
     # but prize_known is separate.
-    return True
+    return bool(label)
 
 
 def _prize_known(hackathon: Hackathon) -> bool:
@@ -77,9 +73,7 @@ def _prize_known(hackathon: Hackathon) -> bool:
     label = (hackathon.prize_label or "").strip().lower()
     if not label:
         return False
-    if "tba" in label or "to be announced" in label or "upcoming" in label:
-        return False
-    return True
+    return not ("tba" in label or "to be announced" in label or "upcoming" in label)
 
 
 def hackathon_completeness(

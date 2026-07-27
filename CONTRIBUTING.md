@@ -161,30 +161,54 @@ Env: bootstrap already wrote `backend/.env` from `backend/.env.example` (never c
 
 ## Checks before a PR
 
-```bash
-# Backend
-cd backend
-uv run pytest -q
-uv run ruff check app tests
+Use the **same commands and order as CI**. Prefer the one-liners when possible.
 
-# Frontend (repo root)
-npm run build
-npm run lint
+### One command (recommended)
+
+```bash
+# Linux / macOS (infra must already be up — make bootstrap or make up)
+make check
+
+# Windows (PowerShell)
+.\scripts\check.ps1
+# or: npm run check:all
 ```
+
+### Command matrix (single source of truth)
+
+| Step | Local (raw) | Make | CI |
+|------|-------------|------|-----|
+| Install frontend | `npm ci` or `npm install` | — | `npm ci` |
+| Frontend build | `npm run build` | `make build-frontend` | `npm run build` |
+| Frontend lint | `npm run lint` | `make lint-frontend` | `npm run lint` |
+| Frontend both | `npm run check` | `make check-frontend` | `npm run check` |
+| Install backend | `cd backend && uv sync --all-extras` | — | `uv sync --all-extras --frozen` |
+| Backend lint | `cd backend && uv run ruff check app tests` | `make lint-backend` | same |
+| Migrate | `cd backend && uv run alembic upgrade head` | `make migrate` | same |
+| Backend test | `cd backend && uv run pytest` | `make test-backend` | same |
+| Backend all three | — | `make check-backend` | lint → migrate → pytest |
+| Full gate | — | `make check` / `scripts/check.*` | frontend job + backend job |
+
+Notes:
+
+- **Pytest flags** (`-q --tb=short`) are set in `backend/pyproject.toml` (`addopts`) so every runner matches CI without repeating flags.
+- **Install vs check:** local day-to-day can use `uv sync --all-extras` (allows lock updates). CI uses `--frozen` (`make sync-backend`) so the lockfile is authoritative.
+- **Migrate** upgrades the DB used by the API; `pytest` still creates/uses a separate `devradar_test` database (see below). Running `alembic upgrade head` before tests matches CI and keeps your dev schema current.
+- **Order matters for parity:** frontend = build then lint; backend = ruff → migrate → pytest.
 
 ### CI gates (required to merge)
 
-Every PR to `main` runs [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — green checks are required to merge. Local commands above mirror CI:
+Every PR to `main` runs [`.github/workflows/ci.yml`](.github/workflows/ci.yml):
 
 | Job | What it runs |
 |-----|----------------|
-| **Secret scan** | Gitleaks (full history; blocks accidental key commits) |
-| **Frontend** | Node **22**: `npm ci`, `npm run build`, `npm run lint` |
-| **Backend** | Python **3.12**, Postgres **16** (port **5434**), Redis **7**: `uv sync --all-extras`, `ruff check app tests`, `alembic upgrade head`, `pytest` |
+| **Secret scan** | Gitleaks (full history) |
+| **Frontend** | Node **22** (`.nvmrc`): `npm ci` → `npm run check` |
+| **Backend** | Python **3.12**, Postgres **16** (:5434), Redis **7**: `uv sync --all-extras --frozen` → extensions → ruff → alembic → pytest |
 
-CI env matches the seed-demo spirit: `LLM_PROVIDER=disabled`, `OBJECT_STORAGE_BACKEND=memory`, same DB URL shape as `backend/.env.example`.
+CI env: `LLM_PROVIDER=disabled`, `OBJECT_STORAGE_BACKEND=memory`, same DB URL shape as `backend/.env.example`.
 
-If a check goes red on your PR, click it → fix locally → `git push` again to re-run.
+If a check goes red, fix locally with `make check` / `.\scripts\check.ps1`, then `git push` again.
 
 ### The test database
 

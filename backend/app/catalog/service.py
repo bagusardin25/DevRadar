@@ -12,6 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.catalog.completeness import ai_offer_completeness, hackathon_completeness
 from app.catalog.enums import (
     ConnectorType,
     HackathonMode,
@@ -20,9 +21,8 @@ from app.catalog.enums import (
     SourceTier,
     VerificationStatus,
 )
-from app.catalog.models import AIOffer, Hackathon, Listing
-from app.catalog.completeness import ai_offer_completeness, hackathon_completeness
 from app.catalog.lifecycle import apply_lifecycle_transitions
+from app.catalog.models import AIOffer, Hackathon, Listing
 from app.catalog.public_schemas import (
     AIOfferPublic,
     CatalogueStatsResponse,

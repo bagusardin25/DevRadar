@@ -13,11 +13,11 @@
 
 ## How tested
 
-Mirrors CI / CONTRIBUTING checks:
+Same commands as CI ([CONTRIBUTING](../CONTRIBUTING.md#checks-before-a-pr)):
 
-- [ ] `cd backend && uv run ruff check app tests`
-- [ ] `cd backend && uv run pytest -q`
-- [ ] `npm run build` and `npm run lint`
+- [ ] `make check` **or** `.\scripts\check.ps1` **or** the steps below
+- [ ] Frontend: `npm run check` (`build` then `lint`)
+- [ ] Backend: `uv run ruff check app tests` → `uv run alembic upgrade head` → `uv run pytest`
 - [ ] Manual check (describe below if relevant)
 
 ## Checklist

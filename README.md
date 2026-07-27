@@ -178,15 +178,22 @@ End users of a **hosted** instance still never need those keys — only the **op
 
 ---
 
-## CI
+## CI & local checks
 
-PRs to `main` run [`.github/workflows/ci.yml`](.github/workflows/ci.yml):
+PRs to `main` run [`.github/workflows/ci.yml`](.github/workflows/ci.yml). Locally, after infra is up:
 
-- Secret scan (Gitleaks)
-- Frontend: Node **22** — `npm ci`, `npm run build`, `npm run lint`
-- Backend: Python **3.12**, Postgres **16**, Redis **7** — `ruff check`, `alembic upgrade head`, `pytest`
+```bash
+make check              # Linux/macOS — same lint/build/migrate/test order as CI
+# Windows:  .\scripts\check.ps1   or   npm run check:all
+```
 
-Local checks match [CONTRIBUTING.md](CONTRIBUTING.md#checks-before-a-pr).
+| CI job | Local equivalent |
+|--------|------------------|
+| Secret scan (Gitleaks) | — (runs only on GitHub) |
+| Frontend (`npm ci` → `npm run check`) | `npm run check` / `make check-frontend` |
+| Backend (ruff → migrate → pytest) | `make check-backend` |
+
+Full command matrix: [CONTRIBUTING.md](CONTRIBUTING.md#checks-before-a-pr).
 
 ---
 

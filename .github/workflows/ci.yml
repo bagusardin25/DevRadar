@@ -35,12 +35,11 @@ jobs:
         with:
           node-version-file: ".nvmrc"
           cache: npm
-      - name: Install & build
-        run: |
-          npm ci
-          npm run build
-      - name: Lint
-        run: npm run lint
+      - name: Install
+        run: npm ci
+      # Same as `npm run check` / `make check-frontend` (build then lint).
+      - name: Build & lint
+        run: npm run check
 
   backend:
     name: Backend tests
@@ -91,6 +90,7 @@ jobs:
           enable-cache: true
           python-version: "3.12"
       - name: Python setup
+        # Same as `make sync-backend`.
         run: |
           cd backend
           uv sync --all-extras --frozen
@@ -104,15 +104,12 @@ jobs:
           CREATE EXTENSION IF NOT EXISTS citext;
           CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
           SQL
-      - name: Ruff
+      # Same order/flags as `make check-backend` / scripts/check.sh:
+      #   ruff check app tests → alembic upgrade head → pytest
+      # (pytest flags live in backend/pyproject.toml addopts)
+      - name: Lint, migrate, test
         run: |
           cd backend
           uv run ruff check app tests
-      - name: Migrate
-        run: |
-          cd backend
           uv run alembic upgrade head
-      - name: Pytest
-        run: |
-          cd backend
-          uv run pytest -q --tb=short
+          uv run pytest

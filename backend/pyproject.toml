@@ -40,6 +40,8 @@ packages = ["app"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# Match CI (`.github/workflows/ci.yml`) so `uv run pytest` is enough everywhere.
+addopts = "-q --tb=short"
 
 [tool.ruff]
 target-version = "py312"

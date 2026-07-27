@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -81,9 +80,8 @@ def desired_ai_offer_status(
     if current not in _ACTIVE_LIKE and current != VerificationStatus.EXPIRED:
         return None
     exp = _aware(expires_at)
-    if exp is not None and exp < now:
-        if current != VerificationStatus.EXPIRED:
-            return VerificationStatus.EXPIRED
+    if exp is not None and exp < now and current != VerificationStatus.EXPIRED:
+        return VerificationStatus.EXPIRED
     return None
 
 

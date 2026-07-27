@@ -14,13 +14,12 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
-from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.catalog.enums import ListingKind, OfferType, VerificationStatus
+from app.catalog.enums import ListingKind, VerificationStatus
 from app.catalog.models import Listing
 from app.config import Settings, get_settings
 from app.ingestion.fetcher import FetchError, FetchPolicy, fetch_url
@@ -102,9 +101,7 @@ def _looks_like_page_chrome(text: str) -> bool:
     if any(b in t for b in bad):
         return True
     # Title-like "Pricing · Foo docs" without free-tier language
-    if "pricing" in t and "free" not in t and "credit" not in t and len(t) < 80:
-        return True
-    return False
+    return bool("pricing" in t and "free" not in t and "credit" not in t and len(t) < 80)
 
 
 def _looks_like_offer_value(text: str) -> bool:
@@ -155,15 +152,15 @@ def _merge_ai_offer(listing: Listing, extracted: dict[str, Any]) -> list[str]:
     ov = extracted.get("offer_value")
     if isinstance(ov, str) and ov.strip() and _looks_like_offer_value(ov):
         ov = ov.strip()[:300]
-        if ov != (o.offer_value or "").strip():
-            # Prefer longer / more specific free-tier wording
-            if len(ov) >= 12 and (
-                not o.offer_value
-                or len(ov) > len(o.offer_value)
-                or "tba" in (o.offer_value or "").lower()
-            ):
-                o.offer_value = ov
-                updated.append("offer_value")
+        # Prefer longer / more specific free-tier wording
+        prefer = len(ov) >= 12 and (
+            not o.offer_value
+            or len(ov) > len(o.offer_value)
+            or "tba" in (o.offer_value or "").lower()
+        )
+        if ov != (o.offer_value or "").strip() and prefer:
+            o.offer_value = ov
+            updated.append("offer_value")
 
     # Do not auto-change offer_type / expires_at / tags / arrays from noisy pages —
     # only fill empty arrays.
@@ -199,22 +196,27 @@ def _merge_hackathon(listing: Listing, extracted: dict[str, Any]) -> list[str]:
     updated: list[str] = []
 
     org = extracted.get("organizer")
-    if isinstance(org, str) and org.strip() and len((h.organizer or "").strip()) < 2:
-        if not _looks_like_page_chrome(org):
-            h.organizer = org.strip()[:200]
-            updated.append("organizer")
+    if (
+        isinstance(org, str)
+        and org.strip()
+        and len((h.organizer or "").strip()) < 2
+        and not _looks_like_page_chrome(org)
+    ):
+        h.organizer = org.strip()[:200]
+        updated.append("organizer")
 
     prize = _as_decimal(extracted.get("prize_value"))
-    if prize is not None and prize > 0:
-        if h.prize_value is None or Decimal(str(h.prize_value or 0)) <= 0:
-            h.prize_value = prize
-            updated.append("prize_value")
-            cur = extracted.get("prize_currency") or h.prize_currency or "USD"
-            if not (h.prize_label or "").strip() or "tba" in (h.prize_label or "").lower():
-                h.prize_label = (
-                    f"${prize:,.0f} {cur}" if str(cur).upper() == "USD" else f"{prize:,.0f} {cur}"
-                )
-                updated.append("prize_label")
+    if prize is not None and prize > 0 and (
+        h.prize_value is None or Decimal(str(h.prize_value or 0)) <= 0
+    ):
+        h.prize_value = prize
+        updated.append("prize_value")
+        cur = extracted.get("prize_currency") or h.prize_currency or "USD"
+        if not (h.prize_label or "").strip() or "tba" in (h.prize_label or "").lower():
+            h.prize_label = (
+                f"${prize:,.0f} {cur}" if str(cur).upper() == "USD" else f"{prize:,.0f} {cur}"
+            )
+            updated.append("prize_label")
 
     for attr, key in (
         ("registration_deadline", "registration_deadline"),

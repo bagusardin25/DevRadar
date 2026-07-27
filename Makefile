@@ -1,25 +1,30 @@
-# DevRadar developer shortcuts (requires Docker + uv + Node)
-# Windows users can use:  .\scripts\dev.ps1
+# DevRadar developer shortcuts (requires Docker + uv + Node).
+# Windows: .\scripts\dev.ps1 for bootstrap; .\scripts\check.ps1 for CI-parity checks.
+# Command matrix is documented in CONTRIBUTING.md — keep this file in sync with CI.
 
-.PHONY: help up down bootstrap seed seed-update seed-sources recheck-offers api worker frontend test-backend lint-backend lint-frontend build-frontend clean health
+.PHONY: help up down bootstrap seed seed-update seed-sources recheck-offers \
+	api worker frontend \
+	sync-backend migrate lint-backend test-backend check-backend \
+	lint-frontend build-frontend check-frontend \
+	check clean health
 
 help:
-	@echo "DevRadar targets:"
-	@echo "  make bootstrap     Docker up + migrate + seed demo catalogue"
-	@echo "  make up / down     Start/stop infra (Postgres, Redis, MinIO)"
-	@echo "  make seed          Insert demo listings (skip existing slugs)"
-	@echo "  make seed-update   Refresh prize labels & core fields on existing slugs"
-	@echo "  make seed-sources  Seed Devpost/MLH/HackerEarth source registry"
-	@echo "  make recheck-offers  Re-fetch AI offer official URLs (rules/LLM extract)"
-	@echo "  make api           Run FastAPI on :8000"
-	@echo "  make worker        Run Celery fetch/review worker (add --pool=solo on Windows)"
-	@echo "  make frontend      Run Vite on :5173"
-	@echo "  make test-backend  pytest (needs infra up)"
-	@echo "  make lint-backend  ruff check app tests"
-	@echo "  make lint-frontend oxlint"
-	@echo "  make build-frontend  production frontend build"
-	@echo "  make clean         Remove local build/cache/runtime artifacts (keeps .env)"
-	@echo "  make health        curl /health/ready"
+	@echo "DevRadar targets (aligned with CI where noted):"
+	@echo "  make bootstrap       Docker up + uv sync + migrate + seed"
+	@echo "  make up / down       Start/stop infra (Postgres, Redis, MinIO)"
+	@echo "  make sync-backend    uv sync --all-extras --frozen  (CI install)"
+	@echo "  make migrate         alembic upgrade head           (CI migrate)"
+	@echo "  make lint-backend    ruff check app tests           (CI lint)"
+	@echo "  make test-backend    pytest                         (CI test; needs infra)"
+	@echo "  make check-backend   lint + migrate + test          (CI backend job)"
+	@echo "  make lint-frontend   npm run lint                   (CI lint)"
+	@echo "  make build-frontend  npm run build                  (CI build)"
+	@echo "  make check-frontend  build + lint                   (CI frontend job)"
+	@echo "  make check           check-frontend + check-backend (full local CI gate)"
+	@echo "  make seed / seed-update / seed-sources / recheck-offers"
+	@echo "  make api / worker / frontend / health / clean"
+
+# --- Infra & bootstrap -------------------------------------------------------
 
 up:
 	docker compose -f infra/compose.yaml up -d
@@ -42,6 +47,8 @@ seed-sources:
 recheck-offers:
 	cd backend && uv run python scripts/recheck_listings.py --kind ai_offer --limit 25
 
+# --- Runtime -----------------------------------------------------------------
+
 api:
 	cd backend && uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
@@ -51,11 +58,24 @@ worker:
 frontend:
 	npm run dev
 
-test-backend:
-	cd backend && uv run pytest -q
+health:
+	curl -sS http://127.0.0.1:8000/health/ready | python -m json.tool || curl -sS http://127.0.0.1:8000/health/ready
+
+# --- Lint / test / build / migrate (CI parity) -------------------------------
+
+sync-backend:
+	cd backend && uv sync --all-extras --frozen
+
+migrate:
+	cd backend && uv run alembic upgrade head
 
 lint-backend:
 	cd backend && uv run ruff check app tests
+
+test-backend:
+	cd backend && uv run pytest
+
+check-backend: lint-backend migrate test-backend
 
 lint-frontend:
 	npm run lint
@@ -63,9 +83,13 @@ lint-frontend:
 build-frontend:
 	npm run build
 
-# Wipe generated/cache/runtime junk only — never touches backend/.env or seed JSON.
+# Same order as .github/workflows/ci.yml frontend job (after npm ci).
+check-frontend: build-frontend lint-frontend
+
+# Full contributor gate (infra must already be up for backend tests).
+# Delegates to scripts/check.sh so Make and the shell script stay identical.
+check:
+	@bash scripts/check.sh
+
 clean:
 	@bash scripts/clean.sh
-
-health:
-	curl -sS http://127.0.0.1:8000/health/ready | python -m json.tool || curl -sS http://127.0.0.1:8000/health/ready

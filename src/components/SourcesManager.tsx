@@ -15,7 +15,7 @@ import { fetchSources, fetchCrawlRuns, retryCrawlRun } from '../api/pipeline';
 import type { Source, CrawlRun } from '../api/pipeline';
 
 interface SourcesManagerProps {
-  admin: { githubId: string; login: string; csrfToken: string } | null;
+  admin: { subject: string; email: string; csrfToken: string } | null;
   onLogin: () => void;
 }
 

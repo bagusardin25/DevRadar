@@ -16,6 +16,7 @@ import {
   ApiError,
   type AdminMe,
   type CatalogueStats,
+  type ReviewCorrections,
   type ReviewItem,
   adminLogout,
   approveReviewItem,
@@ -36,7 +37,7 @@ import {
   rejectReviewItem,
   saveAlertIds,
   saveBookmarkIds,
-  startAdminGithubLogin,
+  startAdminGoogleLogin,
   startLiveDiscovery,
   toggleId,
   waitForDiscovery,
@@ -50,6 +51,9 @@ const PipelineViewer = lazy(() =>
 );
 const AdminQueue = lazy(() =>
   import('./components/AdminQueue').then((m) => ({ default: m.AdminQueue })),
+);
+const AdminCatalogueManager = lazy(() =>
+  import('./components/AdminCatalogueManager').then((m) => ({ default: m.AdminCatalogueManager })),
 );
 const ChromeExtensionSidePanel = lazy(() =>
   import('./components/ChromeExtensionSidePanel').then((m) => ({
@@ -472,6 +476,12 @@ export function App() {
         window.history.replaceState({}, '', window.location.pathname);
       });
     }
+    if (params.get('admin_auth') === 'error') {
+      const reason = params.get('reason') || 'unknown_error';
+      setReviewError(`Google login failed: ${reason}`);
+      setFilters((f) => ({ ...f, activeModule: 'admin_queue' }));
+      window.history.replaceState({}, '', window.location.pathname);
+    }
     if (params.get('alert') === 'confirmed') {
       setAlertConfirmMsg('✅ Email alert subscription confirmed! You will receive notifications.');
       window.history.replaceState({}, '', window.location.pathname);
@@ -559,7 +569,7 @@ export function App() {
 
   const handleAdminLogin = async () => {
     try {
-      const url = await startAdminGithubLogin();
+      const url = await startAdminGoogleLogin();
       window.location.href = url;
     } catch (err) {
       setReviewError(err instanceof Error ? err.message : 'Login start failed');
@@ -578,9 +588,13 @@ export function App() {
     setReviewTotal(0);
   };
 
-  const handleApprove = async (item: ReviewItem) => {
+  const handleApprove = async (
+    item: ReviewItem,
+    corrections: ReviewCorrections = {},
+    notes?: string,
+  ) => {
     if (!admin) throw new Error('Not signed in');
-    await approveReviewItem(item.id, item.version, admin.csrfToken);
+    await approveReviewItem(item.id, item.version, admin.csrfToken, notes, corrections);
     await loadReviewQueue();
     await loadCatalogue();
   };
@@ -695,15 +709,20 @@ export function App() {
       />
 
       <main className="flex-1 pb-16">
-        <StatsOverview
-          totalPrizeValue={totalPrizePoolValue}
-          totalHackathons={displayHackCount}
-          totalDeals={displayDealCount}
-          unverifiedCount={reviewTotal}
-          showQueueStat={Boolean(admin)}
-        />
+        {filters.activeModule !== 'admin_queue' || admin ? (
+          <StatsOverview
+            totalPrizeValue={totalPrizePoolValue}
+            totalHackathons={displayHackCount}
+            totalDeals={displayDealCount}
+            unverifiedCount={reviewTotal}
+            showQueueStat={Boolean(admin)}
+          />
+        ) : null}
 
-        {catalogueError && filters.activeModule !== 'admin_queue' && filters.activeModule !== 'pipeline' && (
+        {catalogueError &&
+          filters.activeModule !== 'admin_queue' &&
+          filters.activeModule !== 'pipeline' &&
+          filters.activeModule !== 'catalogue' && (
           <div className="max-w-6xl mx-auto px-4 lg:px-8 pt-4">
             <div className="sharetopus-card p-4 rounded-2xl border-[1.5px] border-[#D97706] bg-[#D97706]/10 flex items-start gap-3 text-xs font-bold text-[#1C1B18] dark:text-[#F8FAF9]">
               <WifiOff className="w-5 h-5 text-[#D97706] shrink-0" />
@@ -890,6 +909,15 @@ export function App() {
           </div>
         )}
 
+        {filters.activeModule === 'catalogue' && admin && (
+          <Suspense fallback={<ModuleFallback />}>
+            <AdminCatalogueManager
+              admin={admin}
+              onCatalogueChanged={() => void loadCatalogue()}
+            />
+          </Suspense>
+        )}
+
         {filters.activeModule === 'pipeline' && admin && (
           <Suspense fallback={<ModuleFallback />}>
             <PipelineViewer admin={admin} />
@@ -902,7 +930,7 @@ export function App() {
           </Suspense>
         )}
 
-        {/* Review always reachable so operators can start GitHub login */}
+        {/* Review always reachable so operators can start Google login */}
         {filters.activeModule === 'admin_queue' && (
           <Suspense fallback={<ModuleFallback />}>
             <AdminQueue
@@ -914,14 +942,20 @@ export function App() {
               onRefresh={() => void loadReviewQueue()}
               onLogin={() => void handleAdminLogin()}
               onLogout={() => void handleAdminLogout()}
+              onBackToRadar={() =>
+                setFilters((current) => ({ ...current, activeModule: 'hackathon' }))
+              }
               onApprove={handleApprove}
               onReject={handleReject}
             />
           </Suspense>
         )}
 
-        {/* If user lost admin session while on pipeline/sources, bounce to public radar */}
-        {(filters.activeModule === 'pipeline' || filters.activeModule === 'sources') && !admin && (
+        {/* If an operator loses the session, keep the login recovery path visible. */}
+        {(filters.activeModule === 'pipeline' ||
+          filters.activeModule === 'catalogue' ||
+          filters.activeModule === 'sources') &&
+          !admin && (
           <div className="max-w-6xl mx-auto px-4 lg:px-8 pt-10">
             <div className="sharetopus-card p-8 rounded-[24px] text-center space-y-3">
               <p className="text-sm font-extrabold">Operator tools require a signed-in admin session.</p>

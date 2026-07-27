@@ -20,6 +20,7 @@ import {
   Database,
   Gift,
   Clock,
+  FolderKanban,
 } from 'lucide-react';
 import type { FilterState, Hackathon, AIDeal } from '../types';
 import { buildCatalogueHighlights } from '../utils/buildHighlights';
@@ -68,6 +69,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   // Duplicate list for seamless marquee loop
   const tickerItems = [...highlights, ...highlights];
+  const mobileTickerItem = highlights[0];
 
   const iconFor = (kind: string) => {
     switch (kind) {
@@ -82,31 +84,49 @@ export const Header: React.FC<HeaderProps> = ({
     }
   };
 
+  const emphasisClassFor = (kind: string) =>
+    kind === 'closing'
+      ? 'text-[#92400E] dark:text-[#FBBF24]'
+      : kind === 'offer'
+        ? 'text-[#6D28D9] dark:text-[#C4B5FD]'
+        : 'text-[#065F46] dark:text-[#34D399]';
+
+  const isAdminContext = showAdminNav || filters.activeModule === 'admin_queue';
+  const accessLabel = showAdminNav
+    ? 'Admin session active'
+    : filters.activeModule === 'admin_queue'
+      ? 'Admin sign-in required'
+      : 'Public browsing \u00B7 no login';
+
   return (
     <div className="sticky top-0 z-40 w-full flex flex-col font-sans">
       {/* Catalogue highlights strip (from real data — not a fake live feed) */}
-      <div className="w-full bg-[#E5E6DF] dark:bg-[#090C15] border-b border-[#D6D5CF] dark:border-slate-800 py-1.5 px-3 sm:px-4 overflow-hidden text-[12px] font-mono text-[#4A4845] dark:text-[#B8C4D2] font-semibold">
-        <div className="max-w-6xl mx-auto flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 shrink-0 pr-2 sm:pr-4 bg-[#E5E6DF] dark:bg-[#090C15] z-10 font-bold">
+      <div className="w-full bg-[#E5E6DF] dark:bg-[#090C15] border-b border-[#D6D5CF] dark:border-slate-800 px-4 py-2 sm:px-6 sm:py-2.5 overflow-hidden text-[12px] leading-5 font-mono text-[#4A4845] dark:text-[#B8C4D2] font-semibold">
+        <div className="isolate max-w-6xl mx-auto flex min-h-5 items-center justify-between gap-4">
+          <div className="relative z-20 flex items-center gap-2 shrink-0 py-0.5 pr-3 sm:pr-5 bg-[#E5E6DF] dark:bg-[#090C15] font-bold">
             <Flame className="w-3.5 h-3.5 text-[#FF5A36]" />
             {/* The ticker sits on #E5E6DF, darker than a card, so these accents
                 go one step deeper than the --text-* tokens to clear 4.5:1. */}
             <span className="text-[#9A3412] dark:text-[#FF8A6B] whitespace-nowrap">HIGHLIGHTS</span>
           </div>
 
-          <div className="overflow-hidden flex-1 relative min-w-0">
-            <div className="animate-marquee whitespace-nowrap flex items-center gap-6 sm:gap-8 text-[#1C1B18] dark:text-white font-bold">
+          <div className="relative z-0 min-w-0 flex-1 overflow-hidden pl-1 sm:pl-2">
+            {mobileTickerItem ? (
+              <div className="flex min-w-0 items-center gap-1.5 py-0.5 font-bold text-[#1C1B18] dark:text-white md:hidden">
+                {iconFor(mobileTickerItem.kind)}
+                <strong className={`shrink-0 ${emphasisClassFor(mobileTickerItem.kind)}`}>
+                  {mobileTickerItem.emphasis}
+                </strong>
+                <span className="min-w-0 truncate">{mobileTickerItem.label}</span>
+              </div>
+            ) : null}
+            <div className="hidden md:block">
+              <div className="animate-marquee whitespace-nowrap flex items-center gap-6 py-0.5 text-[#1C1B18] dark:text-white font-bold md:gap-8">
               {tickerItems.map((item, i) => (
                 <span key={`${item.id}-${i}`} className="inline-flex items-center gap-1.5 shrink-0">
                   {iconFor(item.kind)}
                   <strong
-                    className={
-                      item.kind === 'closing'
-                        ? 'text-[#92400E] dark:text-[#FBBF24]'
-                        : item.kind === 'offer'
-                          ? 'text-[#6D28D9] dark:text-[#C4B5FD]'
-                          : 'text-[#065F46] dark:text-[#34D399]'
-                    }
+                    className={emphasisClassFor(item.kind)}
                   >
                     {item.emphasis}
                   </strong>
@@ -117,6 +137,7 @@ export const Header: React.FC<HeaderProps> = ({
                 </span>
               ))}
             </div>
+              </div>
           </div>
 
           <div className="hidden lg:flex items-center gap-2 text-[#065F46] dark:text-emerald-400 shrink-0 font-bold text-[12px]">
@@ -332,6 +353,19 @@ export const Header: React.FC<HeaderProps> = ({
 
                 <button
                   type="button"
+                  onClick={() => setFilters((f) => ({ ...f, activeModule: 'catalogue' }))}
+                  className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-full transition-all whitespace-nowrap shrink-0 ${
+                    filters.activeModule === 'catalogue'
+                      ? 'bg-[#D23B14] text-white font-bold shadow-sm'
+                      : 'text-[#1C1B18] dark:text-[#D6DCE5] hover:text-[#D23B14]'
+                  }`}
+                >
+                  <FolderKanban className="w-4 h-4" />
+                  <span>Catalog</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => setFilters((f) => ({ ...f, activeModule: 'sources' }))}
                   className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-full transition-all whitespace-nowrap shrink-0 ${
                     filters.activeModule === 'sources'
@@ -349,19 +383,27 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 onClick={onOpenAdmin}
-                title="Operator login (GitHub OAuth)"
+                title="Operator login (Google OAuth)"
+                aria-label="Operator admin login"
                 className={`flex items-center gap-1.5 sm:gap-2 px-3 py-2 rounded-full transition-all whitespace-nowrap shrink-0 text-[#1C1B18] dark:text-[#D6DCE5] hover:text-[#D97706] ${
                   filters.activeModule === 'admin_queue' ? 'bg-[#D97706]/15 font-bold' : ''
                 }`}
               >
                 <ShieldCheck className="w-4 h-4" />
                 <span>Operator</span>
+                <span className="rounded-full border border-[#D97706] bg-[#D97706] px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide leading-none text-white">
+                  Admin
+                </span>
               </button>
             )}
 
             <span className="hidden sm:inline-flex items-center gap-1 ml-auto pl-2 text-[12px] font-bold text-[#736F66] dark:text-[#94A3B8] shrink-0">
-              <GraduationCap className="w-3.5 h-3.5" />
-              No login required
+              {isAdminContext ? (
+                <ShieldCheck className="w-3.5 h-3.5" />
+              ) : (
+                <GraduationCap className="w-3.5 h-3.5" />
+              )}
+              {accessLabel}
             </span>
           </div>
         </div>

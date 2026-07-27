@@ -138,7 +138,7 @@ export interface UnverifiedSignal {
 
 export interface FilterState {
   searchQuery: string;
-  activeModule: 'hackathon' | 'ai_deal' | 'pipeline' | 'admin_queue' | 'sources';
+  activeModule: 'hackathon' | 'ai_deal' | 'pipeline' | 'admin_queue' | 'catalogue' | 'sources';
   mode: 'all' | 'online' | 'hybrid' | 'in_person';
   region: string;
   eligibility: string;

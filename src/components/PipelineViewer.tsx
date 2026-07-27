@@ -21,7 +21,7 @@ import { fetchCrawlRuns, retryCrawlRun } from '../api/pipeline';
 import type { CrawlRun } from '../api/pipeline';
 
 interface PipelineViewerProps {
-  admin?: { githubId: string; login: string; csrfToken: string } | null;
+  admin?: { subject: string; email: string; csrfToken: string } | null;
 }
 
 export const PipelineViewer: React.FC<PipelineViewerProps> = ({ admin }) => {

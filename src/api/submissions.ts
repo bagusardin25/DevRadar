@@ -7,6 +7,36 @@ export type SubmissionReceipt = {
   duplicate: boolean;
 };
 
+export type SubmissionState =
+  | 'received'
+  | 'queued'
+  | 'fetching'
+  | 'reviewing'
+  | 'awaiting_admin'
+  | 'review_failed'
+  | 'processing'
+  | 'duplicate'
+  | 'accepted'
+  | 'rejected';
+
+export type SubmissionReviewPublic = {
+  recommendation: 'approve' | 'reject' | 'needs_more_info';
+  confidence: number;
+  summary: string;
+  concerns: Array<{ severity: 'high' | 'medium' | 'low'; message: string }>;
+  generatedAt: string | null;
+};
+
+export type SubmissionStatus = {
+  trackingId: string;
+  status: SubmissionState;
+  submittedAt: string;
+  claimedType: 'hackathon' | 'ai_offer' | null;
+  message: string;
+  reviewedAt: string | null;
+  review: SubmissionReviewPublic | null;
+};
+
 export type SubmissionCreateInput = {
   url: string;
   claimedTitle?: string;
@@ -35,5 +65,14 @@ export async function createSubmission(
       website: input.website ?? '',
     },
     idempotencyKey,
+  });
+}
+
+export async function fetchSubmissionStatus(
+  trackingId: string,
+  signal?: AbortSignal,
+): Promise<SubmissionStatus> {
+  return apiRequest<SubmissionStatus>(`/submissions/${encodeURIComponent(trackingId)}`, {
+    signal,
   });
 }

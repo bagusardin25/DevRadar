@@ -9,7 +9,14 @@ export {
   type CollectionResponse,
   type FilterMeta,
 } from './catalog';
-export { createSubmission, type SubmissionReceipt } from './submissions';
+export {
+  createSubmission,
+  fetchSubmissionStatus,
+  type SubmissionReceipt,
+  type SubmissionReviewPublic,
+  type SubmissionState,
+  type SubmissionStatus,
+} from './submissions';
 export {
   describeDiscoveryResult,
   getDiscoveryRun,
@@ -22,10 +29,20 @@ export {
   approveReviewItem,
   fetchAdminMe,
   fetchReviewItems,
+  readAIReview,
+  readAIUsage,
+  readVerification,
   rejectReviewItem,
-  startAdminGithubLogin,
+  startAdminGoogleLogin,
   type AdminMe,
+  type AIReviewConcern,
+  type AIReviewRecommendation,
+  type AIReviewSnapshot,
+  type AIUsageCall,
+  type AIUsageSnapshot,
   type ReviewItem,
+  type ReviewCorrections,
+  type VerificationSnapshot,
 } from './admin';
 export {
   loadAlertIds,

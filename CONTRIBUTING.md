@@ -27,7 +27,7 @@ This guide is for **first-time contributors** and regulars. Setup detail also li
 2. **[uv](https://docs.astral.sh/uv/)** + Python **3.12+**
 3. **Node.js 20+** and npm
 
-You do **not** need OpenAI, X/Twitter API, or GitHub OAuth to browse the seed catalogue.
+You do **not** need OpenAI, X/Twitter API, or Google OAuth to browse the seed catalogue.
 
 ---
 
@@ -90,7 +90,7 @@ DevRadar/
 ```
 
 Public app modules: **Radar** (hackathons), **AI Deals**.  
-**Review / Pipeline / Sources** need an admin GitHub OAuth session (operators only).
+**Review / Catalog / Pipeline / Sources** need an admin Google OAuth session (operators only).
 
 ---
 
@@ -178,6 +178,7 @@ Every PR to `main` runs these on GitHub Actions (`.github/workflows/ci.yml`) —
 
 - **Frontend build** — `npm ci && npm run build` on Node 22
 - **Frontend lint** — `npm run lint`
+- **Backend lint** — `ruff check app tests`
 - **Backend tests** — `pytest` against a real Postgres 16 + Redis 7 (services spun up in CI), after `alembic upgrade head`
 
 If a check goes red on your PR, click it → fix locally → `git push` again to re-run.
@@ -263,7 +264,7 @@ You can re-trigger the bot in a PR comment: `@coderabbitai review` (fresh review
 
 ## Code of conduct
 
-Be respectful. Harassment or spam of the review queue is not welcome. Maintainers may reject submissions or revoke abusive admin access.
+See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Be respectful. Harassment or spam of the review queue is not welcome. Maintainers may reject submissions or revoke abusive admin access.
 
 ## License
 

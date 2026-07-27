@@ -20,7 +20,7 @@ DevRadar aggregates **hackathons / challenges** and **AI free tiers / credits / 
 | **No end-user login** | Browse, filter, bookmark (localStorage), submit URLs without an account |
 | **No user API keys** | Visitors never paste OpenAI/X keys into the browser |
 | **X is discovery, not truth** | Social posts are Tier-3 signals; official URLs are preferred |
-| **Human-in-the-loop** | Admin review queue for publish/reject (GitHub OAuth, optional) |
+| **Human-in-the-loop** | Admin review queue for publish/reject (Google OAuth, optional) |
 
 This is **not** a claim of perfect accuracy. Listings carry verification status (`verified_active`, `likely_active`, `registration_closed`, …) and prize labels that may say **TBA** when the pool is unknown.
 
@@ -125,7 +125,7 @@ Optional deeper notes may live in a local `docs/` folder (gitignored — not par
 | **Seed demo** | None (Docker + secrets only) | Local try-out, OSS contributors, demos |
 | **Ingestion + LLM** | `LLM_API_KEY` (OpenAI-compatible) | Extract structured fields from official pages |
 | **X discovery** | `X_BEARER_TOKEN` or X MCP | Find new candidate URLs (pay-per-use; optional) |
-| **Admin review** | GitHub OAuth + `ADMIN_GITHUB_IDS` | Approve/reject listings |
+| **Admin review** | Google OAuth + `ADMIN_GOOGLE_EMAILS` | Approve/reject listings |
 
 End users of a **hosted** instance still never need those keys — only the **operator** does.
 
@@ -141,9 +141,10 @@ End users of a **hosted** instance still never need those keys — only the **op
 - Email alert subscribe (needs operator email provider; default `console`)
 - Provenance hints (source tier on cards)
 
-**Operator / admin (behind GitHub login)**
+**Operator / admin (behind Google login)**
 
-- Review queue
+- Review queue (with AI initial review)
+- Catalogue manager (hackathons & AI offers)
 - Pipeline viewer
 - Sources manager
 
@@ -153,7 +154,7 @@ End users of a **hosted** instance still never need those keys — only the **op
 
 ## Contributing
 
-See **[CONTRIBUTING.md](CONTRIBUTING.md)**.
+See **[CONTRIBUTING.md](CONTRIBUTING.md)** and **[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)**.
 
 Preferred ways to add opportunities:
 

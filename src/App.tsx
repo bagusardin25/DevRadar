@@ -467,7 +467,7 @@ export function App() {
     }
   }, [filters.activeModule, loadReviewQueue]);
 
-  // After GitHub OAuth redirect, alert confirmation, or shared bookmark link
+  // After Google OAuth redirect, alert confirmation, or shared bookmark link
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('admin_auth') === 'ok') {

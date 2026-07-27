@@ -34,7 +34,8 @@ We will try to acknowledge reports within a reasonable time and coordinate discl
 
 - Generate unique `SESSION_SECRET`, `EMAIL_ENCRYPTION_KEY`, `EMAIL_HMAC_KEY`  
 - Never commit `.env`  
-- Restrict `ADMIN_GITHUB_IDS`  
+- Restrict `ADMIN_GOOGLE_EMAILS` to verified operator addresses only  
+
 - Use HTTPS in production  
 - Keep dependencies updated  
 

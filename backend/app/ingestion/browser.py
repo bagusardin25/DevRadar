@@ -50,7 +50,8 @@ BROWSER_WORKER_FORBIDDEN_ENV = frozenset(
         "SESSION_SECRET",
         "EMAIL_ENCRYPTION_KEY",
         "EMAIL_HMAC_KEY",
-        "GITHUB_CLIENT_SECRET",
+        "GOOGLE_CLIENT_SECRET",
+        "GITHUB_CLIENT_SECRET",  # legacy name; keep blocked if still present in env
         "LLM_API_KEY",
         "X_BEARER_TOKEN",
         "OBJECT_STORAGE_SECRET_KEY",

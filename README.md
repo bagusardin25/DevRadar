@@ -37,6 +37,7 @@ Browser (React/Vite)  →  FastAPI (/api/v1)  →  PostgreSQL
 ```
 
 - **Frontend-only** works with offline mock data, but the real catalogue needs the backend.
+- **Celery worker required for automatic submission review**: without a `fetch` worker, community submissions remain queued for admin follow-up.
 - **Seed demo mode** (recommended first run): no OpenAI / no X keys — load curated JSON into Postgres.
 
 ---
@@ -57,7 +58,7 @@ cd DevRadar
 .\scripts\dev.ps1
 ```
 
-Then two terminals:
+Then three terminals:
 
 ```powershell
 # Terminal A — API
@@ -66,6 +67,12 @@ uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 # Terminal B — UI
 npm run dev
+```
+
+```powershell
+# Terminal C - submission fetch and AI review worker
+cd backend
+uv run celery -A app.worker.celery_app worker -Q fetch -l info --pool=solo
 ```
 
 - App: http://localhost:5173/  

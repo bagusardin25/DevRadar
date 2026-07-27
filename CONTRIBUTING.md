@@ -138,11 +138,12 @@ npm run dev
 
 If the UI shows **Backend Offline**, Docker or the API is not up.
 
-### 3. Background worker (optional)
+### 3. Background worker
 
-Only needed for jobs that run outside a request: source scans (the hero's
-**Scan sources** toggle), scheduled catalogue rechecks, and alert scans. Browsing
-the catalogue works without it.
+Required for automatic community-submission fetching and AI review. It also runs
+source scans (the hero's **Scan sources** toggle), scheduled catalogue rechecks,
+and alert scans. Browsing the catalogue still works without it, but submissions
+remain queued.
 
 ```powershell
 # Terminal C — Celery worker
@@ -151,8 +152,8 @@ uv run celery -A app.worker.celery_app worker -Q fetch -l info --pool=solo
 ```
 
 `--pool=solo` is required on Windows (Celery's default `prefork` pool is
-POSIX-only). Without a worker running, a live discovery run stays `queued` and
-the UI will tell you so.
+POSIX-only). Without a worker running, live discovery and community submissions
+stay `queued`; the tracking UI will report that state.
 
 Env knobs: `backend/.env.example` → copy is already made by bootstrap as `backend/.env` (never commit `.env`).
 

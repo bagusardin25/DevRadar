@@ -1,7 +1,7 @@
 # DevRadar developer shortcuts (requires Docker + uv + Node)
 # Windows users can use:  .\scripts\dev.ps1
 
-.PHONY: help up down bootstrap seed seed-update seed-sources recheck-offers api frontend test-backend build-frontend health
+.PHONY: help up down bootstrap seed seed-update seed-sources recheck-offers api worker frontend test-backend build-frontend health
 
 help:
 	@echo "DevRadar targets:"
@@ -12,6 +12,7 @@ help:
 	@echo "  make seed-sources  Seed Devpost/MLH/HackerEarth source registry"
 	@echo "  make recheck-offers  Re-fetch AI offer official URLs (rules/LLM extract)"
 	@echo "  make api           Run FastAPI on :8000"
+	@echo "  make worker        Run Celery fetch/review worker"
 	@echo "  make frontend      Run Vite on :5173"
 	@echo "  make test-backend  pytest (needs infra up)"
 	@echo "  make build-frontend  production frontend build"
@@ -40,6 +41,9 @@ recheck-offers:
 
 api:
 	cd backend && uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+worker:
+	cd backend && uv run celery -A app.worker.celery_app worker -Q fetch -l info
 
 frontend:
 	npm run dev

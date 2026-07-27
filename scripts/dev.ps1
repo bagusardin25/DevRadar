@@ -116,6 +116,7 @@ Write-Host @"
 Next:
   API:      cd backend; uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
   Frontend: npm run dev
+  Worker:   cd backend; uv run celery -A app.worker.celery_app worker -Q fetch -l info --pool=solo
   Health:   http://127.0.0.1:8000/health/ready
   App:      http://localhost:5173/
 

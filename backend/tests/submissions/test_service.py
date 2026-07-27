@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import time
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.catalog.enums import ReviewCandidateType, ReviewItemState, SubmissionState
 from app.config import Settings
@@ -16,6 +16,7 @@ from app.db import create_engine, create_session_maker
 from app.errors import ForbiddenError, RateLimitError, ValidationError
 from app.review.models import ReviewItem
 from app.submissions.enqueue import InMemorySubmissionEnqueue
+from app.submissions.models import CommunitySubmission
 from app.submissions.schemas import SubmissionCreateRequest
 from app.submissions.security import hash_ip, job_idempotency_key
 from app.submissions.service import AbuseContext, SubmissionService
@@ -236,6 +237,58 @@ class TestSubmissionService:
         assert status.claimed_type is not None
         assert "queued" in status.message.lower() or "verification" in status.message.lower()
 
+    async def test_public_status_includes_sanitized_ai_review(
+        self,
+        session: AsyncSession,
+        service: SubmissionService,
+    ) -> None:
+        receipt = await service.submit_candidate(
+            _cmd(
+                url=f"https://example.com/review-status-{uuid4().hex[:8]}",
+                claimed_type="ai_offer",
+                claimed_title="Free Model Credits",
+            ),
+            _abuse(),
+        )
+        await session.flush()
+        item = (
+            await session.execute(
+                select(ReviewItem).where(
+                    ReviewItem.candidate_snapshot["trackingId"].as_string()
+                    == receipt.tracking_id
+                )
+            )
+        ).scalar_one()
+        snapshot = dict(item.candidate_snapshot)
+        snapshot["aiReview"] = {
+            "recommendation": "needs_more_info",
+            "confidence": 64,
+            "summary": "The terms page needs a final human check.",
+            "concerns": [
+                {"severity": "medium", "message": "Expiry is unclear."}
+            ],
+            "suggestedFields": {"offer_value": "$50"},
+            "engine": "openai:test",
+            "model": "secret-model-name",
+            "generatedAt": "2026-07-27T00:00:00+00:00",
+        }
+        item.candidate_snapshot = snapshot
+        submission = await session.get(CommunitySubmission, item.candidate_id)
+        assert submission is not None
+        submission.state = SubmissionState.AWAITING_ADMIN
+        submission.reviewed_at = datetime(2026, 7, 27, tzinfo=UTC)
+        await session.flush()
+
+        status = await service.get_public_submission_status(receipt.tracking_id)
+
+        assert status.status == SubmissionState.AWAITING_ADMIN
+        assert status.review is not None
+        assert status.review.recommendation == "needs_more_info"
+        assert status.review.confidence == 64
+        dumped = status.model_dump()
+        assert "suggested_fields" not in dumped["review"]
+        assert "model" not in dumped["review"]
+
     async def test_unknown_tracking_404(self, service: SubmissionService) -> None:
         from app.errors import NotFoundError
 
@@ -272,7 +325,11 @@ class TestSubmissionService:
             .scalars()
             .all()
         )
-        matching = [i for i in items if i.candidate_snapshot.get("trackingId") == receipt.tracking_id]
+        matching = [
+            item
+            for item in items
+            if item.candidate_snapshot.get("trackingId") == receipt.tracking_id
+        ]
         assert len(matching) == 1
         item = matching[0]
         assert item.state == ReviewItemState.OPEN

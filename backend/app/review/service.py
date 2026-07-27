@@ -170,14 +170,14 @@ class ReviewService:
                         new_status=VerificationStatus.VERIFIED_ACTIVE,
                         notes=command.notes or "Approved by admin",
                         actor_type=ActorType.ADMIN,
-                        actor_id=admin.github_id,
+                        actor_id=admin.subject,
                         checked_urls=[],
                         score_breakdown=dict(listing.score_breakdown or {}),
                     )
                 )
 
         item.state = ReviewItemState.APPROVED
-        item.assigned_admin_id = admin.github_id
+        item.assigned_admin_id = admin.subject
         item.resolution = {
             "action": "approve",
             "notes": command.notes,
@@ -213,7 +213,7 @@ class ReviewService:
         before = self._snapshot(item)
 
         item.state = ReviewItemState.REJECTED
-        item.assigned_admin_id = admin.github_id
+        item.assigned_admin_id = admin.subject
         item.resolution = {"action": "reject", "reason": command.reason}
         item.resolved_at = datetime.now(UTC)
         item.version = item.version + 1
@@ -251,7 +251,7 @@ class ReviewService:
 
         target_status = _state_value(target.verification_status)
         item.state = ReviewItemState.MERGED
-        item.assigned_admin_id = admin.github_id
+        item.assigned_admin_id = admin.subject
         item.listing_id = target.id
         item.resolution = {
             "action": "merge",
@@ -271,7 +271,7 @@ class ReviewService:
                 new_status=target_status,
                 notes=command.notes or f"Merged review item {item.id}",
                 actor_type=ActorType.ADMIN,
-                actor_id=admin.github_id,
+                actor_id=admin.subject,
                 checked_urls=[],
                 score_breakdown=dict(target.score_breakdown or {}),
             )
@@ -339,7 +339,7 @@ class ReviewService:
             "source": source_hint,
             "publishedVia": "admin_approval",
             "reviewItemId": str(item.id),
-            "adminId": admin.github_id,
+            "adminId": admin.subject,
             "notes": command.notes,
         }
 
@@ -374,7 +374,7 @@ class ReviewService:
                 new_status=VerificationStatus.VERIFIED_ACTIVE,
                 notes=command.notes or f"Published from review item {item.id}",
                 actor_type=ActorType.ADMIN,
-                actor_id=admin.github_id,
+                actor_id=admin.subject,
                 checked_urls=[url],
                 score_breakdown=score_breakdown,
             )
@@ -441,8 +441,8 @@ class ReviewService:
     ) -> None:
         self._session.add(
             AdminAuditLog(
-                actor_id=admin.github_id,
-                actor_login=admin.login,
+                actor_id=admin.subject,
+                actor_login=admin.email,
                 action=action,
                 target_type=target_type,
                 target_id=target_id,

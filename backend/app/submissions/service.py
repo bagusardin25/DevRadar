@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
+from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,6 +27,7 @@ from app.submissions.models import CommunitySubmission
 from app.submissions.schemas import (
     SubmissionCreateRequest,
     SubmissionReceipt,
+    SubmissionReviewPublic,
     SubmissionStatusPublic,
 )
 from app.submissions.security import (
@@ -49,6 +51,10 @@ SUBMISSION_REVIEW_REASON = "Community submission awaiting verification"
 STATUS_MESSAGES: dict[SubmissionState, str] = {
     SubmissionState.RECEIVED: "We received your submission.",
     SubmissionState.QUEUED: "Your submission is queued for verification.",
+    SubmissionState.FETCHING: "We are fetching the submitted source.",
+    SubmissionState.REVIEWING: "The source is being verified and reviewed.",
+    SubmissionState.AWAITING_ADMIN: "The AI review is ready for an admin decision.",
+    SubmissionState.REVIEW_FAILED: "Automated review failed and needs operator attention.",
     SubmissionState.PROCESSING: "We are verifying the linked opportunity.",
     SubmissionState.DUPLICATE: "This URL was already submitted recently.",
     SubmissionState.ACCEPTED: "The opportunity was accepted into the catalogue.",
@@ -170,13 +176,46 @@ class SubmissionService:
                 claimed = ListingKind(submission.claimed_type)
             except ValueError:
                 claimed = None
+        review_result = await self._session.execute(
+            select(ReviewItem)
+            .where(
+                ReviewItem.candidate_type == ReviewCandidateType.COMMUNITY_SUBMISSION,
+                ReviewItem.candidate_id == submission.id,
+            )
+            .order_by(ReviewItem.created_at.asc())
+            .limit(1)
+        )
+        review_item = review_result.scalar_one_or_none()
         return SubmissionStatusPublic(
             tracking_id=submission.tracking_id,
             status=state,
             submitted_at=submission.created_at,
             claimed_type=claimed,
             message=STATUS_MESSAGES.get(state, "Status updated."),
+            reviewed_at=submission.reviewed_at,
+            review=self._public_ai_review(review_item),
         )
+
+    @staticmethod
+    def _public_ai_review(item: ReviewItem | None) -> SubmissionReviewPublic | None:
+        if item is None or not isinstance(item.candidate_snapshot, dict):
+            return None
+        raw = item.candidate_snapshot.get("aiReview")
+        if not isinstance(raw, dict):
+            return None
+        # Never expose suggested fields, model identifiers, or raw verification
+        # details through the anonymous tracking endpoint.
+        public_payload = {
+            "recommendation": raw.get("recommendation"),
+            "confidence": raw.get("confidence"),
+            "summary": raw.get("summary"),
+            "concerns": raw.get("concerns") or [],
+            "generatedAt": raw.get("generatedAt"),
+        }
+        try:
+            return SubmissionReviewPublic.model_validate(public_payload)
+        except PydanticValidationError:
+            return None
 
     @staticmethod
     def _build_review_item(
@@ -230,6 +269,21 @@ class SubmissionService:
                 logger_msg,
                 extra={"submission_id": str(submission_id)},
             )
+            try:
+                tracked = await self._session.get(CommunitySubmission, submission_id)
+                if tracked is not None:
+                    if enqueued:
+                        tracked.enqueued_at = datetime.now(UTC)
+                        tracked.last_error = None
+                    else:
+                        tracked.last_error = "Review job could not be dispatched"
+                    await self._session.commit()
+            except Exception:
+                await self._session.rollback()
+                logging.getLogger(__name__).exception(
+                    "submission_enqueue_state_update_failed",
+                    extra={"submission_id": str(submission_id)},
+                )
 
         hooks.append(_hook)
 

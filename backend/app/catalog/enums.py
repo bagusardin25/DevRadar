@@ -150,6 +150,11 @@ class SubmissionState(StrEnum):
 
     RECEIVED = "received"
     QUEUED = "queued"
+    FETCHING = "fetching"
+    REVIEWING = "reviewing"
+    AWAITING_ADMIN = "awaiting_admin"
+    REVIEW_FAILED = "review_failed"
+    # Kept for receipts created before the more precise lifecycle was added.
     PROCESSING = "processing"
     DUPLICATE = "duplicate"
     ACCEPTED = "accepted"

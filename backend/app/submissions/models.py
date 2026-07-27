@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, Index, Text, text
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, Text, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -57,6 +57,15 @@ class CommunitySubmission(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # Job key: hash(canonical_url + time_bucket).
     job_idempotency_key: Mapped[str | None] = mapped_column(Text, nullable=True, index=True)
     enqueued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    attempt_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        server_default=text("0"),
+    )
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     # Sanitized metadata for operators (no secrets / raw bodies).
     metadata_json: Mapped[dict[str, Any]] = mapped_column(
         JSONB,

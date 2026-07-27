@@ -58,6 +58,6 @@ class ReviewActionResult(CamelModel):
 
 
 class AdminMeResponse(CamelModel):
-    github_id: str
-    login: str
+    subject: str
+    email: str
     csrf_token: str

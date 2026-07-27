@@ -1,8 +1,8 @@
-"""Enqueue submission fetch jobs after DB commit (worker-ready contract)."""
+"""Dispatch submission review jobs to Celery after the API commit succeeds."""
 
 from __future__ import annotations
 
-import json
+import asyncio
 import logging
 from typing import Protocol
 from uuid import UUID
@@ -11,7 +11,8 @@ import redis.asyncio as aioredis
 
 logger = logging.getLogger(__name__)
 
-QUEUE_NAME = "devradar:queue:fetch"
+TASK_NAME = "ingestion.fetch_submission"
+QUEUE_NAME = "fetch"
 IDEM_PREFIX = "devradar:job:idempotency:"
 
 
@@ -26,8 +27,8 @@ class SubmissionEnqueuePort(Protocol):
         ...
 
 
-class RedisSubmissionEnqueue:
-    """Push fetch jobs to Redis; workers (Task 6+) consume them."""
+class CelerySubmissionEnqueue:
+    """Send a real Celery message while retaining a short idempotency lease."""
 
     def __init__(self, redis_url: str) -> None:
         self._redis_url = redis_url
@@ -38,6 +39,7 @@ class RedisSubmissionEnqueue:
         job_idempotency_key: str,
         canonical_url: str,
     ) -> bool:
+        del canonical_url  # The worker reloads authoritative data from PostgreSQL.
         r = aioredis.from_url(self._redis_url, decode_responses=True)
         try:
             idem_key = f"{IDEM_PREFIX}{job_idempotency_key}"
@@ -49,13 +51,29 @@ class RedisSubmissionEnqueue:
                     extra={"job_key": job_idempotency_key},
                 )
                 return False
-            payload = {
-                "task": "ingestion.fetch_submission",
-                "submission_id": str(submission_id),
-                "idempotency_key": job_idempotency_key,
-                "canonical_url": canonical_url,
-            }
-            await r.lpush(QUEUE_NAME, json.dumps(payload))
+            def _send() -> None:
+                from app.worker.celery_app import celery_app
+
+                celery_app.send_task(
+                    TASK_NAME,
+                    args=[str(submission_id)],
+                    task_id=job_idempotency_key,
+                    queue=QUEUE_NAME,
+                )
+
+            try:
+                await asyncio.to_thread(_send)
+            except Exception as exc:
+                # A failed broker send must not strand the idempotency lease.
+                await r.delete(idem_key)
+                logger.warning(
+                    "submission_enqueue_failed",
+                    extra={
+                        "submission_id": str(submission_id),
+                        "error": f"{type(exc).__name__}: {exc}",
+                    },
+                )
+                return False
             return True
         finally:
             aclose = getattr(r, "aclose", None)

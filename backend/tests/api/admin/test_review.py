@@ -8,7 +8,7 @@ import httpx
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.github import FakeGitHubOAuthClient, GitHubUser
+from app.auth.google import FakeGoogleOAuthClient, GoogleUser
 from app.auth.sessions import CSRF_HEADER, SESSION_COOKIE, InMemorySessionStore
 from app.catalog.enums import ReviewCandidateType, ReviewItemState, VerificationStatus
 from app.config import Settings
@@ -22,11 +22,11 @@ from tests.factories import seed_hackathon
 def settings() -> Settings:
     return Settings(
         app_env="test",
-        admin_github_ids=["111"],
+        admin_google_emails=["admin@example.com"],
         frontend_url="http://localhost:5173",
         cors_origins=["http://localhost:5173"],
-        github_client_id="test-client",
-        github_client_secret="test-secret",
+        google_client_id="test-client",
+        google_client_secret="test-secret",
     )
 
 
@@ -44,12 +44,16 @@ async def db_session() -> AsyncSession:
 @pytest.fixture
 async def api_client(settings: Settings):
     store = InMemorySessionStore()
-    oauth = FakeGitHubOAuthClient(
-        users_by_code={"good-code": GitHubUser(id="111", login="admin")}
+    oauth = FakeGoogleOAuthClient(
+        users_by_code={
+            "good-code": GoogleUser(
+                id="111", email="admin@example.com", email_verified=True
+            )
+        }
     )
     app = create_app(settings)
     app.state.session_store = store
-    app.state.github_oauth = oauth
+    app.state.google_oauth = oauth
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
         base_url="http://testserver",
@@ -59,10 +63,10 @@ async def api_client(settings: Settings):
 
 
 async def _login(client: httpx.AsyncClient) -> tuple[str, str]:
-    start = await client.get("/api/v1/admin/auth/github/start")
+    start = await client.get("/api/v1/admin/auth/google/start")
     state = start.json()["state"]
     cb = await client.get(
-        "/api/v1/admin/auth/github/callback",
+        "/api/v1/admin/auth/google/callback",
         params={"code": "good-code", "state": state},
     )
     cookie = cb.cookies[SESSION_COOKIE]

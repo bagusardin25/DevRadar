@@ -45,8 +45,8 @@ async def session() -> AsyncSession:
 
 def _admin() -> AdminIdentity:
     return AdminIdentity(
-        github_id="111",
-        login="admin",
+        subject="111",
+        email="admin@example.com",
         admin_user_id=str(uuid4()),
         csrf_token="csrf-token",
         session_id="sess",
@@ -212,6 +212,64 @@ class TestReviewService:
 
         await session.refresh(submission)
         assert str(submission.state) == SubmissionState.ACCEPTED.value
+
+    async def test_approve_uses_ai_review_extracted_ai_offer_fields(
+        self, session: AsyncSession
+    ) -> None:
+        submission = CommunitySubmission(
+            tracking_id=f"track-{uuid4().hex[:12]}",
+            original_url="https://example.com/free-credits",
+            canonical_url=f"https://example.com/free-credits-{uuid4().hex[:6]}",
+            claimed_type="ai_offer",
+            claimed_title="Acme Free Credits",
+            ip_hash="deadbeef",
+            state=SubmissionState.AWAITING_ADMIN,
+            metadata_json={"host": "example.com"},
+        )
+        session.add(submission)
+        await session.flush()
+        item = ReviewItem(
+            candidate_type=ReviewCandidateType.COMMUNITY_SUBMISSION,
+            candidate_id=submission.id,
+            candidate_snapshot={
+                "source": "community_submission",
+                "trackingId": submission.tracking_id,
+                "url": submission.canonical_url,
+                "title": "Acme Free Credits",
+                "kind": "ai_offer",
+                "officialUrl": submission.canonical_url,
+                "fields": {
+                    "product_name": "Acme Studio",
+                    "provider": "Acme AI",
+                    "offer_type": "free_credits",
+                    "offer_value": "$50 credits",
+                    "requirements": ["Developer account"],
+                    "official_terms_url": submission.canonical_url,
+                    "claim_url": submission.canonical_url,
+                },
+            },
+            reason="AI initial review: approve (88/100)",
+            priority=45,
+            state=ReviewItemState.OPEN,
+            version=2,
+        )
+        session.add(item)
+        await session.flush()
+
+        result = await ReviewService(session).approve_review_item(
+            item.id,
+            ApproveReviewRequest(expected_version=2, notes="AI fields verified"),
+            _admin(),
+        )
+
+        listing = await session.get(Listing, result.listing_id)
+        assert listing is not None
+        await session.refresh(listing, attribute_names=["ai_offer"])
+        assert str(listing.kind) == ListingKind.AI_OFFER.value
+        assert listing.title == "Acme Free Credits"
+        assert listing.ai_offer is not None
+        assert listing.ai_offer.provider == "Acme AI"
+        assert listing.ai_offer.offer_value == "$50 credits"
 
     async def test_reject_community_submission_updates_submission_state(
         self, session: AsyncSession

@@ -4,16 +4,23 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import UTC, datetime
 from typing import Any
+from uuid import UUID
 
-from app.catalog.enums import ListingKind
-from app.config import get_settings
+from celery.exceptions import Retry
+
+import app.models  # noqa: F401  # Ensure worker ORM relationships are registered.
+from app.catalog.enums import ListingKind, SubmissionState
+from app.config import Settings, get_settings
+from app.db import create_engine, create_session_maker
 from app.ingestion.browser import should_use_browser
 from app.ingestion.fetcher import FetchError, FetchPolicy, fetch_url
 from app.ingestion.llm_provider import create_extractor
 from app.ingestion.parser import parse_document
 from app.ingestion.ssrf import SSRFError
 from app.ingestion.storage import DocumentStorage, build_document_storage
+from app.submissions.models import CommunitySubmission
 from app.worker.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
@@ -32,6 +39,7 @@ async def _fetch_and_store(
     if_modified_since: str | None = None,
     listing_kind: str = "hackathon",
     run_extract: bool = True,
+    include_excerpt: bool = False,
 ) -> dict[str, Any]:
     policy = policy or FetchPolicy()
     if etag:
@@ -75,6 +83,7 @@ async def _fetch_and_store(
         extraction = {
             "method": result.method,
             "llm_attempted": result.llm_attempted,
+            "usage": result.llm_usage.to_snapshot() if result.llm_usage else None,
             "errors": result.errors,
             "field_sources": result.field_sources,
             "fields": {
@@ -84,7 +93,7 @@ async def _fetch_and_store(
             "title": result.fields.get("title") or parsed.title,
         }
 
-    return {
+    payload: dict[str, Any] = {
         "ok": True,
         "not_modified": False,
         "url": url,
@@ -106,6 +115,11 @@ async def _fetch_and_store(
         "extraction": extraction,
         "listing_kind": listing_kind,
     }
+    if include_excerpt:
+        # Bounded, untrusted page context for the advisory model only. The
+        # submission task removes it before its Celery result is persisted.
+        payload["page_excerpt"] = parsed.text[:6_000]
+    return payload
 
 
 @celery_app.task(name="ingestion.fetch_document", bind=True)  # type: ignore[untyped-decorator]
@@ -129,6 +143,7 @@ def fetch_document(self: Any, request: dict[str, Any]) -> dict[str, Any]:
             if_modified_since=request.get("if_modified_since"),
             listing_kind=str(request.get("listing_kind") or "hackathon"),
             run_extract=bool(request.get("run_extract", True)),
+            include_excerpt=bool(request.get("include_excerpt", False)),
         )
     )
     result["source_id"] = request.get("source_id")
@@ -138,11 +153,164 @@ def fetch_document(self: Any, request: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-@celery_app.task(name="ingestion.fetch_submission", bind=True)  # type: ignore[untyped-decorator]
-def fetch_submission(self: Any, request: dict[str, Any]) -> dict[str, Any]:
-    """Fetch a community submission URL (same pipeline as fetch_document)."""
-    result = fetch_document(request)
-    return result if isinstance(result, dict) else dict(result)
+_FINAL_SUBMISSION_STATES = frozenset(
+    {
+        SubmissionState.ACCEPTED,
+        SubmissionState.REJECTED,
+        SubmissionState.DUPLICATE,
+        SubmissionState.AWAITING_ADMIN,
+    }
+)
+
+
+async def _prepare_submission_fetch(
+    submission_id: UUID | str,
+    *,
+    settings: Settings,
+) -> dict[str, Any] | None:
+    """Load authoritative submission data and mark the fetch attempt started."""
+    sid = submission_id if isinstance(submission_id, UUID) else UUID(str(submission_id))
+    engine = create_engine(settings)
+    maker = create_session_maker(engine)
+    try:
+        async with maker() as session:
+            submission = await session.get(CommunitySubmission, sid)
+            if (
+                submission is None
+                or SubmissionState(submission.state) in _FINAL_SUBMISSION_STATES
+            ):
+                return None
+            submission.state = SubmissionState.FETCHING
+            submission.attempt_count = (submission.attempt_count or 0) + 1
+            submission.last_error = None
+            metadata = dict(submission.metadata_json or {})
+            metadata["fetchStartedAt"] = datetime.now(UTC).isoformat()
+            submission.metadata_json = metadata
+            await session.commit()
+            return _build_submission_fetch_request(submission)
+    finally:
+        await engine.dispose()
+
+
+def _build_submission_fetch_request(
+    submission: CommunitySubmission,
+) -> dict[str, Any]:
+    """Build the worker request from the DB row, preserving its claimed kind."""
+    return {
+        "url": submission.canonical_url,
+        "listing_kind": submission.claimed_type or ListingKind.HACKATHON.value,
+        "idempotency_key": submission.job_idempotency_key,
+        "run_extract": True,
+        "include_excerpt": True,
+    }
+
+
+async def _mark_submission_state(
+    submission_id: UUID | str,
+    state: SubmissionState,
+    *,
+    settings: Settings,
+    error: str | None = None,
+) -> None:
+    sid = submission_id if isinstance(submission_id, UUID) else UUID(str(submission_id))
+    engine = create_engine(settings)
+    maker = create_session_maker(engine)
+    try:
+        async with maker() as session:
+            submission = await session.get(CommunitySubmission, sid)
+            if submission is None:
+                return
+            submission.state = state
+            submission.last_error = error[:1000] if error else None
+            metadata = dict(submission.metadata_json or {})
+            metadata["lastStateAt"] = datetime.now(UTC).isoformat()
+            submission.metadata_json = metadata
+            await session.commit()
+    finally:
+        await engine.dispose()
+
+
+@celery_app.task(  # type: ignore[untyped-decorator]
+    name="ingestion.fetch_submission",
+    bind=True,
+    max_retries=2,
+)
+def fetch_submission(self: Any, submission_id: str) -> dict[str, Any]:
+    """Fetch, extract, verify, and pre-review one community submission."""
+    from app.submissions.review_pipeline import finalize_submission_review
+
+    settings = get_settings()
+    fetch_request = _run(_prepare_submission_fetch(submission_id, settings=settings))
+    if fetch_request is None:
+        return {"ok": False, "skipped": True, "submission_id": submission_id}
+
+    try:
+        result = fetch_document(fetch_request)
+        result = result if isinstance(result, dict) else dict(result)
+        fetch_error = str(result.get("error") or "")[:1000]
+        retries = int(getattr(self.request, "retries", 0) or 0)
+        if not result.get("ok") and retries < int(self.max_retries or 0):
+            _run(
+                _mark_submission_state(
+                    submission_id,
+                    SubmissionState.QUEUED,
+                    settings=settings,
+                    error=fetch_error or "Submission fetch failed",
+                )
+            )
+            raise self.retry(
+                exc=RuntimeError(fetch_error or "Submission fetch failed"),
+                countdown=min(60, 2 ** (retries + 1)),
+            )
+
+        _run(
+            _mark_submission_state(
+                submission_id,
+                SubmissionState.REVIEWING,
+                settings=settings,
+                error=fetch_error or None,
+            )
+        )
+        if settings.ai_review_enabled:
+            review = _run(
+                finalize_submission_review(submission_id, result, settings=settings)
+            )
+            if review is not None:
+                result["ai_review"] = review
+        else:
+            _run(
+                _mark_submission_state(
+                    submission_id,
+                    SubmissionState.AWAITING_ADMIN,
+                    settings=settings,
+                )
+            )
+
+        result.pop("page_excerpt", None)
+        result["submission_id"] = submission_id
+        return result
+    except Retry:
+        raise
+    except Exception as exc:
+        try:
+            _run(
+                _mark_submission_state(
+                    submission_id,
+                    SubmissionState.REVIEW_FAILED,
+                    settings=settings,
+                    error=f"{type(exc).__name__}: {exc}",
+                )
+            )
+        except Exception:
+            logger.exception(
+                "submission_review_failure_state_update_failed",
+                extra={"submission_id": submission_id},
+            )
+        logger.exception(
+            "submission_ai_review_failed",
+            extra={"submission_id": submission_id},
+        )
+        raise
 
 
 @celery_app.task(name="ingestion.browser_fetch", bind=True)  # type: ignore[untyped-decorator]

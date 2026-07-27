@@ -41,6 +41,21 @@ class SubmissionReceipt(CamelModel):
     duplicate: bool = False
 
 
+class SubmissionReviewConcernPublic(CamelModel):
+    severity: Literal["high", "medium", "low"]
+    message: str
+
+
+class SubmissionReviewPublic(CamelModel):
+    """Sanitized AI pre-review visible only through the opaque tracking token."""
+
+    recommendation: Literal["approve", "reject", "needs_more_info"]
+    confidence: int = Field(ge=0, le=100)
+    summary: str
+    concerns: list[SubmissionReviewConcernPublic] = Field(default_factory=list)
+    generated_at: datetime | None = None
+
+
 class SubmissionStatusPublic(CamelModel):
     """Coarse public status — no reviewer notes or internal IDs."""
 
@@ -48,5 +63,6 @@ class SubmissionStatusPublic(CamelModel):
     status: SubmissionState
     submitted_at: datetime
     claimed_type: ListingKind | None = None
-    # High-level only.
     message: str
+    reviewed_at: datetime | None = None
+    review: SubmissionReviewPublic | None = None

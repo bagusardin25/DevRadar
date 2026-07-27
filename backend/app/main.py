@@ -48,11 +48,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         yield
         await engine.dispose()
 
+    # OpenAPI UI is useful in development/test; hide it in production to reduce
+    # the public attack surface (operators can still use /health/* and the API).
+    expose_docs = not _settings.is_production
     app = FastAPI(
         title="DevRadar API",
         description="Discover, verify, and monitor hackathons and AI offers",
         version="0.1.0",
         lifespan=lifespan,
+        docs_url="/docs" if expose_docs else None,
+        redoc_url="/redoc" if expose_docs else None,
+        openapi_url="/openapi.json" if expose_docs else None,
     )
     # Available immediately (including ASGI tests without lifespan startup).
     app.state.engine = engine

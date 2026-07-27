@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from pydantic import ValidationError as PydanticValidationError
 
 from app.auth.google import HttpGoogleOAuthClient, assert_allowlisted
 from app.config import Settings
@@ -26,9 +27,26 @@ def make_settings(**overrides: object) -> Settings:
         "google_client_secret": "test-secret",
         "admin_google_emails": [],
         "oauth_redirect_base_url": "",
+        # Pin so a developer's backend/.env cannot leak into production checks.
+        "database_url": (
+            "postgresql+asyncpg://app:s3cret-long-pass@db:5432/devradar"
+        ),
+        "session_secret": "test-session-secret-at-least-32-chars-long!!",
+        "email_encryption_key": "test-email-encryption-key-16+",
+        "email_hmac_key": "test-email-hmac-key-at-least-32-chars!!",
+        "object_storage_backend": "local",
+        "object_storage_secret_key": "not-a-placeholder-storage-key",
+        "llm_provider": "disabled",
     }
     base.update(overrides)
-    return Settings(**base)  # type: ignore[arg-type]
+    # Production validation requires HTTPS frontend/CORS; pin unless the test
+    # is intentionally passing invalid values (http://) to assert rejection.
+    if str(base.get("app_env", "")).lower() == "production":
+        frontend = str(base.get("frontend_url") or "")
+        if frontend.startswith("http://localhost") or frontend == "http://localhost:5173":
+            base["frontend_url"] = "https://app.example.com"
+            base["cors_origins"] = "https://app.example.com"
+    return Settings(_env_file=None, **base)  # type: ignore[arg-type]
 
 
 class TestAllowlistEmailOnly:
@@ -97,9 +115,11 @@ class TestRedirectUri:
         )
 
     def test_production_without_base_url_is_rejected(self) -> None:
-        client = HttpGoogleOAuthClient(make_settings(app_env="production"))
-        with pytest.raises(ValidationError):
-            client._redirect_uri()
+        # Production hardening rejects missing OAUTH_REDIRECT_BASE_URL at Settings
+        # load time (before OAuth client methods run).
+        with pytest.raises(PydanticValidationError) as exc:
+            make_settings(app_env="production", oauth_redirect_base_url="")
+        assert "OAUTH_REDIRECT_BASE_URL" in str(exc.value)
 
     def test_origin_without_scheme_is_rejected(self) -> None:
         client = HttpGoogleOAuthClient(make_settings(oauth_redirect_base_url="api.example.com"))

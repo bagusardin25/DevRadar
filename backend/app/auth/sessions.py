@@ -268,7 +268,8 @@ class InMemorySessionStore:
 
 
 def cookie_secure(settings: Settings) -> bool:
-    return settings.app_env == "production"
+    """Prefer Settings.cookie_secure (True only when APP_ENV=production)."""
+    return settings.cookie_secure
 
 
 def session_cookie_kwargs(settings: Settings) -> dict[str, object]:

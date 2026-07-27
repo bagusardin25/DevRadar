@@ -132,10 +132,13 @@ uv run python scripts/recheck_listings.py --kind ai_offer --limit 25
 
 | File | Purpose |
 |------|---------|
-| [`backend/.env.example`](backend/.env.example) | Backend settings — copy to **`backend/.env`** (never commit `.env`) |
-| [`.env.example`](.env.example) | Optional frontend Vite vars (`VITE_*`) — copy to root `.env` if needed |
+| [`backend/.env.example`](backend/.env.example) | **Development** — copy to **`backend/.env`** (Compose ports, seed-demo) |
+| [`backend/.env.production.example`](backend/.env.production.example) | **Production checklist** — set via host secrets; `APP_ENV=production` hardens startup |
+| [`.env.example`](.env.example) | Optional frontend Vite vars (`VITE_*`) — root `.env` if needed |
 
-Defaults match Compose (Postgres on host port **5434**). Prefer `localhost` for the app URL and OAuth callback host notes in the backend template (`localhost` ≠ `127.0.0.1` for cookies).
+Defaults match Compose (Postgres on host port **5434**). Prefer `localhost` for the app URL and OAuth callback host notes (`localhost` ≠ `127.0.0.1` for cookies).
+
+With `APP_ENV=production` the API **refuses** placeholder secrets and Compose DB passwords, requires HTTPS frontend/OAuth origins, sets **Secure** session cookies, and **disables** `/docs`. Details: [SECURITY.md](SECURITY.md#development-vs-production-configuration).
 
 ### Docker notes
 

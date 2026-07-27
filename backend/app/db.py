@@ -65,7 +65,7 @@ def create_engine(settings: Settings) -> AsyncEngine:
         pool_pre_ping=True,
         pool_size=10,
         max_overflow=20,
-        echo=(settings.app_env == "development"),
+        echo=settings.sql_echo,
     )
 
 

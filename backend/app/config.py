@@ -1,4 +1,10 @@
-"""Typed environment configuration using pydantic-settings."""
+"""Typed environment configuration using pydantic-settings.
+
+Development defaults are safe for local seed-demo use (Compose credentials,
+placeholder secrets, OpenAPI docs on). Production (`APP_ENV=production`) is
+stricter: unique secrets, no Compose default DB password, required OAuth
+callback origin, and no accidental open docs surface.
+"""
 
 from __future__ import annotations
 
@@ -12,11 +18,33 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
 
+# Known template / CI placeholders that must never ship as live production secrets.
+_PLACEHOLDER_SECRETS = frozenset(
+    {
+        "replace-with-at-least-32-random-bytes",
+        "replace-with-a-valid-key",
+        "ci-session-secret-at-least-32-chars-long",
+        "ci-email-encryption-key-material",
+        "ci-email-hmac-key-at-least-32-chars",
+        "local-development-only",
+        "devradar123",
+        "changeme",
+        "secret",
+        "password",
+    }
+)
+
+_COMPOSE_DEFAULT_DB_MARKERS = (
+    "devradar:devradar@",
+    "postgres:postgres@",
+    "user:password@",
+)
+
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables and .env file."""
 
-    # App
+    # App — development | test | production (normalized to lowercase)
     app_env: str = "development"
     api_base_path: str = "/api/v1"
     frontend_url: str = "http://localhost:5173"
@@ -101,6 +129,42 @@ class Settings(BaseSettings):
         case_sensitive=False,
     )
 
+    # --- Environment helpers -------------------------------------------------
+
+    @property
+    def is_production(self) -> bool:
+        return self.app_env == "production"
+
+    @property
+    def is_development(self) -> bool:
+        return self.app_env == "development"
+
+    @property
+    def is_test(self) -> bool:
+        return self.app_env == "test"
+
+    @property
+    def cookie_secure(self) -> bool:
+        """Session cookies require HTTPS only in production."""
+        return self.is_production
+
+    @property
+    def sql_echo(self) -> bool:
+        """Log SQL only during local development (never in test/production)."""
+        return self.is_development
+
+    # --- Validators ----------------------------------------------------------
+
+    @field_validator("app_env", mode="before")
+    @classmethod
+    def normalize_app_env(cls, v: Any) -> str:
+        text = str(v or "development").strip().lower()
+        if text not in {"development", "test", "production"}:
+            raise ValueError(
+                f"APP_ENV must be development, test, or production (got {v!r})"
+            )
+        return text
+
     @field_validator("cors_origins", "admin_google_emails", mode="before")
     @classmethod
     def parse_comma_separated_list(cls, v: Any) -> list[str]:
@@ -159,6 +223,75 @@ class Settings(BaseSettings):
             alias = os.environ.get("OPENAI_API_KEY", "").strip()
             if alias:
                 self.llm_api_key = alias
+        return self
+
+    @model_validator(mode="after")
+    def harden_production(self) -> Self:
+        """Refuse unsafe defaults when APP_ENV=production.
+
+        Development and test keep Compose-friendly defaults so seed-demo and CI
+        stay zero-config. Production must set unique secrets and real endpoints.
+        """
+        if not self.is_production:
+            return self
+
+        problems: list[str] = []
+
+        def _secret_ok(name: str, value: str, *, min_len: int = 32) -> None:
+            text = (value or "").strip()
+            if len(text) < min_len:
+                problems.append(f"{name} must be at least {min_len} characters")
+            if text.lower() in _PLACEHOLDER_SECRETS or text in _PLACEHOLDER_SECRETS:
+                problems.append(f"{name} must not use a documented placeholder value")
+
+        _secret_ok("SESSION_SECRET", self.session_secret)
+        _secret_ok("EMAIL_HMAC_KEY", self.email_hmac_key)
+        # Fernet keys are often 44-char urlsafe base64; require non-placeholder length ≥16.
+        _secret_ok("EMAIL_ENCRYPTION_KEY", self.email_encryption_key, min_len=16)
+
+        if any(marker in self.database_url for marker in _COMPOSE_DEFAULT_DB_MARKERS):
+            problems.append(
+                "DATABASE_URL must not use local Compose default credentials "
+                "(e.g. devradar:devradar) in production"
+            )
+
+        if not self.oauth_redirect_base_url.strip():
+            problems.append(
+                "OAUTH_REDIRECT_BASE_URL is required in production "
+                "(public API origin, e.g. https://api.example.com)"
+            )
+        elif not self.oauth_redirect_base_url.strip().startswith("https://"):
+            problems.append(
+                "OAUTH_REDIRECT_BASE_URL must use https:// in production"
+            )
+
+        if not self.frontend_url.strip().startswith("https://"):
+            problems.append("FRONTEND_URL must use https:// in production")
+
+        if any(o.strip() == "*" for o in self.cors_origins):
+            problems.append("CORS_ORIGINS must not be wildcard (*) in production")
+        if not self.cors_origins:
+            problems.append("CORS_ORIGINS must list at least one allowed origin")
+
+        if self.object_storage_backend == "memory":
+            problems.append(
+                "OBJECT_STORAGE_BACKEND=memory is for tests only; use local or s3"
+            )
+        if (
+            self.object_storage_backend == "s3"
+            and (self.object_storage_secret_key or "").strip() in _PLACEHOLDER_SECRETS
+        ):
+            problems.append(
+                "OBJECT_STORAGE_SECRET_KEY must be set to a real key when using s3"
+            )
+
+        if self.llm_provider == "openai" and not (self.llm_api_key or "").strip():
+            problems.append("LLM_API_KEY is required when LLM_PROVIDER=openai")
+
+        if problems:
+            raise ValueError(
+                "Invalid production configuration:\n- " + "\n- ".join(problems)
+            )
         return self
 
 

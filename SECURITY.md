@@ -53,12 +53,27 @@ Sensitive values typically live only in `backend/.env` (created by bootstrap or 
 
 CI runs [Gitleaks](https://github.com/gitleaks/gitleaks) on every PR (`.gitleaks.toml`). Enable GitHub **secret scanning** + **push protection** on the repository settings for defense in depth.
 
+## Development vs production configuration
+
+| | Development (`APP_ENV=development`) | Production (`APP_ENV=production`) |
+|--|-------------------------------------|-----------------------------------|
+| Template | [`backend/.env.example`](backend/.env.example) → `backend/.env` | [`backend/.env.production.example`](backend/.env.production.example) (checklist only) |
+| Secrets | Placeholders OK for seed-demo; bootstrap generates local ones | Unique secrets required; placeholders **rejected at startup** |
+| Database | Compose defaults (`devradar:devradar@…:5434`) | Strong credentials; Compose defaults **rejected** |
+| Cookies | `Secure=false` (HTTP localhost) | `Secure=true` (HTTPS) |
+| OpenAPI `/docs` | Enabled | Disabled |
+| OAuth callback | Optional (`localhost` fallback) | `OAUTH_REDIRECT_BASE_URL` **https** required |
+| Object storage | `local` filesystem OK | `memory` forbidden; `s3` needs real keys |
+
+CI uses `APP_ENV=test` (same relaxed defaults as development for fixtures).
+
 ## Operator checklist
 
 - Generate unique `SESSION_SECRET`, `EMAIL_ENCRYPTION_KEY`, `EMAIL_HMAC_KEY`  
 - Never commit `.env` or paste live keys into issues/PRs  
 - Restrict `ADMIN_GOOGLE_EMAILS` to verified operator addresses only  
-- Use HTTPS in production  
+- Set `APP_ENV=production` only on real hosts; use the production env checklist  
+- Use HTTPS in production (`FRONTEND_URL`, `OAUTH_REDIRECT_BASE_URL`)  
 - Keep dependencies updated  
 - Prefer seed demo mode (`LLM_PROVIDER=disabled`) until you intentionally add keys  
 

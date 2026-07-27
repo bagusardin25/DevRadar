@@ -76,7 +76,7 @@ class HttpGoogleOAuthClient:
                     "e.g. https://api.example.com"
                 )
             return f"{origin}{base}{CALLBACK_PATH}"
-        if self._settings.app_env == "production":
+        if self._settings.is_production:
             raise ValidationError(
                 detail="OAUTH_REDIRECT_BASE_URL must be set in production: the public "
                 "origin of this API, matching the Authorized redirect URI registered "

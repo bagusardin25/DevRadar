@@ -57,8 +57,11 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 .env.*
 !.env.example
 !**/.env.example
+!.env.production.example
+!**/.env.production.example
 *.env
 !*.env.example
+!.env.production.example
 .envrc
 .direnv/
 

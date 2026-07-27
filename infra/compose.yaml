@@ -34,8 +34,11 @@ services:
     image: redis:7-alpine
     ports:
       - "127.0.0.1:6379:6379"
-    # No password: local-only bind. Production Redis must require AUTH + TLS.
-    command: redis-server --appendonly yes --protected-mode yes
+    # Host publish goes through Docker NAT (not loopback *inside* the container),
+    # so Redis protected-mode would deny every host client without a password.
+    # Safety for local dev is the 127.0.0.1 publish bind above — do not expose
+    # this service on a public interface. Production Redis must use AUTH + TLS.
+    command: redis-server --appendonly yes --protected-mode no
     volumes:
       - redis-data:/data
     healthcheck:

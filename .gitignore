@@ -1,5 +1,12 @@
-# Logs
-logs
+# --- Dependencies & build ---
+node_modules/
+dist/
+dist-ssr/
+build/
+*.local
+
+# --- Logs ---
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -7,26 +14,56 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# --- Environment & secrets (never commit real env files) ---
+.env
+.env.*
+!.env.example
+!**/.env.example
 
-# Manual X/MCP collection (may include draft leads)
+# --- Manual X/MCP collection (may include draft leads) ---
 data/manual-collection/candidates.jsonl
 backend/data/
 
-# Editor directories and files
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+*.egg
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.tox/
+.nox/
+
+# --- Editor / OS ---
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
+Thumbs.db
+Desktop.ini
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
-# Local / internal documentation (not published with the open-source tree)
+
+# --- Local AI / agent tooling ---
+.claude/
+.grok/
+.cursor/
+.agent/
+.agents/
+
+# --- Local / internal documentation (not published with the open-source tree) ---
 docs/
 
 # Markdown: allow a few root docs and GitHub meta only; ignore other local notes

@@ -180,6 +180,7 @@ Every PR to `main` runs these on GitHub Actions (`.github/workflows/ci.yml`) —
 - **Frontend lint** — `npm run lint`
 - **Backend lint** — `ruff check app tests`
 - **Backend tests** — `pytest` against a real Postgres 16 + Redis 7 (services spun up in CI), after `alembic upgrade head`
+- **Secret scan** — Gitleaks over full history (blocks accidental key commits)
 
 If a check goes red on your PR, click it → fix locally → `git push` again to re-run.
 
@@ -237,7 +238,8 @@ uv run python scripts/recheck_listings.py --kind ai_offer --limit 25
 - **Backend:** Python 3.12+, type hints, async SQLAlchemy, Pydantic v2; JSON to the frontend is **camelCase**.
 - **Frontend:** TypeScript; keep the public catalogue simple; keep admin tools behind auth.
 - Prefer **small PRs** with a clear *why* (problem + approach).
-- No secrets, API keys, or real `.env` contents in commits.
+- No secrets, API keys, or real `.env` contents in commits. Templates only (`.env.example`). Local `backend/.env` and `candidates.jsonl` are gitignored — do not force-add them.
+
 
 ---
 

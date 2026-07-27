@@ -30,13 +30,36 @@ We will try to acknowledge reports within a reasonable time and coordinate discl
 - The fetch pipeline implements SSRF protections; treat misconfiguration of `DATABASE_URL` / network as operator risk.  
 - Community URL submission must remain rate-limited and validated.
 
+## Secrets & local data hygiene
+
+**Never commit** real environment files or keys. The repo only tracks templates:
+
+| Safe to commit | Keep local / gitignored |
+|----------------|-------------------------|
+| `.env.example`, `backend/.env.example` | `backend/.env`, any `*.env` |
+| `data/manual-collection/candidates.example.jsonl` | `data/manual-collection/candidates.jsonl` |
+| Public seed `seed_listings.json` | Private keys (`*.pem`), cloud `credentials.json`, service-account JSON |
+
+Sensitive values typically live only in `backend/.env` (created by bootstrap or copied from the example):
+
+- `SESSION_SECRET`, `EMAIL_ENCRYPTION_KEY`, `EMAIL_HMAC_KEY`
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`
+- `LLM_API_KEY` / `OPENAI_API_KEY`
+- `X_BEARER_TOKEN`
+- `RESEND_API_KEY`, `SMTP_PASSWORD`, `WEBHOOK_SECRET`
+- Object-storage access keys when not using local MinIO defaults
+
+**If a secret is committed or pasted into a public channel:** revoke/rotate it at the provider immediately, then rewrite or purge history if it reached a remote. Treat chat logs the same as accidental commits.
+
+CI runs [Gitleaks](https://github.com/gitleaks/gitleaks) on every PR (`.gitleaks.toml`). Enable GitHub **secret scanning** + **push protection** on the repository settings for defense in depth.
+
 ## Operator checklist
 
 - Generate unique `SESSION_SECRET`, `EMAIL_ENCRYPTION_KEY`, `EMAIL_HMAC_KEY`  
-- Never commit `.env`  
+- Never commit `.env` or paste live keys into issues/PRs  
 - Restrict `ADMIN_GOOGLE_EMAILS` to verified operator addresses only  
-
 - Use HTTPS in production  
 - Keep dependencies updated  
+- Prefer seed demo mode (`LLM_PROVIDER=disabled`) until you intentionally add keys  
 
 Thank you for helping keep DevRadar safe for self-hosters and users.

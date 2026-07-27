@@ -1,0 +1,26 @@
+# https://github.com/gitleaks/gitleaks
+title = "DevRadar"
+
+[extend]
+# Use the default gitleaks ruleset, then layer allowlists below.
+useDefault = true
+
+[allowlist]
+description = "Test fixtures and documented placeholders — not live secrets"
+paths = [
+  '''backend/tests/''',
+  '''.*\.env\.example$''',
+  '''.*/\.env\.example$''',
+]
+regexes = [
+  '''test-session-secret-at-least-32-chars!!''',
+  '''sk-test-key''',
+  '''test-secret''',
+  '''whsec_test''',
+  '''replace-with-at-least-32-random-bytes''',
+  '''replace-with-a-valid-key''',
+  '''ci-session-secret-at-least-32-chars-long''',
+  '''ci-email-encryption-key-material''',
+  '''ci-email-hmac-key-at-least-32-chars''',
+  '''devradar123''',
+]

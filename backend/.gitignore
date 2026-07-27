@@ -2,6 +2,20 @@
 .env
 .env.*
 !.env.example
+*.env
+!*.env.example
+.envrc
+
+# Private keys & cloud credentials
+*.pem
+*.p12
+*.pfx
+*.jks
+id_rsa*
+id_ed25519*
+**/credentials.json
+**/service-account*.json
+.secrets/
 
 # Python
 __pycache__/
@@ -22,11 +36,18 @@ venv/
 .mypy_cache/
 .ruff_cache/
 .coverage
+.coverage.*
 htmlcov/
 coverage.xml
 
 # Local tooling
 .python-version
 
-# Local raw document storage
+# Local raw document storage (fetched pages, operator dumps)
 data/
+
+# Local DB dumps
+*.sqlite
+*.sqlite3
+*.dump
+*.sql.gz

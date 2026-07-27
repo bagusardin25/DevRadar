@@ -19,10 +19,48 @@ lerna-debug.log*
 .env.*
 !.env.example
 !**/.env.example
+*.env
+!*.env.example
+.envrc
+.direnv/
+
+# Private keys, certs, cloud credentials
+*.pem
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+id_dsa
+id_dsa.*
+*.ppk
+.aws/credentials
+.aws/config
+.netrc
+**/credentials.json
+**/service-account*.json
+**/*-service-account*.json
+**/secrets.yaml
+**/secrets.yml
+**/secrets.json
+.secrets/
+secrets/
 
 # --- Manual X/MCP collection (may include draft leads) ---
 data/manual-collection/candidates.jsonl
 backend/data/
+
+# Local DBs / dumps that may hold PII
+*.sqlite
+*.sqlite3
+*.db
+!backend/tests/**/*.db
+*.dump
+*.sql.gz
+
 
 # --- Python ---
 __pycache__/

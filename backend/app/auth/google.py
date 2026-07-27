@@ -1,4 +1,4 @@
-"""GitHub OAuth (authorization code + PKCE) for admin login."""
+"""Google OAuth (authorization code + PKCE) for admin login."""
 
 from __future__ import annotations
 
@@ -14,19 +14,20 @@ import httpx
 from app.config import Settings
 from app.errors import ForbiddenError, UnauthorizedError, ValidationError
 
-GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize"
-GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
-GITHUB_USER_URL = "https://api.github.com/user"
+GOOGLE_AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth"
+GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo"
 
 # Route served by app.api.admin.auth, appended after API_BASE_PATH.
-CALLBACK_PATH = "/admin/auth/github/callback"
-LOCAL_API_ORIGIN = "http://127.0.0.1:8000"
+CALLBACK_PATH = "/admin/auth/google/callback"
+LOCAL_API_ORIGIN = "http://localhost:8000"
 
 
 @dataclass(frozen=True, slots=True)
-class GitHubUser:
-    id: str
-    login: str
+class GoogleUser:
+    id: str  # Google `sub` — stable, immutable account identifier.
+    email: str
+    email_verified: bool = False
     name: str | None = None
 
 
@@ -49,22 +50,22 @@ def generate_state() -> str:
     return secrets.token_urlsafe(24)
 
 
-class GitHubOAuthClient(Protocol):
+class GoogleOAuthClient(Protocol):
     async def build_authorize_url(self, state: str, code_challenge: str) -> str: ...
 
-    async def exchange_code(self, code: str, code_verifier: str) -> GitHubUser: ...
+    async def exchange_code(self, code: str, code_verifier: str) -> GoogleUser: ...
 
 
-class HttpGitHubOAuthClient:
+class HttpGoogleOAuthClient:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
 
     def _redirect_uri(self) -> str:
-        """Build the callback URL GitHub must redirect back to.
+        """Build the callback URL Google must redirect back to.
 
         OAUTH_REDIRECT_BASE_URL is the API's own public origin — required outside
-        local development, because the frontend origin is not a usable stand-in:
-        the API may live on a different host or port entirely.
+        local development, and it must be the SAME host the frontend runs on so
+        the session cookie set here travels back (localhost != 127.0.0.1).
         """
         base = self._settings.api_base_path.rstrip("/")
         origin = self._settings.oauth_redirect_base_url.strip().rstrip("/")
@@ -78,69 +79,74 @@ class HttpGitHubOAuthClient:
         if self._settings.app_env == "production":
             raise ValidationError(
                 detail="OAUTH_REDIRECT_BASE_URL must be set in production: the public "
-                "origin of this API, matching the callback URL registered on the "
-                "GitHub OAuth App (e.g. https://api.example.com)"
+                "origin of this API, matching the Authorized redirect URI registered "
+                "on the Google OAuth client (e.g. https://api.example.com)"
             )
         return f"{LOCAL_API_ORIGIN}{base}{CALLBACK_PATH}"
 
     async def build_authorize_url(self, state: str, code_challenge: str) -> str:
-        if not self._settings.github_client_id:
-            raise ValidationError(detail="GitHub OAuth is not configured")
+        if not self._settings.google_client_id:
+            raise ValidationError(detail="Google OAuth is not configured")
         params = {
-            "client_id": self._settings.github_client_id,
+            "client_id": self._settings.google_client_id,
             "redirect_uri": self._redirect_uri(),
-            "scope": "read:user",
+            "response_type": "code",
+            "scope": "openid email profile",
             "state": state,
             "code_challenge": code_challenge,
             "code_challenge_method": "S256",
+            # Always show the account chooser so switching admin accounts is easy.
+            "prompt": "select_account",
         }
-        return f"{GITHUB_AUTHORIZE_URL}?{urlencode(params)}"
+        return f"{GOOGLE_AUTHORIZE_URL}?{urlencode(params)}"
 
-    async def exchange_code(self, code: str, code_verifier: str) -> GitHubUser:
-        if not self._settings.github_client_id or not self._settings.github_client_secret:
-            raise ValidationError(detail="GitHub OAuth is not configured")
+    async def exchange_code(self, code: str, code_verifier: str) -> GoogleUser:
+        if not self._settings.google_client_id or not self._settings.google_client_secret:
+            raise ValidationError(detail="Google OAuth is not configured")
         async with httpx.AsyncClient(timeout=15.0) as client:
             token_resp = await client.post(
-                GITHUB_TOKEN_URL,
+                GOOGLE_TOKEN_URL,
                 headers={"Accept": "application/json"},
                 data={
-                    "client_id": self._settings.github_client_id,
-                    "client_secret": self._settings.github_client_secret,
+                    "grant_type": "authorization_code",
+                    "client_id": self._settings.google_client_id,
+                    "client_secret": self._settings.google_client_secret,
                     "code": code,
                     "redirect_uri": self._redirect_uri(),
                     "code_verifier": code_verifier,
                 },
             )
             if token_resp.status_code >= 400:
-                raise UnauthorizedError(detail="GitHub token exchange failed")
-            token_body = token_resp.json()
-            access_token = token_body.get("access_token")
+                raise UnauthorizedError(detail="Google token exchange failed")
+            access_token = token_resp.json().get("access_token")
             if not access_token:
-                raise UnauthorizedError(detail="GitHub token exchange failed")
+                raise UnauthorizedError(detail="Google token exchange failed")
 
             user_resp = await client.get(
-                GITHUB_USER_URL,
-                headers={
-                    "Authorization": f"Bearer {access_token}",
-                    "Accept": "application/vnd.github+json",
-                },
+                GOOGLE_USERINFO_URL,
+                headers={"Authorization": f"Bearer {access_token}"},
             )
             if user_resp.status_code >= 400:
-                raise UnauthorizedError(detail="Failed to load GitHub user")
+                raise UnauthorizedError(detail="Failed to load Google profile")
             data = user_resp.json()
-            return GitHubUser(
-                id=str(data["id"]),
-                login=str(data["login"]),
+            sub = data.get("sub")
+            email = data.get("email")
+            if not sub or not email:
+                raise UnauthorizedError(detail="Google profile missing sub/email")
+            return GoogleUser(
+                id=str(sub),
+                email=str(email),
+                email_verified=bool(data.get("email_verified", False)),
                 name=data.get("name"),
             )
 
 
-class FakeGitHubOAuthClient:
+class FakeGoogleOAuthClient:
     """Test double: maps authorization codes to fixed users."""
 
     def __init__(
         self,
-        users_by_code: dict[str, GitHubUser] | None = None,
+        users_by_code: dict[str, GoogleUser] | None = None,
         *,
         client_id: str = "test-client",
     ) -> None:
@@ -155,12 +161,12 @@ class FakeGitHubOAuthClient:
             "client_id": self.client_id,
         }
         return (
-            f"https://github.com/login/oauth/authorize?"
+            f"{GOOGLE_AUTHORIZE_URL}?"
             f"client_id={self.client_id}&state={state}"
             f"&code_challenge={code_challenge}&code_challenge_method=S256"
         )
 
-    async def exchange_code(self, code: str, code_verifier: str) -> GitHubUser:
+    async def exchange_code(self, code: str, code_verifier: str) -> GoogleUser:
         if not code_verifier:
             raise UnauthorizedError(detail="Missing PKCE verifier")
         user = self.users_by_code.get(code)
@@ -169,20 +175,22 @@ class FakeGitHubOAuthClient:
         return user
 
 
-def assert_allowlisted(github_id: str, github_login: str, settings: Settings) -> None:
-    """Admit only allowlisted GitHub numeric user IDs.
+def assert_allowlisted(email: str, email_verified: bool, settings: Settings) -> None:
+    """Admit only allowlisted, verified Google email addresses.
 
-    Matching is on the immutable ID alone — never the login. Settings has already
-    dropped non-numeric entries, so an allowlist of logins reads as empty here and
-    fails closed. The login is used for the error message only.
+    Matching is case-insensitive on the email. A Google account whose email is
+    not verified is rejected: an unverified address is not proof of ownership.
     """
-    allow = set(settings.admin_github_ids)
+    allow = {e.strip().lower() for e in settings.admin_google_emails if e.strip()}
     if not allow:
         raise ForbiddenError(
-            detail="Admin allowlist is empty: set ADMIN_GITHUB_IDS to numeric GitHub user IDs"
+            detail="Admin allowlist is empty: set ADMIN_GOOGLE_EMAILS to allowed emails"
         )
-    if str(github_id) not in allow:
+    if not email_verified:
         raise ForbiddenError(
-            detail=f"GitHub user '{github_login}' (ID: {github_id}) is not "
-            "allowlisted in ADMIN_GITHUB_IDS"
+            detail=f"Google email '{email}' is not verified"
+        )
+    if email.strip().lower() not in allow:
+        raise ForbiddenError(
+            detail=f"Google account '{email}' is not allowlisted in ADMIN_GOOGLE_EMAILS"
         )

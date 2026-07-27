@@ -1,1 +1,1 @@
-"""Admin authentication: GitHub OAuth and Redis sessions."""
+"""Admin authentication: Google OAuth and Redis sessions."""

@@ -1,4 +1,4 @@
-"""Admin GitHub OAuth and session endpoints."""
+"""Admin Google OAuth and session endpoints."""
 
 from __future__ import annotations
 
@@ -11,14 +11,14 @@ from app.review.schemas import AdminMeResponse
 router = APIRouter(prefix="/admin/auth", tags=["Admin Auth"])
 
 
-@router.get("/github/start")
-async def github_oauth_start(service: AuthSvc) -> dict[str, str]:
-    url, state = await service.start_github_oauth()
+@router.get("/google/start")
+async def google_oauth_start(service: AuthSvc) -> dict[str, str]:
+    url, state = await service.start_google_oauth()
     return {"authorizeUrl": url, "state": state}
 
 
-@router.get("/github/callback")
-async def github_oauth_callback(
+@router.get("/google/callback")
+async def google_oauth_callback(
     request: Request,
     service: AuthSvc,
     code: str | None = None,
@@ -36,7 +36,7 @@ async def github_oauth_callback(
         url=f"{frontend}/?admin_auth=ok",
         status_code=302,
     )
-    await service.complete_github_oauth(
+    await service.complete_google_oauth(
         code=code or "",
         state=state or "",
         response=response,
@@ -60,7 +60,7 @@ async def logout(
 async def me(request: Request, service: AuthSvc) -> AdminMeResponse:
     identity = await service.require_admin(request, require_csrf=False)
     return AdminMeResponse(
-        github_id=identity.github_id,
-        login=identity.login,
+        subject=identity.subject,
+        email=identity.email,
         csrf_token=identity.csrf_token,
     )

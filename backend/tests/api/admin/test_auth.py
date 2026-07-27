@@ -1,11 +1,11 @@
-"""API tests for admin GitHub OAuth and sessions."""
+"""API tests for admin Google OAuth and sessions."""
 
 from __future__ import annotations
 
 import httpx
 import pytest
 
-from app.auth.github import FakeGitHubOAuthClient, GitHubUser
+from app.auth.google import FakeGoogleOAuthClient, GoogleUser
 from app.auth.sessions import (
     CSRF_HEADER,
     SESSION_COOKIE,
@@ -20,11 +20,11 @@ from app.main import create_app
 def settings() -> Settings:
     return Settings(
         app_env="test",
-        admin_github_ids=["111"],
+        admin_google_emails=["admin@example.com"],
         frontend_url="http://localhost:5173",
         cors_origins=["http://localhost:5173"],
-        github_client_id="test-client",
-        github_client_secret="test-secret",
+        google_client_id="test-client",
+        google_client_secret="test-secret",
     )
 
 
@@ -34,11 +34,18 @@ def session_store() -> InMemorySessionStore:
 
 
 @pytest.fixture
-def oauth() -> FakeGitHubOAuthClient:
-    return FakeGitHubOAuthClient(
+def oauth() -> FakeGoogleOAuthClient:
+    return FakeGoogleOAuthClient(
         users_by_code={
-            "good-code": GitHubUser(id="111", login="allowlisted-admin"),
-            "bad-user-code": GitHubUser(id="999", login="intruder"),
+            "good-code": GoogleUser(
+                id="108234", email="admin@example.com", email_verified=True
+            ),
+            "bad-user-code": GoogleUser(
+                id="999", email="intruder@example.com", email_verified=True
+            ),
+            "unverified-code": GoogleUser(
+                id="108234", email="admin@example.com", email_verified=False
+            ),
         }
     )
 
@@ -47,11 +54,11 @@ def oauth() -> FakeGitHubOAuthClient:
 async def api_client(
     settings: Settings,
     session_store: InMemorySessionStore,
-    oauth: FakeGitHubOAuthClient,
+    oauth: FakeGoogleOAuthClient,
 ):
     app = create_app(settings)
     app.state.session_store = session_store
-    app.state.github_oauth = oauth
+    app.state.google_oauth = oauth
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
         base_url="http://testserver",
@@ -60,10 +67,10 @@ async def api_client(
         yield client, session_store, oauth
 
 
-class TestGitHubOAuth:
+class TestGoogleOAuth:
     async def test_start_returns_authorize_url_with_pkce(self, api_client) -> None:
         client, store, oauth = api_client
-        response = await client.get("/api/v1/admin/auth/github/start")
+        response = await client.get("/api/v1/admin/auth/google/start")
         assert response.status_code == 200
         body = response.json()
         assert "authorizeUrl" in body
@@ -73,39 +80,47 @@ class TestGitHubOAuth:
 
     async def test_callback_allowlisted_sets_session_cookie(self, api_client) -> None:
         client, store, _ = api_client
-        start = await client.get("/api/v1/admin/auth/github/start")
+        start = await client.get("/api/v1/admin/auth/google/start")
         state = start.json()["state"]
         response = await client.get(
-            "/api/v1/admin/auth/github/callback",
+            "/api/v1/admin/auth/google/callback",
             params={"code": "good-code", "state": state},
         )
         assert response.status_code == 302
         assert "admin_auth=ok" in response.headers["location"]
         assert SESSION_COOKIE in response.cookies
         cookie = response.cookies[SESSION_COOKIE]
-        # Cookie flags via set-cookie header
         set_cookie = response.headers.get("set-cookie", "")
         assert "HttpOnly" in set_cookie or "httponly" in set_cookie.lower()
         identity = await store.get_session(cookie)
         assert identity is not None
-        assert identity.github_id == "111"
-        assert identity.login == "allowlisted-admin"
+        assert identity.subject == "108234"
+        assert identity.email == "admin@example.com"
 
     async def test_callback_rejects_non_allowlisted(self, api_client) -> None:
         client, _, _ = api_client
-        start = await client.get("/api/v1/admin/auth/github/start")
+        start = await client.get("/api/v1/admin/auth/google/start")
         state = start.json()["state"]
         response = await client.get(
-            "/api/v1/admin/auth/github/callback",
+            "/api/v1/admin/auth/google/callback",
             params={"code": "bad-user-code", "state": state},
         )
-        # Forbidden during callback — problem response (not redirect)
+        assert response.status_code == 403
+
+    async def test_callback_rejects_unverified_email(self, api_client) -> None:
+        client, _, _ = api_client
+        start = await client.get("/api/v1/admin/auth/google/start")
+        state = start.json()["state"]
+        response = await client.get(
+            "/api/v1/admin/auth/google/callback",
+            params={"code": "unverified-code", "state": state},
+        )
         assert response.status_code == 403
 
     async def test_callback_rejects_invalid_state(self, api_client) -> None:
         client, _, _ = api_client
         response = await client.get(
-            "/api/v1/admin/auth/github/callback",
+            "/api/v1/admin/auth/google/callback",
             params={"code": "good-code", "state": "unknown-state"},
         )
         assert response.status_code == 401
@@ -117,10 +132,10 @@ class TestGitHubOAuth:
 
     async def test_me_returns_csrf(self, api_client) -> None:
         client, _, _ = api_client
-        start = await client.get("/api/v1/admin/auth/github/start")
+        start = await client.get("/api/v1/admin/auth/google/start")
         state = start.json()["state"]
         cb = await client.get(
-            "/api/v1/admin/auth/github/callback",
+            "/api/v1/admin/auth/google/callback",
             params={"code": "good-code", "state": state},
         )
         cookie = cb.cookies[SESSION_COOKIE]
@@ -130,19 +145,19 @@ class TestGitHubOAuth:
         )
         assert me.status_code == 200
         body = me.json()
-        assert body["login"] == "allowlisted-admin"
+        assert body["email"] == "admin@example.com"
+        assert body["subject"] == "108234"
         assert body["csrfToken"]
 
     async def test_logout_requires_csrf(self, api_client) -> None:
         client, store, _ = api_client
-        start = await client.get("/api/v1/admin/auth/github/start")
+        start = await client.get("/api/v1/admin/auth/google/start")
         state = start.json()["state"]
         cb = await client.get(
-            "/api/v1/admin/auth/github/callback",
+            "/api/v1/admin/auth/google/callback",
             params={"code": "good-code", "state": state},
         )
         cookie = cb.cookies[SESSION_COOKIE]
-        # Missing CSRF
         bad = await client.post(
             "/api/v1/admin/auth/logout",
             cookies={SESSION_COOKIE: cookie},
@@ -167,14 +182,13 @@ class TestGitHubOAuth:
 
     async def test_session_expiry(self, api_client, session_store: InMemorySessionStore) -> None:
         client, store, _ = api_client
-        start = await client.get("/api/v1/admin/auth/github/start")
+        start = await client.get("/api/v1/admin/auth/google/start")
         state = start.json()["state"]
         cb = await client.get(
-            "/api/v1/admin/auth/github/callback",
+            "/api/v1/admin/auth/google/callback",
             params={"code": "good-code", "state": state},
         )
         cookie = cb.cookies[SESSION_COOKIE]
-        # Force expiry
         key = __import__("app.auth.sessions", fromlist=["hash_token"]).hash_token(cookie)
         rec = store.sessions[key]
         rec.last_seen_at -= SESSION_TTL_SECONDS + 10
@@ -186,10 +200,10 @@ class TestGitHubOAuth:
 
     async def test_origin_check_on_mutation(self, api_client) -> None:
         client, _, _ = api_client
-        start = await client.get("/api/v1/admin/auth/github/start")
+        start = await client.get("/api/v1/admin/auth/google/start")
         state = start.json()["state"]
         cb = await client.get(
-            "/api/v1/admin/auth/github/callback",
+            "/api/v1/admin/auth/google/callback",
             params={"code": "good-code", "state": state},
         )
         cookie = cb.cookies[SESSION_COOKIE]

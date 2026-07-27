@@ -54,13 +54,14 @@ class Settings(BaseSettings):
     email_encryption_key: str = "replace-with-a-valid-key"
     email_hmac_key: str = "replace-with-at-least-32-random-bytes"
 
-    # GitHub OAuth
-    github_client_id: str = ""
-    github_client_secret: str = ""
-    admin_github_ids: Annotated[list[str], NoDecode] = []
+    # Google OAuth (admin login)
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    admin_google_emails: Annotated[list[str], NoDecode] = []
     # Public origin of THIS API (scheme + host [+ port]), used to build the OAuth
-    # callback URL. Must match the Authorization callback URL registered on the
-    # GitHub OAuth App. Empty falls back to the local dev API in non-production.
+    # callback URL. Must match an Authorized redirect URI on the Google OAuth
+    # client, and share the frontend's host so the session cookie is returned.
+    # Empty falls back to the local dev API in non-production.
     oauth_redirect_base_url: str = ""
 
     # Email (console | resend | smtp)
@@ -86,6 +87,11 @@ class Settings(BaseSettings):
     llm_model: str = "gpt-4o-mini"
     llm_api_key: str = ""  # or set OPENAI_API_KEY (see validator)
 
+    # AI initial review — a CodeRabbit-style pre-review attached to the admin
+    # queue for community submissions. Uses the deterministic verifier by
+    # default; enriched with an LLM narrative when LLM_PROVIDER=openai + key.
+    ai_review_enabled: bool = True
+
     # X/Twitter
     x_bearer_token: str = ""
 
@@ -95,7 +101,7 @@ class Settings(BaseSettings):
         case_sensitive=False,
     )
 
-    @field_validator("cors_origins", "admin_github_ids", mode="before")
+    @field_validator("cors_origins", "admin_google_emails", mode="before")
     @classmethod
     def parse_comma_separated_list(cls, v: Any) -> list[str]:
         """Parse JSON arrays, comma-separated strings, or lists into list[str]."""
@@ -118,30 +124,33 @@ class Settings(BaseSettings):
             return [str(item) for item in v]
         return []
 
-    @field_validator("admin_github_ids", mode="after")
+    @field_validator("admin_google_emails", mode="after")
     @classmethod
-    def keep_numeric_github_ids(cls, v: list[str]) -> list[str]:
-        """Keep only numeric GitHub user IDs on the admin allowlist.
+    def normalize_admin_emails(cls, v: list[str]) -> list[str]:
+        """Lowercase, de-duplicate, and drop entries that are not email-shaped.
 
-        Logins are dropped rather than trusted: GitHub lets an account rename
-        itself, and the freed handle is then claimable by anyone else — who would
-        inherit admin access. Numeric IDs never change hands.
+        Matching happens on the verified Google email (see auth.google), so the
+        allowlist stores canonical lowercased addresses. Malformed entries are
+        dropped rather than trusted so a typo cannot widen access.
         """
-        numeric: list[str] = []
+        seen: set[str] = set()
+        emails: list[str] = []
         dropped: list[str] = []
         for item in v:
-            if item.isascii() and item.isdigit():
-                numeric.append(item)
-            else:
+            candidate = item.strip().lower()
+            if "@" in candidate and "." in candidate.split("@")[-1]:
+                if candidate not in seen:
+                    seen.add(candidate)
+                    emails.append(candidate)
+            elif candidate:
                 dropped.append(item)
         if dropped:
             logger.warning(
-                "Ignoring non-numeric ADMIN_GITHUB_IDS entries: %s. Use numeric user IDs "
-                "(https://api.github.com/users/<login> -> id); logins are not accepted "
-                "because a renamed account frees its handle for anyone to claim.",
+                "Ignoring malformed ADMIN_GOOGLE_EMAILS entries: %s. Use full email "
+                "addresses, e.g. you@example.com.",
                 ", ".join(dropped),
             )
-        return numeric
+        return emails
 
     @model_validator(mode="after")
     def fill_openai_api_key_alias(self) -> Self:

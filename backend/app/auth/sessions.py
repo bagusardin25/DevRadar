@@ -23,8 +23,8 @@ OAUTH_STATE_PREFIX = "devradar:admin:oauth:"
 
 @dataclass(slots=True)
 class AdminIdentity:
-    github_id: str
-    login: str
+    subject: str  # OAuth `sub` — stable account identifier
+    email: str
     admin_user_id: str
     csrf_token: str
     session_id: str
@@ -32,8 +32,8 @@ class AdminIdentity:
 
 @dataclass(slots=True)
 class SessionRecord:
-    github_id: str
-    login: str
+    subject: str
+    email: str
     admin_user_id: str
     csrf_token: str
     created_at: float
@@ -70,8 +70,8 @@ class SessionStore(Protocol):
     async def create_session(
         self,
         *,
-        github_id: str,
-        login: str,
+        subject: str,
+        email: str,
         admin_user_id: str,
     ) -> tuple[str, AdminIdentity]:
         """Return (raw_session_token, identity)."""
@@ -105,16 +105,16 @@ class RedisSessionStore:
     async def create_session(
         self,
         *,
-        github_id: str,
-        login: str,
+        subject: str,
+        email: str,
         admin_user_id: str,
     ) -> tuple[str, AdminIdentity]:
         raw = secrets.token_urlsafe(32)
         csrf = secrets.token_urlsafe(24)
         now = time.time()
         record = SessionRecord(
-            github_id=github_id,
-            login=login,
+            subject=subject,
+            email=email,
             admin_user_id=admin_user_id,
             csrf_token=csrf,
             created_at=now,
@@ -130,8 +130,8 @@ class RedisSessionStore:
         finally:
             await self._close(r)
         identity = AdminIdentity(
-            github_id=github_id,
-            login=login,
+            subject=subject,
+            email=email,
             admin_user_id=admin_user_id,
             csrf_token=csrf,
             session_id=hash_token(raw),
@@ -149,8 +149,8 @@ class RedisSessionStore:
                 await r.delete(f"{SESSION_KEY_PREFIX}{hash_token(raw_token)}")
                 return None
             return AdminIdentity(
-                github_id=rec.github_id,
-                login=rec.login,
+                subject=rec.subject,
+                email=rec.email,
                 admin_user_id=rec.admin_user_id,
                 csrf_token=rec.csrf_token,
                 session_id=hash_token(raw_token),
@@ -213,16 +213,16 @@ class InMemorySessionStore:
     async def create_session(
         self,
         *,
-        github_id: str,
-        login: str,
+        subject: str,
+        email: str,
         admin_user_id: str,
     ) -> tuple[str, AdminIdentity]:
         raw = secrets.token_urlsafe(32)
         csrf = secrets.token_urlsafe(24)
         now = time.time()
         rec = SessionRecord(
-            github_id=github_id,
-            login=login,
+            subject=subject,
+            email=email,
             admin_user_id=admin_user_id,
             csrf_token=csrf,
             created_at=now,
@@ -230,8 +230,8 @@ class InMemorySessionStore:
         )
         self.sessions[hash_token(raw)] = rec
         return raw, AdminIdentity(
-            github_id=github_id,
-            login=login,
+            subject=subject,
+            email=email,
             admin_user_id=admin_user_id,
             csrf_token=csrf,
             session_id=hash_token(raw),
@@ -245,8 +245,8 @@ class InMemorySessionStore:
             del self.sessions[hash_token(raw_token)]
             return None
         return AdminIdentity(
-            github_id=rec.github_id,
-            login=rec.login,
+            subject=rec.subject,
+            email=rec.email,
             admin_user_id=rec.admin_user_id,
             csrf_token=rec.csrf_token,
             session_id=hash_token(raw_token),

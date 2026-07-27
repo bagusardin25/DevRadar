@@ -9,10 +9,10 @@ from fastapi import Request, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.github import (
-    GitHubOAuthClient,
-    GitHubUser,
-    HttpGitHubOAuthClient,
+from app.auth.google import (
+    GoogleOAuthClient,
+    GoogleUser,
+    HttpGoogleOAuthClient,
     assert_allowlisted,
     generate_pkce_pair,
     generate_state,
@@ -35,14 +35,14 @@ class AuthService:
         session: AsyncSession,
         settings: Settings,
         store: SessionStore,
-        oauth: GitHubOAuthClient | None = None,
+        oauth: GoogleOAuthClient | None = None,
     ) -> None:
         self._session = session
         self._settings = settings
         self._store = store
-        self._oauth = oauth or HttpGitHubOAuthClient(settings)
+        self._oauth = oauth or HttpGoogleOAuthClient(settings)
 
-    async def start_github_oauth(self) -> tuple[str, str]:
+    async def start_google_oauth(self) -> tuple[str, str]:
         """Return (authorize_url, state)."""
         state = generate_state()
         verifier, challenge = generate_pkce_pair()
@@ -50,7 +50,7 @@ class AuthService:
         url = await self._oauth.build_authorize_url(state, challenge)
         return url, state
 
-    async def complete_github_oauth(
+    async def complete_google_oauth(
         self,
         *,
         code: str,
@@ -64,11 +64,11 @@ class AuthService:
             raise UnauthorizedError(detail="Invalid or expired OAuth state")
 
         user = await self._oauth.exchange_code(code, pending.code_verifier)
-        assert_allowlisted(user.id, user.login, self._settings)
+        assert_allowlisted(user.email, user.email_verified, self._settings)
         admin_user = await self._upsert_admin(user)
         raw_token, identity = await self._store.create_session(
-            github_id=user.id,
-            login=user.login,
+            subject=user.id,
+            email=user.email,
             admin_user_id=str(admin_user.id),
         )
         self._set_session_cookie(response, raw_token)
@@ -102,16 +102,16 @@ class AuthService:
         await self._store.touch_session(raw)
         return identity
 
-    async def _upsert_admin(self, user: GitHubUser) -> AdminUser:
+    async def _upsert_admin(self, user: GoogleUser) -> AdminUser:
         result = await self._session.execute(
-            select(AdminUser).where(AdminUser.github_user_id == user.id)
+            select(AdminUser).where(AdminUser.subject == user.id)
         )
         admin = result.scalar_one_or_none()
         now = datetime.now(UTC)
         if admin is None:
             admin = AdminUser(
-                github_user_id=user.id,
-                github_login=user.login,
+                subject=user.id,
+                email=user.email,
                 active=True,
                 allowlist_matched=True,
                 last_login_at=now,
@@ -120,7 +120,7 @@ class AuthService:
         else:
             if not admin.active:
                 raise ForbiddenError(detail="Admin account is disabled")
-            admin.github_login = user.login
+            admin.email = user.email
             admin.allowlist_matched = True
             admin.last_login_at = now
         await self._session.flush()
@@ -157,8 +157,8 @@ def resolve_session_store(request: Request, settings: Settings) -> SessionStore:
     return RedisSessionStore(settings.redis_url)
 
 
-def resolve_github_oauth(request: Request, settings: Settings) -> GitHubOAuthClient:
-    oauth = getattr(request.app.state, "github_oauth", None)
+def resolve_google_oauth(request: Request, settings: Settings) -> GoogleOAuthClient:
+    oauth = getattr(request.app.state, "google_oauth", None)
     if oauth is not None:
         return oauth  # type: ignore[no-any-return]
-    return HttpGitHubOAuthClient(settings)
+    return HttpGoogleOAuthClient(settings)

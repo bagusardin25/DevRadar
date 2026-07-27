@@ -6,12 +6,12 @@ from typing import Annotated
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.service import AuthService, resolve_github_oauth, resolve_session_store
+from app.auth.service import AuthService, resolve_google_oauth, resolve_session_store
 from app.auth.sessions import AdminIdentity
 from app.catalog.service import CatalogueService
 from app.config import Settings
 from app.review.service import ReviewService
-from app.submissions.enqueue import RedisSubmissionEnqueue
+from app.submissions.enqueue import CelerySubmissionEnqueue
 from app.submissions.service import SubmissionService
 
 
@@ -57,7 +57,7 @@ async def get_submission_service(
     settings: Settings = request.app.state.settings
     enqueue = getattr(request.app.state, "submission_enqueue", None)
     if enqueue is None:
-        enqueue = RedisSubmissionEnqueue(settings.redis_url)
+        enqueue = CelerySubmissionEnqueue(settings.redis_url)
     rate_limit_store = getattr(request.app.state, "submission_rate_limit_store", None)
     return SubmissionService(
         session,
@@ -76,7 +76,7 @@ async def get_auth_service(
 ) -> AuthService:
     settings: Settings = request.app.state.settings
     store = resolve_session_store(request, settings)
-    oauth = resolve_github_oauth(request, settings)
+    oauth = resolve_google_oauth(request, settings)
     return AuthService(session, settings, store, oauth)
 
 

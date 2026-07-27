@@ -1,25 +1,33 @@
 # syntax=docker/dockerfile:1
-FROM python:3.12-slim AS base
+# Build from this directory:  docker build -f backend/Dockerfile backend
+# Local day-to-day dev still uses Compose for infra + host-run API (see README).
+
+FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    PATH="/app/.venv/bin:$PATH"
 
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc libpq-dev && \
-    rm -rf /var/lib/apt/lists/*
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libpq5 \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install uv for fast dependency resolution
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Copy dependency files
-COPY pyproject.toml ./
-RUN uv pip install --system --no-cache -e ".[dev]"
+# Install dependencies from the lockfile first (better layer caching).
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev --no-install-project
 
-# Copy application code
-COPY . .
+COPY alembic.ini ./
+COPY alembic ./alembic
+COPY app ./app
+COPY scripts ./scripts
+
+RUN uv sync --frozen --no-dev
 
 EXPOSE 8000
 

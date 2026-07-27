@@ -12,7 +12,7 @@ help:
 	@echo "  make seed-sources  Seed Devpost/MLH/HackerEarth source registry"
 	@echo "  make recheck-offers  Re-fetch AI offer official URLs (rules/LLM extract)"
 	@echo "  make api           Run FastAPI on :8000"
-	@echo "  make worker        Run Celery fetch/review worker"
+	@echo "  make worker        Run Celery fetch/review worker (add --pool=solo on Windows)"
 	@echo "  make frontend      Run Vite on :5173"
 	@echo "  make test-backend  pytest (needs infra up)"
 	@echo "  make lint-backend  ruff check app tests"

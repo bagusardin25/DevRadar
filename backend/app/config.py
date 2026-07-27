@@ -28,16 +28,16 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://devradar:devradar@127.0.0.1:5434/devradar"
 
     # Redis
-    redis_url: str = "redis://localhost:6379/0"
+    redis_url: str = "redis://127.0.0.1:6379/0"
 
     # Object Storage
     # backend: local | s3 | memory
     object_storage_backend: str = "local"
     object_storage_local_path: str = "./data/raw"
-    object_storage_endpoint: str = "http://localhost:9000"
+    object_storage_endpoint: str = "http://127.0.0.1:9000"
     object_storage_bucket: str = "devradar-raw"
-    object_storage_access_key: str = "local-development-only"
-    object_storage_secret_key: str = "local-development-only"
+    object_storage_access_key: str = "devradar"
+    object_storage_secret_key: str = "devradar123"
     object_storage_region: str = "us-east-1"
 
     # Fetch policy defaults

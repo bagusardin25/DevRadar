@@ -23,9 +23,9 @@ This guide is for **first-time contributors** and regulars. Setup detail also li
 
 ## Prerequisites
 
-1. **Docker Desktop** running (Postgres on **5434**, Redis **6379**)
+1. **Docker Desktop** (or Engine + Compose) — Postgres on host **5434**, Redis **6379**, optional MinIO **9000**
 2. **[uv](https://docs.astral.sh/uv/)** + Python **3.12+**
-3. **Node.js 20+** and npm
+3. **Node.js 20+** and npm (GitHub Actions uses **Node 22**)
 
 You do **not** need OpenAI, X/Twitter API, or Google OAuth to browse the seed catalogue.
 
@@ -81,17 +81,18 @@ New to the project? This is the Git workflow. Setup commands are in **Developmen
 
 ```
 DevRadar/
-├── src/                    # React frontend (Vite)
-├── backend/app/            # FastAPI API, catalogue, ingestion, alerts
-├── backend/scripts/        # seed, recheck, default sources
-├── data/manual-collection/ # seed_listings.json  ← curated public data
-├── infra/compose.yaml      # Postgres + Redis (+ MinIO)
-└── scripts/dev.ps1|dev.sh  # one-shot bootstrap
+├── src/                      # React frontend (Vite)
+├── backend/app/              # FastAPI API, catalogue, ingestion, alerts
+├── backend/scripts/          # seed, recheck, default sources
+├── backend/.env.example      # backend env template → backend/.env
+├── data/manual-collection/   # seed_listings.json  ← curated public data
+├── infra/compose.yaml        # Postgres + Redis (+ optional MinIO) — infra only
+├── .github/workflows/ci.yml  # secret scan, frontend, backend tests
+└── scripts/dev.ps1|dev.sh    # one-shot bootstrap
 ```
 
 Public app modules: **Radar** (hackathons), **AI Deals**.  
 **Review / Catalog / Pipeline / Sources** need an admin Google OAuth session (operators only).
-
 ---
 
 ## Development setup
@@ -118,9 +119,13 @@ chmod +x scripts/dev.sh
 # or: make bootstrap
 ```
 
-This starts Docker services, creates `backend/.env` (from `.env.example`, secrets generated, `LLM_PROVIDER=disabled`), migrates, seeds the demo catalogue, and installs npm deps if needed.
+This starts Docker **infra** (Postgres / Redis / MinIO), creates `backend/.env` from
+`backend/.env.example` (secrets generated; `LLM_PROVIDER=disabled`), migrates, seeds
+the demo catalogue + default sources, and installs npm deps if needed.
 
-### 2. Run API + UI (two terminals)
+### 2. Run API + UI + worker (three terminals)
+
+Same flow as the [README quick start](README.md#quick-start-full-stack):
 
 ```powershell
 # Terminal A — API
@@ -129,7 +134,13 @@ uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 # Terminal B — UI
 npm run dev
+
+# Terminal C — Celery fetch/review worker
+cd backend
+uv run celery -A app.worker.celery_app worker -Q fetch -l info --pool=solo
 ```
+
+On Linux/macOS you can omit `--pool=solo`, or use `make api` / `make frontend` / `make worker`.
 
 | URL | Purpose |
 |-----|---------|
@@ -138,24 +149,13 @@ npm run dev
 
 If the UI shows **Backend Offline**, Docker or the API is not up.
 
-### 3. Background worker
+The worker is required for automatic community-submission fetching and AI review. It
+also runs source scans (the hero's **Scan sources** toggle), scheduled catalogue
+rechecks, and alert scans. Browsing the catalogue works without it, but submissions
+remain `queued`.
 
-Required for automatic community-submission fetching and AI review. It also runs
-source scans (the hero's **Scan sources** toggle), scheduled catalogue rechecks,
-and alert scans. Browsing the catalogue still works without it, but submissions
-remain queued.
-
-```powershell
-# Terminal C — Celery worker
-cd backend
-uv run celery -A app.worker.celery_app worker -Q fetch -l info --pool=solo
-```
-
-`--pool=solo` is required on Windows (Celery's default `prefork` pool is
-POSIX-only). Without a worker running, live discovery and community submissions
-stay `queued`; the tracking UI will report that state.
-
-Env knobs: `backend/.env.example` → copy is already made by bootstrap as `backend/.env` (never commit `.env`).
+Env: bootstrap already wrote `backend/.env` from `backend/.env.example` (never commit
+`.env`). Optional frontend vars: root [`.env.example`](.env.example).
 
 ---
 
@@ -174,13 +174,15 @@ npm run lint
 
 ### CI gates (required to merge)
 
-Every PR to `main` runs these on GitHub Actions (`.github/workflows/ci.yml`) — a green check is required to merge:
+Every PR to `main` runs [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — green checks are required to merge. Local commands above mirror CI:
 
-- **Frontend build** — `npm ci && npm run build` on Node 22
-- **Frontend lint** — `npm run lint`
-- **Backend lint** — `ruff check app tests`
-- **Backend tests** — `pytest` against a real Postgres 16 + Redis 7 (services spun up in CI), after `alembic upgrade head`
-- **Secret scan** — Gitleaks over full history (blocks accidental key commits)
+| Job | What it runs |
+|-----|----------------|
+| **Secret scan** | Gitleaks (full history; blocks accidental key commits) |
+| **Frontend** | Node **22**: `npm ci`, `npm run build`, `npm run lint` |
+| **Backend** | Python **3.12**, Postgres **16** (port **5434**), Redis **7**: `uv sync --all-extras`, `ruff check app tests`, `alembic upgrade head`, `pytest` |
+
+CI env matches the seed-demo spirit: `LLM_PROVIDER=disabled`, `OBJECT_STORAGE_BACKEND=memory`, same DB URL shape as `backend/.env.example`.
 
 If a check goes red on your PR, click it → fix locally → `git push` again to re-run.
 

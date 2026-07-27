@@ -62,7 +62,7 @@ if (-not $ready) {
 $envFile = Join-Path $Root "backend\.env"
 $envExample = Join-Path $Root "backend\.env.example"
 if (-not (Test-Path $envFile)) {
-  Write-Step "Creating backend/.env from .env.example"
+  Write-Step "Creating backend/.env from backend/.env.example"
   Copy-Item $envExample $envFile
   # Generate simple secrets for local dev (not for production)
   $bytes = 1..48 | ForEach-Object { Get-Random -Maximum 256 }
@@ -75,8 +75,8 @@ if (-not (Test-Path $envFile)) {
   $content = $content -replace 'SESSION_SECRET=.*', "SESSION_SECRET=$secret"
   $content = $content -replace 'EMAIL_ENCRYPTION_KEY=.*', "EMAIL_ENCRYPTION_KEY=$secret2"
   $content = $content -replace 'EMAIL_HMAC_KEY=.*', "EMAIL_HMAC_KEY=$secret3"
-  # Seed-only demo: no LLM required
-  $content = $content -replace 'LLM_PROVIDER=openai', 'LLM_PROVIDER=disabled'
+  # Seed-only demo: no LLM required (template already defaults to disabled)
+  $content = $content -replace '(?m)^LLM_PROVIDER=.*', 'LLM_PROVIDER=disabled'
   Set-Content -Path $envFile -Value $content -NoNewline
   Write-Host "  Wrote local secrets; LLM_PROVIDER=disabled (seed demo works without OpenAI)." -ForegroundColor Green
 }

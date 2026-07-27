@@ -23,9 +23,10 @@ DevRadar local bootstrap
   ./scripts/dev.sh --skip-seed  Same without catalogue seed
   ./scripts/dev.sh --api        After bootstrap, run API on :8000 (blocking)
 
-Typical two-terminal flow after first bootstrap:
+Typical three-terminal flow after first bootstrap:
   Terminal A:  cd backend && uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
   Terminal B:  npm run dev
+  Terminal C:  cd backend && uv run celery -A app.worker.celery_app worker -Q fetch -l info
 EOF
       exit 0
       ;;
@@ -56,7 +57,7 @@ for i in $(seq 1 30); do
 done
 
 if [ ! -f backend/.env ]; then
-  step "Creating backend/.env from .env.example"
+  step "Creating backend/.env from backend/.env.example"
   cp backend/.env.example backend/.env
   # shellcheck disable=SC2002
   SECRET1=$(openssl rand -base64 48 2>/dev/null || head -c 48 /dev/urandom | base64)
@@ -66,7 +67,7 @@ if [ ! -f backend/.env ]; then
     -e "s|SESSION_SECRET=.*|SESSION_SECRET=${SECRET1}|" \
     -e "s|EMAIL_ENCRYPTION_KEY=.*|EMAIL_ENCRYPTION_KEY=${SECRET2}|" \
     -e "s|EMAIL_HMAC_KEY=.*|EMAIL_HMAC_KEY=${SECRET3}|" \
-    -e "s|LLM_PROVIDER=openai|LLM_PROVIDER=disabled|" \
+    -e "s|^LLM_PROVIDER=.*|LLM_PROVIDER=disabled|" \
     backend/.env
   rm -f backend/.env.bak
   echo "  Wrote local secrets; LLM_PROVIDER=disabled (seed demo works without OpenAI)."

@@ -36,6 +36,8 @@ services:
     networks:
       - devradar-net
 
+  # Optional S3-compatible storage. App default is OBJECT_STORAGE_BACKEND=local
+  # (filesystem under backend/data/raw); switch to s3 + keys in backend/.env to use MinIO.
   minio:
     image: minio/minio:latest
     ports:
@@ -47,11 +49,13 @@ services:
     command: server /data --console-address ":9001"
     volumes:
       - minio-data:/data
+    # Official image has no preconfigured `mc` alias; TCP check is enough for local dev.
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD-SHELL", "timeout 5s bash -c ':> /dev/tcp/127.0.0.1/9000' || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 5
+      start_period: 10s
     networks:
       - devradar-net
 

@@ -31,14 +31,22 @@ This is **not** a claim of perfect accuracy. Listings carry verification status 
 ```
 Browser (React/Vite)  →  FastAPI (/api/v1)  →  PostgreSQL
                               ↓
-                     Redis · Celery workers (optional)
+                     Redis · Celery (fetch queue)
                               ↓
               Connectors: official site, Devpost, MLH, RSS, X (optional)
 ```
 
-- **Frontend-only** works with offline mock data, but the real catalogue needs the backend.
-- **Celery worker required for automatic submission review**: without a `fetch` worker, community submissions remain queued for admin follow-up.
+| Piece | Role in local dev |
+|-------|-------------------|
+| **Docker Compose** (`infra/compose.yaml`) | Postgres **5434**, Redis **6379**, optional MinIO **9000** — *infra only* |
+| **API** (host, `:8000`) | FastAPI via `uv run uvicorn` |
+| **Worker** (host) | Celery `fetch` queue — submission review, discovery, rechecks |
+| **Frontend** (host, `:5173`) | Vite; proxies `/api` and `/health` to the API |
+
+- **Frontend-only** works with offline mock data; the real catalogue needs the API + Postgres.
+- **Celery worker required for automatic submission review**: without a `fetch` worker, community submissions stay queued.
 - **Seed demo mode** (recommended first run): no OpenAI / no X keys — load curated JSON into Postgres.
+- **Object storage default** is local files under `backend/data/raw` (`OBJECT_STORAGE_BACKEND=local`). MinIO is optional if you switch to `s3`.
 
 ---
 
@@ -46,9 +54,9 @@ Browser (React/Vite)  →  FastAPI (/api/v1)  →  PostgreSQL
 
 ### Prerequisites
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Postgres **5434**, Redis **6379**, optional MinIO)
-- [uv](https://docs.astral.sh/uv/) (Python 3.12+)
-- Node.js 20+ and npm
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or Docker Engine + Compose)
+- [uv](https://docs.astral.sh/uv/) (Python **3.12+**)
+- **Node.js 20+** and npm (CI uses **Node 22**)
 
 ### Windows (PowerShell)
 
@@ -58,7 +66,7 @@ cd DevRadar
 .\scripts\dev.ps1
 ```
 
-Then three terminals:
+Then **three** terminals:
 
 ```powershell
 # Terminal A — API
@@ -67,16 +75,11 @@ uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 # Terminal B — UI
 npm run dev
-```
 
-```powershell
-# Terminal C - submission fetch and AI review worker
+# Terminal C — Celery fetch/review worker (--pool=solo required on Windows)
 cd backend
 uv run celery -A app.worker.celery_app worker -Q fetch -l info --pool=solo
 ```
-
-- App: http://localhost:5173/  
-- API health: http://127.0.0.1:8000/health/ready  
 
 ### macOS / Linux
 
@@ -85,15 +88,29 @@ git clone https://github.com/bagusardin25/DevRadar.git
 cd DevRadar
 chmod +x scripts/dev.sh
 ./scripts/dev.sh
-# then: make api   and   make frontend
 ```
 
-### What `dev.ps1` / `dev.sh` does
+Then either three terminals (same commands as above, **omit** `--pool=solo` on Linux/macOS) or:
+
+```bash
+make api       # terminal A
+make frontend  # terminal B
+make worker    # terminal C
+```
+
+| URL | Purpose |
+|-----|---------|
+| http://localhost:5173/ | App |
+| http://127.0.0.1:8000/health/ready | API + Postgres + Redis |
+
+### What bootstrap does
+
+`scripts/dev.ps1` / `scripts/dev.sh` (or `make bootstrap`):
 
 1. `docker compose -f infra/compose.yaml up -d`
-2. Creates `backend/.env` from example (random local secrets, `LLM_PROVIDER=disabled`)
-3. `uv sync` + `alembic upgrade head`
-4. Seeds demo catalogue from `data/manual-collection/seed_listings.json`
+2. Creates `backend/.env` from `backend/.env.example` (random local secrets; keeps `LLM_PROVIDER=disabled`)
+3. `uv sync --all-extras` + `alembic upgrade head`
+4. Seeds demo catalogue + default aggregator sources
 5. `npm install` if needed
 
 Refresh catalogue after editing seed data:
@@ -101,20 +118,29 @@ Refresh catalogue after editing seed data:
 ```bash
 cd backend
 uv run python scripts/seed_x_mcp_collection.py --update
-uv run python scripts/seed_default_sources.py   # Devpost / MLH / HackerEarth registry
+uv run python scripts/seed_default_sources.py
 ```
 
-Public cards show **completeness** badges (`PRIZE TBA`, `WEAK URL`, `CLOSING SOON`, field % score). Past deadlines auto-transition to `registration_closed` / `expired` on catalogue reads.
-
-Refresh AI offer pages from the live web (rules extract; optional LLM):
+Optional re-fetch of AI offer official pages (rules; LLM if configured):
 
 ```bash
 cd backend
 uv run python scripts/recheck_listings.py --kind ai_offer --limit 25
 ```
 
-Env template: `backend/.env.example` (copy to `backend/.env`).  
-Optional deeper notes may live in a local `docs/` folder (gitignored — not part of the published repo).
+### Environment templates
+
+| File | Purpose |
+|------|---------|
+| [`backend/.env.example`](backend/.env.example) | Backend settings — copy to **`backend/.env`** (never commit `.env`) |
+| [`.env.example`](.env.example) | Optional frontend Vite vars (`VITE_*`) — copy to root `.env` if needed |
+
+Defaults match Compose (Postgres on host port **5434**). Prefer `localhost` for the app URL and OAuth callback host notes in the backend template (`localhost` ≠ `127.0.0.1` for cookies).
+
+### Docker notes
+
+- **Day-to-day dev:** Compose for infra only; API/worker/frontend run on the host (as above).
+- **API image:** `docker build -f backend/Dockerfile backend` — production-style image from `uv.lock` (**no** dev extras). Not required for local contribution.
 
 ---
 
@@ -122,10 +148,10 @@ Optional deeper notes may live in a local `docs/` folder (gitignored — not par
 
 | Mode | Keys needed | Use case |
 |------|-------------|----------|
-| **Seed demo** | None (Docker + secrets only) | Local try-out, OSS contributors, demos |
+| **Seed demo** | None (Docker + generated secrets only) | Local try-out, OSS contributors, demos |
 | **Ingestion + LLM** | `LLM_API_KEY` (OpenAI-compatible) | Extract structured fields from official pages |
-| **X discovery** | `X_BEARER_TOKEN` or X MCP | Find new candidate URLs (pay-per-use; optional) |
-| **Admin review** | Google OAuth + `ADMIN_GOOGLE_EMAILS` | Approve/reject listings |
+| **X discovery** | `X_BEARER_TOKEN` | Find new candidate URLs (pay-per-use; optional) |
+| **Admin review** | Google OAuth + `ADMIN_GOOGLE_EMAILS` | Approve/reject listings, catalogue CRUD |
 
 End users of a **hosted** instance still never need those keys — only the **operator** does.
 
@@ -137,7 +163,7 @@ End users of a **hosted** instance still never need those keys — only the **op
 
 - Hackathon catalogue (search, filters, compare, bookmarks)
 - AI offer catalogue
-- Community **Submit** URL → review queue
+- Community **Submit** URL → review queue (AI initial review when worker runs)
 - Email alert subscribe (needs operator email provider; default `console`)
 - Provenance hints (source tier on cards)
 
@@ -148,7 +174,19 @@ End users of a **hosted** instance still never need those keys — only the **op
 - Pipeline viewer
 - Sources manager
 
-**Not production Chrome extension** — the side-panel UI is a **simulator / preview**, not a published extension store package.
+**Not a production Chrome extension** — the side-panel UI is a **simulator / preview**, not a store package.
+
+---
+
+## CI
+
+PRs to `main` run [`.github/workflows/ci.yml`](.github/workflows/ci.yml):
+
+- Secret scan (Gitleaks)
+- Frontend: Node **22** — `npm ci`, `npm run build`, `npm run lint`
+- Backend: Python **3.12**, Postgres **16**, Redis **7** — `ruff check`, `alembic upgrade head`, `pytest`
+
+Local checks match [CONTRIBUTING.md](CONTRIBUTING.md#checks-before-a-pr).
 
 ---
 

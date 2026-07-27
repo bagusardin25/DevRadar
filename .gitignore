@@ -1,16 +1,46 @@
-# --- Dependencies & build (frontend) ---
+# =============================================================================
+# DevRadar .gitignore
+# Generated caches, build output, logs, local DBs, and runtime data must stay
+# out of git. Secrets are covered in a dedicated section below.
+# =============================================================================
+
+# --- Dependencies ---
 node_modules/
+jspm_packages/
+bower_components/
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# --- Build output (frontend) ---
 dist/
 dist-ssr/
 build/
 out/
-coverage/
 .turbo/
 .vite/
+.parcel-cache/
+.vercel/
+.netlify/
 *.tsbuildinfo
 *.local
 .eslintcache
 .stylelintcache
+.nyc_output/
+storybook-static/
+playwright-report/
+test-results/
+blob-report/
+playwright/.cache/
+
+# --- Coverage reports ---
+coverage/
+*.lcov
+.nyc_output/
 
 # --- Logs ---
 logs/
@@ -20,6 +50,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 # --- Environment & secrets (never commit real env files) ---
 .env
@@ -58,9 +89,10 @@ secrets/
 
 # --- Manual X/MCP collection (may include draft leads) ---
 data/manual-collection/candidates.jsonl
-backend/data/
 
-# Local DBs / dumps that may hold PII
+# --- Runtime data / object storage / local DBs ---
+# backend/data covers OBJECT_STORAGE_LOCAL_PATH=./data/raw and operator dumps
+backend/data/
 *.sqlite
 *.sqlite3
 *.db
@@ -68,14 +100,21 @@ backend/data/
 *.dump
 *.sql.gz
 dump.rdb
+appendonly.aof
+*.pid
+celerybeat-schedule
+celerybeat-schedule.*
 
-# --- Python ---
+# --- Python: bytecode, envs, caches, tooling ---
 __pycache__/
 *.py[cod]
 *$py.class
 *.egg-info/
 .eggs/
 *.egg
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
 .venv/
 venv/
 env/
@@ -86,15 +125,17 @@ env/
 .tox/
 .nox/
 .hypothesis/
+.cache/
 .coverage
 .coverage.*
 htmlcov/
 coverage.xml
+nosetests.xml
 .dmypy.json
 dmypy.json
-celerybeat-schedule
-celerybeat-schedule.*
-*.pid
+.pyre/
+.pytype/
+cython_debug/
 
 # --- Editor / OS / backups ---
 .vscode/*

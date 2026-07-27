@@ -1,3 +1,7 @@
+# =============================================================================
+# Backend-local ignores (also covered by the monorepo root .gitignore).
+# =============================================================================
+
 # Environment and secrets
 .env
 .env.*
@@ -26,29 +30,35 @@ id_dsa*
 .secrets/
 secrets/
 
-# Python
+# Python bytecode / packages
 __pycache__/
 *.py[cod]
 *$py.class
 *.egg-info/
 .eggs/
 *.egg
+wheels/
+pip-wheel-metadata/
+
+# Virtual environments & package caches
 .venv/
 venv/
 env/
 .uv/
 
-# Test / type / lint caches
+# Test / type / lint / coverage caches
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 .tox/
 .nox/
 .hypothesis/
+.cache/
 .coverage
 .coverage.*
 htmlcov/
 coverage.xml
+nosetests.xml
 .dmypy.json
 dmypy.json
 
@@ -57,11 +67,12 @@ celerybeat-schedule
 celerybeat-schedule.*
 *.pid
 dump.rdb
+appendonly.aof
 
 # Local tooling
 .python-version
 
-# Local raw document storage (fetched pages, operator dumps)
+# Runtime data: OBJECT_STORAGE_LOCAL_PATH (default ./data/raw) and operator dumps
 data/
 
 # Local DB dumps
@@ -70,6 +81,10 @@ data/
 *.db
 *.dump
 *.sql.gz
+
+# Logs
+logs/
+*.log
 
 # Editor / OS / backups
 .vscode/
@@ -80,3 +95,4 @@ Thumbs.db
 *.bak
 *.orig
 *.swp
+*.tmp

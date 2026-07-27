@@ -1,7 +1,7 @@
 # DevRadar developer shortcuts (requires Docker + uv + Node)
 # Windows users can use:  .\scripts\dev.ps1
 
-.PHONY: help up down bootstrap seed seed-update seed-sources recheck-offers api worker frontend test-backend lint-backend lint-frontend build-frontend health
+.PHONY: help up down bootstrap seed seed-update seed-sources recheck-offers api worker frontend test-backend lint-backend lint-frontend build-frontend clean health
 
 help:
 	@echo "DevRadar targets:"
@@ -18,6 +18,7 @@ help:
 	@echo "  make lint-backend  ruff check app tests"
 	@echo "  make lint-frontend oxlint"
 	@echo "  make build-frontend  production frontend build"
+	@echo "  make clean         Remove local build/cache/runtime artifacts (keeps .env)"
 	@echo "  make health        curl /health/ready"
 
 up:
@@ -61,6 +62,10 @@ lint-frontend:
 
 build-frontend:
 	npm run build
+
+# Wipe generated/cache/runtime junk only — never touches backend/.env or seed JSON.
+clean:
+	@bash scripts/clean.sh
 
 health:
 	curl -sS http://127.0.0.1:8000/health/ready | python -m json.tool || curl -sS http://127.0.0.1:8000/health/ready

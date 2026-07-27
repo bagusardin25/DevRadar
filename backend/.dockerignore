@@ -46,21 +46,32 @@ coverage.xml
 .dmypy.json
 dmypy.json
 
-# --- Local data & dumps ---
+# --- Local data, logs, dumps (runtime — not build inputs) ---
 data/
+logs/
+*.log
 *.sqlite
 *.sqlite3
 *.db
 *.dump
 *.sql.gz
 dump.rdb
+appendonly.aof
 celerybeat-schedule
 celerybeat-schedule.*
 *.pid
 
-# --- Tests & local scripts noise (image runs the app, not the suite) ---
+# --- Tests & coverage (image runs the app, not the suite) ---
 tests/
 **/conftest.py
+htmlcov/
+coverage.xml
+.coverage
+.coverage.*
+.hypothesis/
+.cache/
+wheels/
+pip-wheel-metadata/
 
 # --- VCS / editor / OS ---
 .git/
@@ -77,6 +88,7 @@ Desktop.ini
 *.orig
 *.swp
 *.swo
+*.tmp
 
 # --- Docs & misc that do not belong in the runtime image ---
 **/*.md

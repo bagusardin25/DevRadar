@@ -310,10 +310,10 @@ uv run python scripts/recheck_listings.py --kind ai_offer --limit 25
 
 Every PR gets two passes:
 
-1. **Automated first-pass** from [CodeRabbit](https://coderabbit.ai) — posts a summary in the PR description and inline suggestions on the diff. Configured via [`.coderabbit.yaml`](.coderabbit.yaml). It's a **helper, not a merge gate** — treat suggestions as prompts to double-check, not blockers.
+1. **Automated first-pass** from [CodeRabbit](https://coderabbit.ai) — summary + inline notes on the diff. Configured via [`.coderabbit.yaml`](.coderabbit.yaml) with profile **`quiet`** (security/correctness focus; skips lockfiles, seed JSON, and style already covered by ruff/oxlint/CI). **Helper, not a merge gate.**
 2. **Maintainer review** — a human always makes the final call on correctness, scope, and security. Aiming for a first response within a few days (best-effort — solo maintainer).
 
-You can re-trigger the bot in a PR comment: `@coderabbitai review` (fresh review) or `@coderabbitai resolve` (mark all suggestions resolved).
+Useful PR comments: `@coderabbitai review` (fresh review), `@coderabbitai resolve` (mark suggestions resolved). Skip auto-review with title keywords `wip` / `do not review` or label `skip-review`.
 
 ---
 

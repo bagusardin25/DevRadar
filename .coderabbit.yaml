@@ -1,56 +1,211 @@
-# CodeRabbit config — https://docs.coderabbit.ai/reference/yaml-template
-# Install: https://github.com/marketplace/coderabbitai (free for public repos)
+# CodeRabbit — tuned for signal over volume
+# Docs: https://docs.coderabbit.ai/reference/configuration
+# Install: https://github.com/marketplace/coderabbitai
 
 language: en-US
 early_access: false
 
+# Max 250 chars (schema limit)
+tone_instructions: >
+  Concise and direct. Flag only correctness, security, data loss, or clear
+  maintainability bugs. No praise, no style nits already covered by ruff/oxlint/CI.
+
 reviews:
-  profile: chill
+  # quiet = highest-severity only (less walkthrough noise than chill/assertive)
+  profile: quiet
   request_changes_workflow: false
+
   high_level_summary: true
+  high_level_summary_instructions: >
+    3–6 bullets: what changed and why it matters. Skip file laundry lists and
+    restating the PR title.
+  high_level_summary_in_walkthrough: false
+
   poem: false
-  review_status: true
+  in_progress_fortune: false
   collapse_walkthrough: true
+  review_status: true
+  review_details: false
+  review_progress: true
+
+  # Cut walkthrough chrome that rarely helps this repo
+  changed_files_summary: true
+  sequence_diagrams: false
+  estimate_code_review_effort: false
+  assess_linked_issues: false
+  related_issues: false
+  related_prs: false
+  suggested_labels: false
+  auto_apply_labels: false
+  suggested_reviewers: false
+  auto_assign_reviewers: false
+  enable_prompt_for_ai_agents: false
 
   auto_review:
     enabled: true
     drafts: false
+    auto_incremental_review: true
+    # Pause after several push-cycles so drive-by commits don't spam comments
+    auto_pause_after_reviewed_commits: 4
     base_branches:
       - main
+    ignore_title_keywords:
+      - wip
+      - "do not review"
+      - "skip review"
+      - "[skip cr]"
+    labels:
+      - "!wip"
+      - "!skip-review"
 
   path_filters:
+    # Dependencies & generated
     - "!**/*.lock"
     - "!package-lock.json"
     - "!backend/uv.lock"
-    - "!data/manual-collection/**"
+    - "!**/node_modules/**"
     - "!**/dist/**"
     - "!**/build/**"
-    - "!**/node_modules/**"
     - "!**/__pycache__/**"
     - "!**/*.min.js"
     - "!**/*.min.css"
+    - "!**/*.map"
+    # Seed / bulk data / static assets (low signal for AI review)
+    - "!data/manual-collection/**"
+    - "!public/**"
+    - "!**/*.{png,webp,jpg,jpeg,gif,ico,woff,woff2}"
+    # Tooling noise
+    - "!.vscode/**"
+    - "!.oxlintrc.json"
+    - "!.nvmrc"
+    - "!.editorconfig"
+    - "!.gitattributes"
 
   path_instructions:
-    - path: "backend/**/*.py"
+    - path: "backend/app/**/*.py"
       instructions: |
-        FastAPI + async SQLAlchemy + Pydantic v2 codebase, Python 3.12+.
-        JSON returned to the frontend must be camelCase.
-        Flag missing type hints on public functions, sync DB calls in async paths,
-        and any secret-looking literal.
-    - path: "src/**/*.{ts,tsx}"
+        Stack: FastAPI, async SQLAlchemy 2, Pydantic v2, Python 3.12+.
+        Focus on: security (SSRF, authz, secrets, cookie/CSRF), incorrect async
+        (blocking I/O in async paths), data loss, broken API contracts.
+        Public JSON must stay camelCase; do not demand renames for British
+        "catalogue" product wording vs the `catalog` package.
+        Skip pure style, import order, and line-length — CI runs ruff.
+        Skip suggesting authlib (removed); admin OAuth is Google + httpx.
+
+    - path: "backend/app/auth/**/*.py"
       instructions: |
-        React + Vite + TypeScript. Keep the public catalogue UI simple;
-        admin-only surfaces must stay behind auth checks.
-        Flag `any` types, uncaught promise rejections, and missing key props.
+        High sensitivity. Flag allowlist bypass, insecure cookie flags outside
+        APP_ENV=production helpers, missing CSRF/Origin checks on mutations,
+        and OAuth redirect URI mistakes (localhost vs 127.0.0.1, missing https
+        in production). Do not suggest reintroducing GitHub OAuth.
+
+    - path: "backend/app/ingestion/**/*.py"
+      instructions: |
+        Focus on SSRF controls, fetch limits, and unsafe parsing of untrusted
+        HTML/JSON. Prefer deterministic rules over LLM for security-critical paths.
+
+    - path: "backend/alembic/versions/**/*.py"
+      instructions: |
+        Flag irreversible data loss, missing downgrade notes for destructive
+        ops, and wrong revision chain. Ignore cosmetic naming of revision ids.
+
     - path: "backend/tests/**/*.py"
       instructions: |
-        Tests hit a real Postgres (devradar_test), not mocks — flag any new
-        mock of the DB layer.
+        Tests use a real Postgres `devradar_test` DB. Flag new heavy mocking of
+        the DB layer or tests that would hit the developer's seed database.
+        Do not demand exhaustive parametrization or coverage percentage nits.
+
+    - path: "src/**/*.{ts,tsx}"
+      instructions: |
+        React 19 + Vite + TypeScript + Tailwind. Public UI stays login-free;
+        admin modules must not run privileged calls without an admin session.
+        Flag XSS from untrusted HTML, missing error handling on API calls, and
+        broken a11y on new modals. Skip formatting/style already handled by oxlint.
+        Prefer existing patterns in `src/api/` and `src/components/`.
+
+    - path: "backend/Dockerfile"
+      instructions: |
+        Prefer multi-stage, non-root, no secrets in layers, context limited to
+        backend/. Flag COPY of .env or running as root.
+
+    - path: "infra/**"
+      instructions: |
+        Local Compose only. Flag binding services on 0.0.0.0, production use of
+        demo passwords, or treating this file as a production deploy template.
+
+    - path: "backend/.env*.example"
+      instructions: |
+        Templates only — placeholder secrets are intentional. Flag real-looking
+        keys/tokens, not empty values or documented placeholders.
+
+    - path: "{README.md,CONTRIBUTING.md,SECURITY.md,CODE_OF_CONDUCT.md}"
+      instructions: |
+        Flag factual contradictions with code (OAuth provider, ports, commands).
+        Ignore pure prose style and badge aesthetics.
+
+    - path: ".github/workflows/**"
+      instructions: |
+        Flag secret leakage, unpinned dangerous actions, and CI steps that drift
+        from CONTRIBUTING's lint/test/migrate matrix.
+
+  # Finishing touches create extra PRs/comments — keep off by default (on-demand via mention)
+  finishing_touches:
+    docstrings:
+      enabled: false
+    unit_tests:
+      enabled: false
+    simplify:
+      enabled: false
+    autofix:
+      enabled: true
+
+  pre_merge_checks:
+    docstrings:
+      mode: "off"
+    title:
+      mode: "off"
+    description:
+      mode: "off"
+    issue_assessment:
+      mode: "off"
+
+  tools:
+    # Keep tools that match this stack; disable duplicates / irrelevant linters
+    ruff:
+      enabled: true
+    oxc:
+      enabled: true
+    gitleaks:
+      enabled: true
+    actionlint:
+      enabled: true
+    hadolint:
+      enabled: true
+    shellcheck:
+      enabled: true
+    psscriptanalyzer:
+      enabled: true
+    dotenvLint:
+      enabled: true
+    github-checks:
+      enabled: true
+      timeout_ms: 90000
+    # Not used here / noisy duplicates of CI
+    eslint:
+      enabled: false
+    biome:
+      enabled: false
+    flake8:
+      enabled: false
+    pylint:
+      enabled: false
+    markdownlint:
+      enabled: false
+    languagetool:
+      enabled: false
+    yamllint:
+      enabled: false
 
 chat:
   auto_reply: true
-
-tone_instructions: |
-  Be concise and direct. Skip praise; only flag issues that meaningfully
-  affect correctness, security, or maintainability. Prefer one clear
-  suggestion over a list of nitpicks.
+  art: false

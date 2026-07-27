@@ -45,10 +45,10 @@ bootstrap:
 	@bash scripts/dev.sh
 
 seed:
-	cd backend && uv run python scripts/seed_x_mcp_collection.py
+	cd backend && uv run python scripts/seed_listings.py
 
 seed-update:
-	cd backend && uv run python scripts/seed_x_mcp_collection.py --update
+	cd backend && uv run python scripts/seed_listings.py --update
 
 seed-sources:
 	cd backend && uv run python scripts/seed_default_sources.py

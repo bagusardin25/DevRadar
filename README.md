@@ -117,7 +117,7 @@ Refresh catalogue after editing seed data:
 
 ```bash
 cd backend
-uv run python scripts/seed_x_mcp_collection.py --update
+uv run python scripts/seed_listings.py --update
 uv run python scripts/seed_default_sources.py
 ```
 

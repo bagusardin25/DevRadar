@@ -25,8 +25,8 @@ Manual steps:
 docker compose -f infra/compose.yaml up -d
 cd backend
 uv run alembic upgrade head
-uv run python scripts/seed_x_mcp_collection.py --dry-run
-uv run python scripts/seed_x_mcp_collection.py
+uv run python scripts/seed_listings.py --dry-run
+uv run python scripts/seed_listings.py
 ```
 
 Then start the API and frontend — catalogue shows seeded hackathons and AI offers.
@@ -38,5 +38,5 @@ npm run dev
 ```
 
 - Re-run seed **skips** existing slugs (`skip … (exists)`).
-- Refresh prize labels / core fields: `uv run python scripts/seed_x_mcp_collection.py --update`
+- Refresh prize labels / core fields: `uv run python scripts/seed_listings.py --update`
 - Prefer editing **this seed file** for OSS data PRs, not `src/data/mockData.ts`.

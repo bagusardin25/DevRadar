@@ -96,7 +96,7 @@ if ($LASTEXITCODE -ne 0) { Pop-Location; exit $LASTEXITCODE }
 
 if (-not $SkipSeed) {
   Write-Step "Seeding demo catalogue (idempotent by slug)"
-  uv run python scripts/seed_x_mcp_collection.py
+  uv run python scripts/seed_listings.py
   if ($LASTEXITCODE -ne 0) { Pop-Location; exit $LASTEXITCODE }
   Write-Step "Seeding default aggregator sources (Devpost/MLH/HackerEarth)"
   uv run python scripts/seed_default_sources.py
@@ -121,7 +121,7 @@ Next:
   App:      http://localhost:5173/
 
 Demo data: data/manual-collection/seed_listings.json
-Refresh prizes/labels: cd backend; uv run python scripts/seed_x_mcp_collection.py --update
+Refresh prizes/labels: cd backend; uv run python scripts/seed_listings.py --update
 "@
 
 if ($Api) {

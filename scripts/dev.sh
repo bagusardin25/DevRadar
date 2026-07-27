@@ -86,7 +86,7 @@ step "Installing backend deps (uv)"
   uv run alembic upgrade head
   if [ "$SKIP_SEED" -eq 0 ]; then
     step "Seeding demo catalogue (idempotent by slug)"
-    uv run python scripts/seed_x_mcp_collection.py
+    uv run python scripts/seed_listings.py
     step "Seeding default aggregator sources (Devpost/MLH/HackerEarth)"
     uv run python scripts/seed_default_sources.py
   fi
@@ -109,7 +109,7 @@ Next:
   App:      http://localhost:5173/
 
 Demo data: data/manual-collection/seed_listings.json
-Refresh:   cd backend && uv run python scripts/seed_x_mcp_collection.py --update
+Refresh:   cd backend && uv run python scripts/seed_listings.py --update
 EOF
 
 if [ "$START_API" -eq 1 ]; then

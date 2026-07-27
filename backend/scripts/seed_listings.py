@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Seed catalogue rows from the X MCP manual collection.
+"""Seed catalogue rows from the curated seed JSON.
 
 Source of truth:
   ../../data/manual-collection/seed_listings.json
 
 Usage (from backend/):
-  uv run python scripts/seed_x_mcp_collection.py
-  uv run python scripts/seed_x_mcp_collection.py --dry-run
-  uv run python scripts/seed_x_mcp_collection.py --json-path ../data/manual-collection/seed_listings.json
+  uv run python scripts/seed_listings.py
+  uv run python scripts/seed_listings.py --dry-run
+  uv run python scripts/seed_listings.py --json-path ../data/manual-collection/seed_listings.json
 """
 
 from __future__ import annotations
@@ -381,7 +381,7 @@ async def _seed_hackathon(
             is_primary=True,
             observed_fields={
                 "title": item["title"],
-                "seed": "x_mcp_collection",
+                "seed": "seed_listings",
             },
         )
     )
@@ -399,7 +399,7 @@ async def _seed_hackathon(
                 observed_fields={
                     "postId": post_id,
                     "author": author,
-                    "seed": "x_mcp_collection",
+                    "seed": "seed_listings",
                 },
             )
         )
@@ -571,7 +571,7 @@ async def _seed_ai_offer(
             source_id=official_src.id,
             source_url=terms,
             is_primary=True,
-            observed_fields={"productName": item["product_name"], "seed": "x_mcp_collection"},
+            observed_fields={"productName": item["product_name"], "seed": "seed_listings"},
         )
     )
 
@@ -588,7 +588,7 @@ async def _seed_ai_offer(
                 observed_fields={
                     "postId": post_id,
                     "author": author,
-                    "seed": "x_mcp_collection",
+                    "seed": "seed_listings",
                 },
             )
         )

@@ -81,15 +81,42 @@ New to the project? This is the Git workflow. Setup commands are in **Developmen
 
 ```
 DevRadar/
-├── src/                      # React frontend (Vite)
-├── backend/app/              # FastAPI API, catalogue, ingestion, alerts
-├── backend/scripts/          # seed, recheck, default sources
-├── backend/.env.example      # backend env template → backend/.env
-├── data/manual-collection/   # seed_listings.json  ← curated public data
-├── infra/compose.yaml        # Postgres + Redis (+ optional MinIO) — infra only
-├── .github/workflows/ci.yml  # secret scan, frontend, backend tests
-└── scripts/dev.ps1|dev.sh    # one-shot bootstrap
+├── src/                         # React + Vite frontend
+│   ├── api/                     # HTTP clients (camelCase *.ts)
+│   ├── components/              # UI (PascalCase *.tsx; feature folders camelCase)
+│   ├── hooks/ utils/ types/     # shared frontend modules
+│   └── data/mockData.ts         # offline fallback only — not the seed source of truth
+├── backend/
+│   ├── app/                     # FastAPI packages (snake_case)
+│   │   ├── api/public|admin/    # HTTP routes
+│   │   ├── catalog/             # domain package name (US spelling)
+│   │   ├── ingestion/ discovery/ submissions/ …
+│   │   └── worker/              # Celery app
+│   ├── scripts/                 # ops CLI (seed_*.py, recheck_*.py)
+│   ├── tests/                   # mirrors app packages where practical
+│   ├── alembic/versions/        # {revision}_{slug}.py
+│   ├── .env.example             # development template → backend/.env
+│   └── .env.production.example  # production checklist (not for local seed-demo)
+├── data/manual-collection/      # curated seed_listings.json (+ candidates example)
+├── infra/                       # Compose + Postgres init (local infra only)
+├── scripts/                     # monorepo bootstrap / check / clean (.sh + .ps1)
+├── public/                      # static assets served by Vite
+└── .github/workflows/ci.yml     # secret scan, frontend, backend
 ```
+
+### Naming conventions
+
+| Area | Rule | Examples |
+|------|------|----------|
+| Python packages / modules | `snake_case` | `ai_review/`, `seed_listings.py` |
+| Alembic revisions | `{hex}_{snake_slug}.py` | `a41d5b70c8ef_submission_review_lifecycle.py` |
+| React components | `PascalCase.tsx` | `AdminQueue.tsx` |
+| React non-UI modules | `camelCase.ts` | `formatPrize.ts`, `adminCatalogue.ts` |
+| Feature subfolders (UI) | `camelCase/` | `components/adminCatalogue/` |
+| Data / infra dirs | `kebab-case` | `manual-collection/`, `compose.yaml` |
+| Root tooling scripts | short verb names | `dev`, `check`, `clean` (+ `.sh`/`.ps1`) |
+
+**Spelling note:** the domain package is `app.catalog` (US). Product copy and some HTTP paths use **catalogue** (e.g. `/admin/catalogue`). Prefer consistency within a layer; do not rename the package without an intentional API migration.
 
 Public app modules: **Radar** (hackathons), **AI Deals**.  
 **Review / Catalog / Pipeline / Sources** need an admin Google OAuth session (operators only).
@@ -222,7 +249,7 @@ idempotent):
 
 ```bash
 cd backend
-uv run python scripts/seed_x_mcp_collection.py   # demo catalogue
+uv run python scripts/seed_listings.py           # demo catalogue
 uv run python scripts/seed_default_sources.py    # aggregator sources
 ```
 
@@ -241,8 +268,8 @@ After editing seed JSON:
 
 ```bash
 cd backend
-uv run python scripts/seed_x_mcp_collection.py          # insert new slugs only
-uv run python scripts/seed_x_mcp_collection.py --update # refresh existing fields
+uv run python scripts/seed_listings.py          # insert new slugs only
+uv run python scripts/seed_listings.py --update # refresh existing fields
 ```
 
 Optional: re-fetch official AI offer pages (rules; LLM if configured):

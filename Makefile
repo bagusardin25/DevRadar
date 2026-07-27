@@ -1,7 +1,7 @@
 # DevRadar developer shortcuts (requires Docker + uv + Node)
 # Windows users can use:  .\scripts\dev.ps1
 
-.PHONY: help up down bootstrap seed seed-update seed-sources recheck-offers api worker frontend test-backend build-frontend health
+.PHONY: help up down bootstrap seed seed-update seed-sources recheck-offers api worker frontend test-backend lint-backend lint-frontend build-frontend health
 
 help:
 	@echo "DevRadar targets:"
@@ -15,6 +15,8 @@ help:
 	@echo "  make worker        Run Celery fetch/review worker"
 	@echo "  make frontend      Run Vite on :5173"
 	@echo "  make test-backend  pytest (needs infra up)"
+	@echo "  make lint-backend  ruff check app tests"
+	@echo "  make lint-frontend oxlint"
 	@echo "  make build-frontend  production frontend build"
 	@echo "  make health        curl /health/ready"
 
@@ -50,6 +52,12 @@ frontend:
 
 test-backend:
 	cd backend && uv run pytest -q
+
+lint-backend:
+	cd backend && uv run ruff check app tests
+
+lint-frontend:
+	npm run lint
 
 build-frontend:
 	npm run build

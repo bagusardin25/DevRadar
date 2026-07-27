@@ -82,6 +82,10 @@ jobs:
           CREATE EXTENSION IF NOT EXISTS citext;
           CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
           SQL
+      - name: Ruff
+        run: |
+          cd backend
+          uv run ruff check app tests
       - name: Migrate
         run: |
           cd backend

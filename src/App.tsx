@@ -353,7 +353,17 @@ export function App() {
 
   const hackAbort = useRef<AbortController | null>(null);
   const dealAbort = useRef<AbortController | null>(null);
+  const loadMoreAbort = useRef<AbortController | null>(null);
   const catalogueRequestId = useRef(0);
+
+  useEffect(
+    () => () => {
+      hackAbort.current?.abort();
+      dealAbort.current?.abort();
+      loadMoreAbort.current?.abort();
+    },
+    [],
+  );
 
   const applyLocalFlags = useCallback(
     <T extends { id: string }>(items: T[]): (T & { bookmarked: boolean; alertEnabled: boolean })[] =>
@@ -374,6 +384,7 @@ export function App() {
 
     hackAbort.current?.abort();
     dealAbort.current?.abort();
+    loadMoreAbort.current?.abort();
     const hCtrl = new AbortController();
     const dCtrl = new AbortController();
     hackAbort.current = hCtrl;
@@ -464,6 +475,9 @@ export function App() {
       const cursor = kind === 'hackathon' ? hackNextCursor : dealNextCursor;
       if (!cursor || loadingMoreKind) return;
       const requestId = catalogueRequestId.current;
+      loadMoreAbort.current?.abort();
+      const controller = new AbortController();
+      loadMoreAbort.current = controller;
 
       setLoadingMoreKind(kind);
       setLoadMoreError(null);
@@ -477,6 +491,7 @@ export function App() {
             limit: 50,
             bookmarks,
             alerts,
+            signal: controller.signal,
           });
           if (requestId !== catalogueRequestId.current) return;
           setHackathons((current) => appendUniqueById(current, page.items));
@@ -491,6 +506,7 @@ export function App() {
             limit: 50,
             bookmarks,
             alerts,
+            signal: controller.signal,
           });
           if (requestId !== catalogueRequestId.current) return;
           setAiDeals((current) => appendUniqueById(current, page.items));
@@ -502,6 +518,7 @@ export function App() {
         }
       } catch (err) {
         if (requestId !== catalogueRequestId.current) return;
+        if (err instanceof DOMException && err.name === 'AbortError') return;
         const message =
           err instanceof ApiError
             ? err.detail
@@ -510,6 +527,7 @@ export function App() {
               : 'Could not load more opportunities';
         setLoadMoreError({ kind, message });
       } finally {
+        if (loadMoreAbort.current === controller) loadMoreAbort.current = null;
         if (requestId === catalogueRequestId.current) setLoadingMoreKind(null);
       }
     },
@@ -690,48 +708,45 @@ export function App() {
   };
 
   const handleToggleBookmark = useCallback((id: string, fallbackItem?: Hackathon | AIDeal) => {
-    setBookmarkIds((prev) => {
-      const next = toggleId(prev, id);
-      setBookmarkCache((cache) => {
-        if (next.has(id)) {
-          const h =
-            hackathons.find((x) => x.id === id) ??
-            (fallbackItem && 'title' in fallbackItem ? fallbackItem : undefined);
-          if (h) return upsertSnapshot(cache, h, 'hackathon');
-          const d =
-            aiDeals.find((x) => x.id === id) ??
-            (fallbackItem && 'productName' in fallbackItem ? fallbackItem : undefined);
-          if (d) return upsertSnapshot(cache, d, 'ai_deal');
-          return cache;
-        }
-        return removeSnapshot(cache, id);
-      });
-      return next;
+    const next = toggleId(bookmarkIds, id);
+    setBookmarkIds(next);
+    setBookmarkCache((cache) => {
+      if (next.has(id)) {
+        const h =
+          hackathons.find((x) => x.id === id) ??
+          (fallbackItem && 'title' in fallbackItem ? fallbackItem : undefined);
+        if (h) return upsertSnapshot(cache, h, 'hackathon');
+        const d =
+          aiDeals.find((x) => x.id === id) ??
+          (fallbackItem && 'productName' in fallbackItem ? fallbackItem : undefined);
+        if (d) return upsertSnapshot(cache, d, 'ai_deal');
+        return cache;
+      }
+      return removeSnapshot(cache, id);
     });
-  }, [hackathons, aiDeals]);
+  }, [bookmarkIds, hackathons, aiDeals]);
 
   const handleToggleAlert = useCallback((id: string) => {
     setAlertIds((prev) => toggleId(prev, id));
   }, []);
 
   const handleToggleCompare = useCallback((hack: Hackathon) => {
-    setCompareItems((prev) => {
-      if (prev.some((i) => i.id === hack.id)) {
-        setCompareNotice(`${hack.title} removed from comparison.`);
-        return prev.filter((i) => i.id !== hack.id);
-      }
-      if (prev.length >= 3) {
-        setCompareNotice('You can compare up to 3 hackathons at a time.');
-        return prev;
-      }
-      setCompareNotice(
-        prev.length === 0
-          ? `${hack.title} added. Choose one more opportunity to compare.`
-          : `${hack.title} added to comparison.`,
-      );
-      return [...prev, hack];
-    });
-  }, []);
+    if (compareItems.some((item) => item.id === hack.id)) {
+      setCompareItems(compareItems.filter((item) => item.id !== hack.id));
+      setCompareNotice(`${hack.title} removed from comparison.`);
+      return;
+    }
+    if (compareItems.length >= 3) {
+      setCompareNotice('You can compare up to 3 hackathons at a time.');
+      return;
+    }
+    setCompareItems([...compareItems, hack]);
+    setCompareNotice(
+      compareItems.length === 0
+        ? `${hack.title} added. Choose one more opportunity to compare.`
+        : `${hack.title} added to comparison.`,
+    );
+  }, [compareItems]);
 
   useEffect(() => {
     if (!compareNotice) return;
@@ -1192,11 +1207,9 @@ export function App() {
         items={isCompareOpen ? compareItems : []}
         onClose={() => setIsCompareOpen(false)}
         onRemove={(id) => {
-          setCompareItems((prev) => {
-            const next = prev.filter((i) => i.id !== id);
-            if (next.length < 2) setIsCompareOpen(false);
-            return next;
-          });
+          const next = compareItems.filter((item) => item.id !== id);
+          setCompareItems(next);
+          if (next.length < 2) setIsCompareOpen(false);
           setCompareNotice('Opportunity removed from comparison.');
         }}
       />

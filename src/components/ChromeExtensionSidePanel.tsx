@@ -39,7 +39,9 @@ export const ChromeExtensionSidePanel: React.FC<ChromeExtensionSidePanelProps> =
   if (!isOpen) return null;
 
   const handleAnalyze = () => {
+    if (analyzeTimer.current !== null) window.clearTimeout(analyzeTimer.current);
     setAnalyzing(true);
+    setAnalyzed(false);
     setFeedback(null);
     analyzeTimer.current = window.setTimeout(() => {
       setAnalyzing(false);
@@ -48,14 +50,28 @@ export const ChromeExtensionSidePanel: React.FC<ChromeExtensionSidePanelProps> =
     }, 1200);
   };
 
+  const resetSimulator = () => {
+    if (analyzeTimer.current !== null) {
+      window.clearTimeout(analyzeTimer.current);
+      analyzeTimer.current = null;
+    }
+    setAnalyzing(false);
+    setAnalyzed(false);
+    setFeedback(null);
+  };
+
   const handleExportCalendar = () => {
+    const exportedAt = new Date()
+      .toISOString()
+      .replace(/[-:]/g, '')
+      .replace(/\.\d{3}Z$/, 'Z');
     const ics = [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
       'PRODID:-//DevRadar//Extension Preview//EN',
       'BEGIN:VEVENT',
       'UID:hack-001@devradar.local',
-      'DTSTAMP:20260728T000000Z',
+      `DTSTAMP:${exportedAt}`,
       'DTSTART:20260810T235959Z',
       'DTEND:20260811T005959Z',
       'SUMMARY:Registration deadline — Global AI Agents Developer Challenge',
@@ -68,8 +84,13 @@ export const ChromeExtensionSidePanel: React.FC<ChromeExtensionSidePanelProps> =
     const link = document.createElement('a');
     link.href = url;
     link.download = 'devradar-global-ai-agents-deadline.ics';
+    link.hidden = true;
+    document.body.appendChild(link);
     link.click();
-    URL.revokeObjectURL(url);
+    link.remove();
+    // Firefox and mobile browsers may still be consuming the object URL when
+    // click() returns, so release it after the download has had time to start.
+    window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
     setFeedback('Calendar file downloaded. Confirm the latest date on the official page.');
   };
 
@@ -224,7 +245,7 @@ export const ChromeExtensionSidePanel: React.FC<ChromeExtensionSidePanelProps> =
       {/* Side Panel Footer */}
       <div className="p-4 border-t-[2.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] text-[11px] font-mono font-bold text-[#4A4845] dark:text-[#B8C4D2] flex items-center justify-between">
         <span>DevRadar Helper v1.4</span>
-        <button type="button" onClick={() => { setAnalyzed(false); setFeedback(null); }} className="text-[#FF5A36] font-extrabold hover:underline">
+        <button type="button" onClick={resetSimulator} className="text-[#FF5A36] font-extrabold hover:underline">
           Reset Simulator
         </button>
       </div>

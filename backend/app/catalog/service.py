@@ -440,23 +440,63 @@ class CatalogueService:
         )
 
     async def filter_meta(self) -> FilterMetaResponse:
+        # Filter values are public catalogue data too. Scope every child-table
+        # query through its listing so draft / needs-review rows cannot leak
+        # tags, regions, or other metadata through this unauthenticated route.
+        public_statuses = list(PUBLIC_VISIBLE_STATUSES)
         tech_rows = await self._session.execute(
             select(func.distinct(func.unnest(Hackathon.technologies)))
+            .select_from(Hackathon)
+            .join(Listing, Listing.id == Hackathon.listing_id)
+            .where(
+                Listing.kind == ListingKind.HACKATHON.value,
+                Listing.verification_status.in_(public_statuses),
+            )
         )
         offer_tag_rows = await self._session.execute(
             select(func.distinct(func.unnest(AIOffer.tags)))
+            .select_from(AIOffer)
+            .join(Listing, Listing.id == AIOffer.listing_id)
+            .where(
+                Listing.kind == ListingKind.AI_OFFER.value,
+                Listing.verification_status.in_(public_statuses),
+            )
         )
         regions_h = await self._session.execute(
             select(func.distinct(func.unnest(Hackathon.eligible_countries)))
+            .select_from(Hackathon)
+            .join(Listing, Listing.id == Hackathon.listing_id)
+            .where(
+                Listing.kind == ListingKind.HACKATHON.value,
+                Listing.verification_status.in_(public_statuses),
+            )
         )
         regions_a = await self._session.execute(
             select(func.distinct(func.unnest(AIOffer.supported_regions)))
+            .select_from(AIOffer)
+            .join(Listing, Listing.id == AIOffer.listing_id)
+            .where(
+                Listing.kind == ListingKind.AI_OFFER.value,
+                Listing.verification_status.in_(public_statuses),
+            )
         )
         eligibility = await self._session.execute(
             select(func.distinct(func.unnest(Hackathon.eligibility)))
+            .select_from(Hackathon)
+            .join(Listing, Listing.id == Hackathon.listing_id)
+            .where(
+                Listing.kind == ListingKind.HACKATHON.value,
+                Listing.verification_status.in_(public_statuses),
+            )
         )
         offer_types = await self._session.execute(
             select(func.distinct(AIOffer.offer_type))
+            .select_from(AIOffer)
+            .join(Listing, Listing.id == AIOffer.listing_id)
+            .where(
+                Listing.kind == ListingKind.AI_OFFER.value,
+                Listing.verification_status.in_(public_statuses),
+            )
         )
 
         def clean(values: list[Any]) -> list[str]:

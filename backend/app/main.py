@@ -45,9 +45,16 @@ class TraceIdMiddleware(BaseHTTPMiddleware):
 class RequestBodyLimitMiddleware:
     """Reject oversized fixed-length and streamed request bodies with 413."""
 
-    def __init__(self, app: ASGIApp, *, max_body_bytes: int) -> None:
+    def __init__(
+        self,
+        app: ASGIApp,
+        *,
+        max_body_bytes: int,
+        read_timeout_seconds: float,
+    ) -> None:
         self.app = app
         self.max_body_bytes = max_body_bytes
+        self.read_timeout_seconds = read_timeout_seconds
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -70,17 +77,22 @@ class RequestBodyLimitMiddleware:
         # middleware can convert them to 413.
         body = bytearray()
         disconnected = False
-        while True:
-            message = await receive()
-            if message["type"] == "http.disconnect":
-                disconnected = True
-                break
-            body.extend(message.get("body", b""))
-            if len(body) > self.max_body_bytes:
-                await self._reject(scope, receive, send)
-                return
-            if not message.get("more_body", False):
-                break
+        try:
+            async with asyncio.timeout(self.read_timeout_seconds):
+                while True:
+                    message = await receive()
+                    if message["type"] == "http.disconnect":
+                        disconnected = True
+                        break
+                    body.extend(message.get("body", b""))
+                    if len(body) > self.max_body_bytes:
+                        await self._reject(scope, receive, send)
+                        return
+                    if not message.get("more_body", False):
+                        break
+        except TimeoutError:
+            await self._reject_timeout(scope, receive, send)
+            return
 
         delivered = False
 
@@ -101,6 +113,19 @@ class RequestBodyLimitMiddleware:
                 "title": "Payload Too Large",
                 "status": 413,
                 "detail": f"Request body exceeds {self.max_body_bytes} bytes",
+            },
+            media_type="application/problem+json",
+        )
+        await response(scope, receive, send)
+
+    async def _reject_timeout(self, scope: Scope, receive: Receive, send: Send) -> None:
+        response = JSONResponse(
+            status_code=408,
+            content={
+                "type": "https://devradar.local/problems/request-timeout",
+                "title": "Request Timeout",
+                "status": 408,
+                "detail": "Request body was not received within the allowed time",
             },
             media_type="application/problem+json",
         )
@@ -145,6 +170,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(
         RequestBodyLimitMiddleware,
         max_body_bytes=_settings.max_request_body_bytes,
+        read_timeout_seconds=_settings.request_body_read_timeout_seconds,
     )
     app.add_middleware(TraceIdMiddleware)
     app.add_middleware(

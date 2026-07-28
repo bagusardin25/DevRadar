@@ -5,6 +5,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
+from app.alerts.service import ALERT_RATE_LIMIT_MAX_PER_EMAIL
 from app.config import Settings
 from app.main import create_app
 
@@ -35,7 +36,7 @@ class TestAlertsAPI:
         assert r.status_code == 202
         body = r.json()
         assert body["status"] == "pending_confirmation"
-        assert r.headers["X-RateLimit-Limit"] == "5"
+        assert r.headers["X-RateLimit-Limit"] == str(ALERT_RATE_LIMIT_MAX_PER_EMAIL)
 
     async def test_honeypot(self, client) -> None:
         r = await client.post(
@@ -62,6 +63,20 @@ class TestAlertsAPI:
         blocked = await client.post(
             "/api/v1/alerts",
             json={"email": "target@example.com", "filters": {}},
+        )
+        assert blocked.status_code == 429
+
+    async def test_email_limit_survives_missing_client_ip(self, client, monkeypatch) -> None:
+        monkeypatch.setattr("app.api.public.alerts.client_ip", lambda *_args: None)
+        for _ in range(3):
+            response = await client.post(
+                "/api/v1/alerts",
+                json={"email": "no-ip@example.com", "filters": {}},
+            )
+            assert response.status_code == 202
+        blocked = await client.post(
+            "/api/v1/alerts",
+            json={"email": "no-ip@example.com", "filters": {}},
         )
         assert blocked.status_code == 429
 

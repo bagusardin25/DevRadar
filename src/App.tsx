@@ -272,6 +272,7 @@ export function App() {
   }, [viewLayout]);
 
   const [bookmarkIds, setBookmarkIds] = useState<Set<string>>(() => loadBookmarkIds());
+  const bookmarkIdsRef = useRef(bookmarkIds);
   const [alertIds, setAlertIds] = useState<Set<string>>(() => loadAlertIds());
   /** Cache of bookmarked entities so the drawer works when filters change.
       Persisted to localStorage — without persistence, a bookmark whose id
@@ -315,8 +316,17 @@ export function App() {
 
   const [selectedItem, setSelectedItem] = useState<Hackathon | AIDeal | null>(null);
   const [compareItems, setCompareItems] = useState<Hackathon[]>([]);
+  const compareItemsRef = useRef(compareItems);
   const [isCompareOpen, setIsCompareOpen] = useState(false);
   const [compareNotice, setCompareNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    bookmarkIdsRef.current = bookmarkIds;
+  }, [bookmarkIds]);
+
+  useEffect(() => {
+    compareItemsRef.current = compareItems;
+  }, [compareItems]);
 
   // Filter choices come from the same catalogue that executes the query, so
   // newly indexed technologies, regions, and offer types become discoverable
@@ -708,7 +718,8 @@ export function App() {
   };
 
   const handleToggleBookmark = useCallback((id: string, fallbackItem?: Hackathon | AIDeal) => {
-    const next = toggleId(bookmarkIds, id);
+    const next = toggleId(bookmarkIdsRef.current, id);
+    bookmarkIdsRef.current = next;
     setBookmarkIds(next);
     setBookmarkCache((cache) => {
       if (next.has(id)) {
@@ -724,29 +735,34 @@ export function App() {
       }
       return removeSnapshot(cache, id);
     });
-  }, [bookmarkIds, hackathons, aiDeals]);
+  }, [hackathons, aiDeals]);
 
   const handleToggleAlert = useCallback((id: string) => {
     setAlertIds((prev) => toggleId(prev, id));
   }, []);
 
   const handleToggleCompare = useCallback((hack: Hackathon) => {
-    if (compareItems.some((item) => item.id === hack.id)) {
-      setCompareItems(compareItems.filter((item) => item.id !== hack.id));
+    const current = compareItemsRef.current;
+    if (current.some((item) => item.id === hack.id)) {
+      const next = current.filter((item) => item.id !== hack.id);
+      compareItemsRef.current = next;
+      setCompareItems(next);
       setCompareNotice(`${hack.title} removed from comparison.`);
       return;
     }
-    if (compareItems.length >= 3) {
+    if (current.length >= 3) {
       setCompareNotice('You can compare up to 3 hackathons at a time.');
       return;
     }
-    setCompareItems([...compareItems, hack]);
+    const next = [...current, hack];
+    compareItemsRef.current = next;
+    setCompareItems(next);
     setCompareNotice(
-      compareItems.length === 0
+      current.length === 0
         ? `${hack.title} added. Choose one more opportunity to compare.`
         : `${hack.title} added to comparison.`,
     );
-  }, [compareItems]);
+  }, []);
 
   useEffect(() => {
     if (!compareNotice) return;
@@ -755,7 +771,7 @@ export function App() {
   }, [compareNotice]);
 
   useEffect(() => {
-    if (compareItems.length === 0) setIsCompareOpen(false);
+    if (compareItems.length < 2) setIsCompareOpen(false);
   }, [compareItems.length]);
 
   const handleSelectItem = useCallback((item: Hackathon | AIDeal) => {
@@ -855,17 +871,19 @@ export function App() {
   const totalBookmarks = bookmarkIds.size;
 
   const handleImportBookmarkIds = useCallback((ids: string[], mode: 'merge' | 'replace') => {
-    setBookmarkIds((prev) => {
-      const candidates = mode === 'replace' ? ids : [...prev, ...ids];
-      return new Set(sanitizeBookmarkIds(candidates));
-    });
+    const candidates = mode === 'replace' ? ids : [...bookmarkIdsRef.current, ...ids];
+    const next = new Set(sanitizeBookmarkIds(candidates));
+    bookmarkIdsRef.current = next;
+    setBookmarkIds(next);
   }, []);
 
   const handleSaveSharedToLocal = useCallback(() => {
     if (!sharedBookmarkIds?.length) return;
-    setBookmarkIds((prev) => {
-      return new Set(sanitizeBookmarkIds([...prev, ...sharedBookmarkIds]));
-    });
+    const next = new Set(
+      sanitizeBookmarkIds([...bookmarkIdsRef.current, ...sharedBookmarkIds]),
+    );
+    bookmarkIdsRef.current = next;
+    setBookmarkIds(next);
     setSharedBookmarkIds(null);
     window.history.replaceState({}, '', window.location.pathname);
   }, [sharedBookmarkIds]);
@@ -1193,7 +1211,10 @@ export function App() {
           </button>
           <button
             type="button"
-            onClick={() => setCompareItems([])}
+            onClick={() => {
+              compareItemsRef.current = [];
+              setCompareItems([]);
+            }}
             className="text-[#1C1B18] hover:text-[#FF5A36] dark:text-white font-extrabold px-1.5 py-1"
           >
             Clear
@@ -1207,7 +1228,8 @@ export function App() {
         items={isCompareOpen ? compareItems : []}
         onClose={() => setIsCompareOpen(false)}
         onRemove={(id) => {
-          const next = compareItems.filter((item) => item.id !== id);
+          const next = compareItemsRef.current.filter((item) => item.id !== id);
+          compareItemsRef.current = next;
           setCompareItems(next);
           if (next.length < 2) setIsCompareOpen(false);
           setCompareNotice('Opportunity removed from comparison.');

@@ -78,8 +78,9 @@ class AlertService:
 
         email_norm = str(command.email).strip().lower()
         email_h = hash_email(email_norm, self._settings.email_hmac_key)
-        if ip_address:
-            await self._enforce_creation_rate_limit(ip_address, email_h)
+        # Email throttling must remain active even when the deployment cannot
+        # resolve a client IP (for example, a nonstandard ASGI gateway).
+        await self._enforce_creation_rate_limit(ip_address, email_h)
         cipher = encrypt_email(email_norm, self._settings)
 
         cadence = (command.cadence or "daily").strip().lower()
@@ -127,19 +128,21 @@ class AlertService:
 
     async def _enforce_creation_rate_limit(
         self,
-        ip_address: str,
+        ip_address: str | None,
         email_hash: str,
     ) -> None:
         """Limit confirmation-email abuse by both source IP and recipient."""
-        ip_key = f"devradar:rl:alerts:ip:{hash_ip(ip_address, self._settings.session_secret)}"
         email_key = f"devradar:rl:alerts:email:{email_hash}"
+        buckets = [(email_key, ALERT_RATE_LIMIT_MAX_PER_EMAIL)]
+        if ip_address:
+            ip_key = (
+                "devradar:rl:alerts:ip:"
+                f"{hash_ip(ip_address, self._settings.session_secret)}"
+            )
+            buckets.insert(0, (ip_key, ALERT_RATE_LIMIT_MAX_PER_IP))
 
         if self._rate_limit_store is not None:
             now = time.time()
-            buckets = [
-                (ip_key, ALERT_RATE_LIMIT_MAX_PER_IP),
-                (email_key, ALERT_RATE_LIMIT_MAX_PER_EMAIL),
-            ]
             for key, _limit in buckets:
                 bucket = self._rate_limit_store.setdefault(key, [])
                 bucket[:] = [
@@ -162,10 +165,7 @@ class AlertService:
             # One-key scripts work on both standalone Redis and Redis Cluster;
             # a multi-key script would fail when IP/email keys land in separate
             # hash slots.
-            for key, limit in (
-                (ip_key, ALERT_RATE_LIMIT_MAX_PER_IP),
-                (email_key, ALERT_RATE_LIMIT_MAX_PER_EMAIL),
-            ):
+            for key, limit in buckets:
                 count = await redis.eval(  # type: ignore[no-untyped-call]
                     _ALERT_RATE_LIMIT_SCRIPT,
                     1,

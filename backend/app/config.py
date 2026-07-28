@@ -79,6 +79,7 @@ class Settings(BaseSettings):
     # streamed/chunked bodies, so running Uvicorn without a reverse proxy does
     # not leave JSON endpoints open to unbounded buffering.
     max_request_body_bytes: int = MAX_REQUEST_BODY_BYTES
+    request_body_read_timeout_seconds: float = 15.0
 
     # Security
     # Number of proxies in front of the app. 0 ignores X-Forwarded-For (correct
@@ -177,6 +178,13 @@ class Settings(BaseSettings):
     def validate_request_body_limit(cls, v: int) -> int:
         if v < 16_384:
             raise ValueError("MAX_REQUEST_BODY_BYTES must be at least 16384")
+        return v
+
+    @field_validator("request_body_read_timeout_seconds")
+    @classmethod
+    def validate_request_body_read_timeout(cls, v: float) -> float:
+        if not 0.1 <= v <= 120:
+            raise ValueError("REQUEST_BODY_READ_TIMEOUT_SECONDS must be between 0.1 and 120")
         return v
 
     @field_validator("cors_origins", "admin_google_emails", mode="before")

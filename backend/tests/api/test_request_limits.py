@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 
 import httpx
 import pytest
+from starlette.types import Message, Scope
 
 from app.config import Settings
-from app.main import create_app
+from app.main import RequestBodyLimitMiddleware, create_app
 
 
 @pytest.fixture
@@ -48,6 +50,56 @@ class TestRequestBodyLimit:
             headers={"content-type": "application/json"},
         )
         assert response.status_code == 413
+
+    async def test_times_out_stalled_stream_before_downstream_work(self) -> None:
+        downstream_called = False
+
+        async def downstream(_scope: Scope, _receive, _send) -> None:
+            nonlocal downstream_called
+            downstream_called = True
+
+        middleware = RequestBodyLimitMiddleware(
+            downstream,
+            max_body_bytes=16_384,
+            read_timeout_seconds=0.01,
+        )
+        stalled = asyncio.Event()
+
+        async def receive() -> Message:
+            await stalled.wait()
+            return {"type": "http.disconnect"}
+
+        sent: list[Message] = []
+
+        async def send(message: Message) -> None:
+            sent.append(message)
+
+        scope: Scope = {
+            "type": "http",
+            "asgi": {"version": "3.0"},
+            "http_version": "1.1",
+            "method": "POST",
+            "scheme": "http",
+            "path": "/api/v1/alerts",
+            "raw_path": b"/api/v1/alerts",
+            "query_string": b"",
+            "root_path": "",
+            "headers": [],
+            "client": ("127.0.0.1", 1234),
+            "server": ("testserver", 80),
+        }
+
+        await asyncio.wait_for(middleware(scope, receive, send), timeout=1)
+
+        assert downstream_called is False
+        assert sent[0]["type"] == "http.response.start"
+        assert sent[0]["status"] == 408
+        response_body = b"".join(
+            message.get("body", b"")
+            for message in sent
+            if message["type"] == "http.response.body"
+        )
+        assert b"Request Timeout" in response_body
 
     async def test_replaces_pathological_trace_id(self, limited_client) -> None:
         response = await limited_client.get(

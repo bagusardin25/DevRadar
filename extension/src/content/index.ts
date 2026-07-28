@@ -3,8 +3,8 @@ import {
   ISO_DATE_RE, US_DATE_RE, MONEY_RE, TECH_KEYWORDS,
   REGISTRATION_LINK_KEYWORDS,
 } from '../shared/constants';
+import { getVisibleText } from './visibleText';
 
-const MAX_TEXT_LENGTH = 5000;
 const MAX_TITLE_LENGTH = 300;
 const MAX_META_LENGTH = 1000;
 const MAX_OG_TAGS = 30;
@@ -13,10 +13,6 @@ const MAX_JSON_LD_CHARS = 20_000;
 const MAX_EXTRACTED_VALUES = 50;
 const MAX_LINKS = 200;
 const MAX_URL_LENGTH = 2048;
-const NOISE_SELECTOR =
-  'nav, footer, header, script, style, noscript, iframe, ' +
-  '[role="navigation"], [role="banner"], [aria-hidden="true"], ' +
-  '.cookie-banner, .cookie-consent, #cookie-consent';
 
 function clampText(value: string | null | undefined, maxLength: number): string | null {
   const text = value?.trim();
@@ -58,28 +54,6 @@ function getJsonLd(): unknown[] {
     } catch { /* skip malformed */ }
   }
   return results;
-}
-
-function getVisibleText(): string {
-  if (!document.body) return '';
-  const parts: string[] = [];
-  let length = 0;
-  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-  let node: Node | null = walker.nextNode();
-  while (node && length < MAX_TEXT_LENGTH) {
-    const parent = node.parentElement;
-    if (parent && !parent.closest(NOISE_SELECTOR) && !parent.hidden) {
-      const chunk = (node.textContent || '').replace(/\s+/g, ' ').trim();
-      if (chunk) {
-        const remaining = MAX_TEXT_LENGTH - length;
-        const value = chunk.slice(0, remaining);
-        parts.push(value);
-        length += value.length + 1;
-      }
-    }
-    node = walker.nextNode();
-  }
-  return parts.join(' ').slice(0, MAX_TEXT_LENGTH);
 }
 
 function findDates(text: string): string[] {

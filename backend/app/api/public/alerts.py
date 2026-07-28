@@ -8,7 +8,12 @@ from fastapi import APIRouter, Query, Request, Response
 from fastapi.responses import RedirectResponse
 
 from app.alerts.schemas import AlertCreateRequest, AlertCreateResponse
-from app.alerts.service import AlertService
+from app.alerts.service import (
+    ALERT_RATE_LIMIT_MAX_PER_EMAIL,
+    ALERT_RATE_LIMIT_MAX_PER_IP,
+    ALERT_RATE_LIMIT_WINDOW_SECONDS,
+    AlertService,
+)
 from app.api.client_ip import client_ip
 from app.api.dependencies import DbSession
 from app.api.limits import MAX_ALERT_TOKEN_LENGTH
@@ -34,8 +39,11 @@ async def create_alert(
         body,
         ip_address=client_ip(request, settings.trusted_proxy_hops),
     )
-    response.headers["X-RateLimit-Limit"] = "5"
-    response.headers["X-RateLimit-Policy"] = "5;w=3600"
+    response.headers["X-RateLimit-Limit"] = str(ALERT_RATE_LIMIT_MAX_PER_EMAIL)
+    response.headers["X-RateLimit-Policy"] = (
+        f"{ALERT_RATE_LIMIT_MAX_PER_EMAIL};w={ALERT_RATE_LIMIT_WINDOW_SECONDS}, "
+        f"{ALERT_RATE_LIMIT_MAX_PER_IP};w={ALERT_RATE_LIMIT_WINDOW_SECONDS}"
+    )
     return result
 
 

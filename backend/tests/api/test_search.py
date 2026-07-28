@@ -161,7 +161,19 @@ class TestStatsAndMeta:
         await db_session.delete(offer)
         await db_session.commit()
 
-    async def test_filter_meta_shape(self, api_client) -> None:
+    async def test_filter_meta_shape(self, api_client, db_session: AsyncSession) -> None:
+        hack = await seed_hackathon(
+            db_session,
+            slug=f"meta-h-{uuid4().hex[:8]}",
+            technology="Rust",
+        )
+        offer = await seed_ai_offer(
+            db_session,
+            slug=f"meta-a-{uuid4().hex[:8]}",
+            tag="inference",
+        )
+        await db_session.commit()
+
         response = await api_client.get("/api/v1/meta/filters")
         assert response.status_code == 200
         body = response.json()
@@ -171,3 +183,9 @@ class TestStatsAndMeta:
         assert "offerTypes" in body
         assert "modes" in body
         assert body["modes"] == ["online", "hybrid", "in_person"]
+        assert "Rust" in body["technologies"]
+        assert "inference" in body["technologies"]
+
+        await db_session.delete(hack)
+        await db_session.delete(offer)
+        await db_session.commit()

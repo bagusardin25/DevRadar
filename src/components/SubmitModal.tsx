@@ -18,6 +18,7 @@ import {
   type SubmissionStatus,
 } from '../api';
 import { useModalA11y } from '../hooks/useModalA11y';
+import { readLocalStorage, writeLocalStorage } from '../utils/storage';
 
 interface SubmitModalProps {
   isOpen: boolean;
@@ -76,7 +77,7 @@ export const SubmitModal: React.FC<SubmitModalProps> = ({
       setSubmitted(false);
       setTrackingId(null);
       setSubmissionStatus(null);
-      setLastTrackingId(window.localStorage.getItem(LAST_TRACKING_KEY));
+      setLastTrackingId(readLocalStorage(LAST_TRACKING_KEY));
       setError(null);
       setSubmitting(false);
     }
@@ -135,7 +136,7 @@ export const SubmitModal: React.FC<SubmitModalProps> = ({
       );
       setTrackingId(receipt.trackingId);
       setLastTrackingId(receipt.trackingId);
-      window.localStorage.setItem(LAST_TRACKING_KEY, receipt.trackingId);
+      writeLocalStorage(LAST_TRACKING_KEY, receipt.trackingId);
       setSubmitted(true);
       onSubmitted?.(receipt.trackingId);
     } catch (err) {

@@ -48,7 +48,9 @@ export const Pagination: React.FC<PaginationProps> = ({
 
   return (
     <div
+      role="navigation"
       className={`sharetopus-card p-4 rounded-[20px] bg-white dark:bg-[#131A29] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] shadow-[4px_4px_0_0_#1C1B18] dark:shadow-[4px_4px_0_0_#D6DCE5] flex flex-col sm:flex-row items-center justify-between gap-4 font-mono text-xs text-[#1C1B18] dark:text-[#F8FAF9] font-extrabold ${className}`}
+      aria-label="Catalogue pagination"
     >
       {/* Rows per page selector */}
       <div className="flex items-center gap-2">
@@ -95,6 +97,7 @@ export const Pagination: React.FC<PaginationProps> = ({
             onClick={handlePrev}
             disabled={currentPage === 1}
             title="Previous page"
+            aria-label="Previous page"
             className="p-1.5 rounded-xl border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#1A2336] text-[#1C1B18] dark:text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#D23B14] hover:text-white transition-all font-bold"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -111,10 +114,10 @@ export const Pagination: React.FC<PaginationProps> = ({
                 Math.abs(page - currentPage) > 1
               ) {
                 if (page === 2 && currentPage > 3) {
-                  return <span key="dots1" className="px-1 text-slate-400">…</span>;
+                  return <span key="dots1" aria-hidden="true" className="px-1 text-slate-400">…</span>;
                 }
                 if (page === totalPages - 1 && currentPage < totalPages - 2) {
-                  return <span key="dots2" className="px-1 text-slate-400">…</span>;
+                  return <span key="dots2" aria-hidden="true" className="px-1 text-slate-400">…</span>;
                 }
                 return null;
               }
@@ -124,6 +127,8 @@ export const Pagination: React.FC<PaginationProps> = ({
                   key={page}
                   type="button"
                   onClick={() => onPageChange(page)}
+                  aria-label={`Page ${page}`}
+                  aria-current={currentPage === page ? 'page' : undefined}
                   className={`px-3 py-1.5 rounded-xl border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] font-extrabold text-xs transition-all ${
                     currentPage === page
                       ? 'bg-[#D23B14] text-white shadow-sm'
@@ -141,6 +146,7 @@ export const Pagination: React.FC<PaginationProps> = ({
             onClick={handleNext}
             disabled={currentPage === totalPages}
             title="Next page"
+            aria-label="Next page"
             className="p-1.5 rounded-xl border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#1A2336] text-[#1C1B18] dark:text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#D23B14] hover:text-white transition-all font-bold"
           >
             <ChevronRight className="w-4 h-4" />
@@ -154,13 +160,14 @@ export const Pagination: React.FC<PaginationProps> = ({
             type="button"
             onClick={onLoadMore}
             disabled={isLoadingMore}
+            aria-describedby={loadMoreError ? 'load-more-error' : undefined}
             className="btn-sharetopus-secondary justify-center text-xs py-2 px-4 font-bold disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {isLoadingMore && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
             <span>{isLoadingMore ? 'Loading more…' : 'Load more opportunities'}</span>
           </button>
           {loadMoreError && (
-            <span role="alert" className="max-w-xs text-center sm:text-right text-[11px] text-[#B91C1C] dark:text-[#F87171]">
+            <span id="load-more-error" role="alert" className="max-w-xs text-center sm:text-right text-[11px] text-[#B91C1C] dark:text-[#F87171]">
               {loadMoreError}
             </span>
           )}

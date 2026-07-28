@@ -442,6 +442,9 @@ class CatalogueService:
         tech_rows = await self._session.execute(
             select(func.distinct(func.unnest(Hackathon.technologies)))
         )
+        offer_tag_rows = await self._session.execute(
+            select(func.distinct(func.unnest(AIOffer.tags)))
+        )
         regions_h = await self._session.execute(
             select(func.distinct(func.unnest(Hackathon.eligible_countries)))
         )
@@ -460,7 +463,9 @@ class CatalogueService:
 
         regions = clean([*regions_h.scalars().all(), *regions_a.scalars().all()])
         return FilterMetaResponse(
-            technologies=clean(list(tech_rows.scalars().all())),
+            technologies=clean(
+                [*tech_rows.scalars().all(), *offer_tag_rows.scalars().all()]
+            ),
             regions=regions,
             eligibility_labels=clean(list(eligibility.scalars().all())),
             offer_types=clean(list(offer_types.scalars().all())),

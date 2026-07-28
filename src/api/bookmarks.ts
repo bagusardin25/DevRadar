@@ -1,6 +1,7 @@
 /** Browser-only bookmark / alert preference storage (no server account). */
 
 import type { AIDeal, Hackathon } from '../types';
+import { readLocalStorage, writeLocalStorage } from '../utils/storage';
 
 const BOOKMARKS_KEY = 'devradar_bookmarks_v1';
 const ALERTS_KEY = 'devradar_alerts_v1';
@@ -32,7 +33,7 @@ export type BookmarkExportPayload = {
 
 function readIdSet(key: string): Set<string> {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = readLocalStorage(key);
     if (!raw) return new Set();
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return new Set();
@@ -43,7 +44,7 @@ function readIdSet(key: string): Set<string> {
 }
 
 function writeIdSet(key: string, ids: Set<string>): void {
-  localStorage.setItem(key, JSON.stringify([...ids]));
+  writeLocalStorage(key, JSON.stringify([...ids]));
 }
 
 export function loadBookmarkIds(): Set<string> {
@@ -88,7 +89,7 @@ function stripLocalFlags<T extends { bookmarked?: boolean; alertEnabled?: boolea
 
 export function loadBookmarkSnapshots(): BookmarkSnapshotStore {
   try {
-    const raw = localStorage.getItem(BOOKMARK_SNAPSHOTS_KEY);
+    const raw = readLocalStorage(BOOKMARK_SNAPSHOTS_KEY);
     if (!raw) return { hackathons: {}, deals: {} };
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== 'object') return { hackathons: {}, deals: {} };
@@ -104,7 +105,7 @@ export function loadBookmarkSnapshots(): BookmarkSnapshotStore {
 
 export function saveBookmarkSnapshots(store: BookmarkSnapshotStore): void {
   try {
-    localStorage.setItem(BOOKMARK_SNAPSHOTS_KEY, JSON.stringify(store));
+    writeLocalStorage(BOOKMARK_SNAPSHOTS_KEY, JSON.stringify(store));
   } catch {
     // Quota errors are non-fatal — the in-memory cache still works this session.
   }

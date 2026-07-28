@@ -16,6 +16,7 @@ import { formatPrizePool } from '../utils/formatPrize';
 import { getDeadlineInfo } from '../utils/countdown';
 import { downloadICS, buildGoogleCalendarUrl, hackathonRegDeadlineEvent } from '../utils/calendar';
 import { compactDescription, dedupeHighlights } from '../utils/cardSummary';
+import { formatAppDateTime } from '../utils/dateTime';
 import { ListingBadges } from './ListingBadges';
 
 /** Cards trade completeness for scannability; the modal carries the full lists. */
@@ -59,7 +60,15 @@ export const HackathonCard = memo(function HackathonCard({
 
   const handleDownloadMD = (e: React.MouseEvent, hackathon: Hackathon) => {
     e.stopPropagation();
-    const mdContent = `# ${hackathon.title}\n\n**Organizer:** ${hackathon.organizer}\n**Prize Pool:** ${formatPrizePool(hackathon)}\n**Registration Deadline:** ${new Date(hackathon.registrationDeadline).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}\n**Submission Deadline:** ${new Date(hackathon.submissionDeadline).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}\n\n## Description\n${hackathon.description}\n\n## Technologies\n${hackathon.technologies.join(', ')}\n\n## Official Link\n[${hackathon.officialUrl}](${hackathon.officialUrl})\n\n## Verification\n**Status:** ${hackathon.verificationStatus}\n**Confidence:** ${Math.round((hackathon.confidenceScore ?? 0) * 100)}%\n**Last checked:** ${hackathon.audit?.lastCheckedAt ? new Date(hackathon.audit.lastCheckedAt).toLocaleString() : 'unknown'}\n\n> Always confirm details on the official page before relying on them.\n`;
+    const dateOptions: Intl.DateTimeFormatOptions = {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZoneName: 'short',
+    };
+    const mdContent = `# ${hackathon.title}\n\n**Organizer:** ${hackathon.organizer}\n**Prize Pool:** ${formatPrizePool(hackathon)}\n**Registration Deadline:** ${formatAppDateTime(hackathon.registrationDeadline, dateOptions)}\n**Submission Deadline:** ${formatAppDateTime(hackathon.submissionDeadline, dateOptions)}\n\n## Description\n${hackathon.description}\n\n## Technologies\n${hackathon.technologies.join(', ')}\n\n## Official Link\n[${hackathon.officialUrl}](${hackathon.officialUrl})\n\n## Verification\n**Status:** ${hackathon.verificationStatus}\n**Confidence:** ${Math.round((hackathon.confidenceScore ?? 0) * 100)}%\n**Last checked:** ${hackathon.audit?.lastCheckedAt ? formatAppDateTime(hackathon.audit.lastCheckedAt, dateOptions) : 'Unknown'}\n\n> Always confirm details on the official page before relying on them.\n`;
     
     const blob = new Blob([mdContent], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);

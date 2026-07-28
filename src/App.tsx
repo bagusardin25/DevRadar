@@ -16,6 +16,7 @@ import {
   ApiError,
   type AdminMe,
   type CatalogueStats,
+  type FilterMeta,
   type ReviewCorrections,
   type ReviewItem,
   adminLogout,
@@ -23,6 +24,7 @@ import {
   fetchAIOffers,
   fetchAdminMe,
   fetchCatalogueStats,
+  fetchFilterMeta,
   fetchHackathons,
   fetchReviewItems,
   loadAlertIds,
@@ -44,6 +46,7 @@ import {
 } from './api';
 import { MOCK_HACKATHONS, MOCK_AI_DEALS } from './data/mockData';
 import { FilterX, Loader2, WifiOff } from 'lucide-react';
+import { readLocalStorage, writeLocalStorage } from './utils/storage';
 
 /** Heavy admin / tooling views — split out of the initial catalogue bundle. */
 const PipelineViewer = lazy(() =>
@@ -168,18 +171,23 @@ function filterMockAIDeals(items: AIDeal[], filters: FilterState): AIDeal[] {
 
 export function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.THEME);
-    return saved === 'dark' || saved === 'light' ? saved : 'light';
+    const saved = readLocalStorage(STORAGE_KEYS.THEME);
+    if (saved === 'dark' || saved === 'light') return saved;
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.THEME, theme);
+    writeLocalStorage(STORAGE_KEYS.THEME, theme);
     const root = document.documentElement;
+    root.style.colorScheme = theme;
     if (theme === 'dark') {
       root.classList.add('dark', 'dark-theme');
     } else {
       root.classList.remove('dark', 'dark-theme');
     }
+    document
+      .querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+      ?.setAttribute('content', theme === 'dark' ? '#090C15' : '#F3F4EF');
   }, [theme]);
 
   // Pause marquee / continuous work when the tab is not visible
@@ -254,12 +262,12 @@ export function App() {
   ]);
 
   const [viewLayout, setViewLayout] = useState<'grid' | 'compact'>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.LAYOUT);
+    const saved = readLocalStorage(STORAGE_KEYS.LAYOUT);
     return saved === 'compact' || saved === 'grid' ? saved : 'grid';
   });
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.LAYOUT, viewLayout);
+    writeLocalStorage(STORAGE_KEYS.LAYOUT, viewLayout);
   }, [viewLayout]);
 
   const [bookmarkIds, setBookmarkIds] = useState<Set<string>>(() => loadBookmarkIds());
@@ -294,6 +302,7 @@ export function App() {
   const [hackNextCursor, setHackNextCursor] = useState<string | null>(null);
   const [dealNextCursor, setDealNextCursor] = useState<string | null>(null);
   const [stats, setStats] = useState<CatalogueStats | null>(null);
+  const [filterMeta, setFilterMeta] = useState<FilterMeta | null>(null);
 
   const [catalogueLoading, setCatalogueLoading] = useState(true);
   const [catalogueError, setCatalogueError] = useState<string | null>(null);
@@ -307,6 +316,21 @@ export function App() {
   const [compareItems, setCompareItems] = useState<Hackathon[]>([]);
   const [isCompareOpen, setIsCompareOpen] = useState(false);
   const [compareNotice, setCompareNotice] = useState<string | null>(null);
+
+  // Filter choices come from the same catalogue that executes the query, so
+  // newly indexed technologies, regions, and offer types become discoverable
+  // without a frontend release. HeroSection retains useful offline fallbacks.
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetchFilterMeta(controller.signal)
+      .then(setFilterMeta)
+      .catch((err: unknown) => {
+        if (!(err instanceof DOMException && err.name === 'AbortError')) {
+          setFilterMeta(null);
+        }
+      });
+    return () => controller.abort();
+  }, []);
 
   const [isBookmarksOpen, setIsBookmarksOpen] = useState(false);
   const [isSubmitOpen, setIsSubmitOpen] = useState(false);
@@ -594,31 +618,42 @@ export function App() {
   // After Google OAuth redirect, alert confirmation, or shared bookmark link
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const consumedParams = new Set<string>();
     if (params.get('admin_auth') === 'ok') {
       void loadAdminSession().then(() => {
         setFilters((f) => ({ ...f, activeModule: 'admin_queue' }));
-        window.history.replaceState({}, '', window.location.pathname);
       });
+      consumedParams.add('admin_auth');
     }
     if (params.get('admin_auth') === 'error') {
       const reason = params.get('reason') || 'unknown_error';
       setReviewError(`Google login failed: ${reason}`);
       setFilters((f) => ({ ...f, activeModule: 'admin_queue' }));
-      window.history.replaceState({}, '', window.location.pathname);
+      consumedParams.add('admin_auth');
+      consumedParams.add('reason');
     }
     if (params.get('alert') === 'confirmed') {
-      setAlertConfirmMsg('✅ Email alert subscription confirmed! You will receive notifications.');
-      window.history.replaceState({}, '', window.location.pathname);
+      setAlertConfirmMsg('Email alert subscription confirmed. You will receive notifications.');
+      consumedParams.add('alert');
     }
     if (params.get('alert') === 'unsubscribed') {
       setAlertConfirmMsg('You have been unsubscribed from DevRadar email alerts.');
-      window.history.replaceState({}, '', window.location.pathname);
+      consumedParams.add('alert');
     }
     const shared = parseShareIdsFromSearch(window.location.search);
     if (shared.length > 0) {
       setSharedBookmarkIds(shared);
       setIsBookmarksOpen(true);
       // Keep ?bm= in the URL so the link remains shareable while viewing.
+    }
+    if (consumedParams.size > 0) {
+      const nextUrl = new URL(window.location.href);
+      for (const key of consumedParams) nextUrl.searchParams.delete(key);
+      window.history.replaceState(
+        {},
+        '',
+        `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`,
+      );
     }
   }, [loadAdminSession]);
 
@@ -896,6 +931,7 @@ export function App() {
             <HeroSection
               filters={filters}
               setFilters={setFilters}
+              filterMeta={filterMeta}
               totalResults={hackTotal || hackathons.length}
               verifiedCount={verifiedHackathonCount}
               onTriggerLiveDiscovery={() => void handleTriggerLiveDiscovery()}
@@ -987,6 +1023,7 @@ export function App() {
             <HeroSection
               filters={filters}
               setFilters={setFilters}
+              filterMeta={filterMeta}
               totalResults={dealTotal || aiDeals.length}
               verifiedCount={verifiedDealCount}
               onTriggerLiveDiscovery={() => void handleTriggerLiveDiscovery()}

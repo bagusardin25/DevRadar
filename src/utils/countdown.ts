@@ -148,6 +148,7 @@ export function getDeadlineInfo(
  * Count the number of active (non-default) filters for the "Filters (N)" badge.
  */
 export function countActiveFilters(filters: {
+  activeModule?: string;
   searchQuery: string;
   mode: string;
   region: string;
@@ -161,14 +162,17 @@ export function countActiveFilters(filters: {
 }): number {
   let count = 0;
   if (filters.searchQuery.trim()) count++;
-  if (filters.mode !== 'all') count++;
   if (filters.region) count++;
-  if (filters.eligibility) count++;
   if (filters.technology) count++;
-  if (filters.offerType) count++;
   if (filters.verificationStatus) count++;
-  if (filters.onlyClosingSoon) count++;
-  if (filters.onlyBigPrizes) count++;
-  if (filters.onlyFreeNoCard) count++;
+  if (filters.activeModule === 'ai_deal') {
+    if (filters.offerType) count++;
+    if (filters.onlyFreeNoCard) count++;
+  } else {
+    if (filters.mode !== 'all') count++;
+    if (filters.eligibility) count++;
+    if (filters.onlyClosingSoon) count++;
+    if (filters.onlyBigPrizes) count++;
+  }
   return count;
 }

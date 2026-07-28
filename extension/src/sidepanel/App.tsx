@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Globe, Sparkles, Calendar, Bookmark, Zap, Wrench,
-  Search, Send, Loader2, AlertCircle, CheckCircle2,
-  Sun, Moon, Settings, ChevronRight, ExternalLink,
+  Globe, Sparkles, Calendar, Zap, Wrench,
+  Send, Loader2, AlertCircle,
+  Sun, Moon, Settings, ExternalLink,
   RefreshCw, Clock,
 } from 'lucide-react';
 import type { Message } from '../shared/messages';
@@ -48,25 +48,6 @@ export function App() {
   const [similar, setSimilar] = useState<SearchResult | null>(null);
   const [apiBaseUrl, setApiBaseUrl] = useState('http://localhost:8000');
 
-  useEffect(() => {
-    getSettings().then((s) => {
-      setApiBaseUrl(s.apiBaseUrl);
-      if (s.darkMode === 'dark' || (s.darkMode === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-        setDarkMode(true);
-      }
-    });
-    fetchTabInfo();
-  }, []);
-
-  useEffect(() => {
-    const root = document.documentElement;
-    if (darkMode) {
-      root.classList.add('dark', 'dark-theme');
-    } else {
-      root.classList.remove('dark', 'dark-theme');
-    }
-  }, [darkMode]);
-
   const fetchTabInfo = useCallback(() => {
     if (!hasChromeRuntime) {
       setTabInfo({ url: 'https://example.com/hackathon', title: 'Dev preview — no Chrome APIs' });
@@ -78,6 +59,25 @@ export function App() {
       }
     });
   }, []);
+
+  useEffect(() => {
+    getSettings().then((s) => {
+      setApiBaseUrl(s.apiBaseUrl);
+      if (s.darkMode === 'dark' || (s.darkMode === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        setDarkMode(true);
+      }
+    });
+    fetchTabInfo();
+  }, [fetchTabInfo]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (darkMode) {
+      root.classList.add('dark', 'dark-theme');
+    } else {
+      root.classList.remove('dark', 'dark-theme');
+    }
+  }, [darkMode]);
 
   const handleAnalyze = useCallback(() => {
     setView('analyzing');
@@ -238,7 +238,6 @@ export function App() {
             tabUrl={tabInfo.url}
             similar={similar}
             onSubmit={handleSubmit}
-            onReset={handleReset}
           />
         )}
 
@@ -316,13 +315,12 @@ export function App() {
 }
 
 function ResultsView({
-  result, tabUrl, similar, onSubmit, onReset,
+  result, tabUrl, similar, onSubmit,
 }: {
   result: ExtractionResult;
   tabUrl: string;
   similar: SearchResult | null;
   onSubmit: () => void;
-  onReset: () => void;
 }) {
   const fields = result.fields;
   const isHackathon = result.listingKind === 'hackathon';
@@ -425,7 +423,7 @@ function ResultsView({
             </button>
           )}
           <button
-            onClick={() => { if (tabUrl) window.open(tabUrl, '_blank'); }}
+            onClick={() => { if (tabUrl) window.open(tabUrl, '_blank', 'noopener,noreferrer'); }}
             className="flex items-center justify-center gap-1.5 p-2 rounded-full border-[1.5px] border-[var(--border-dark)] bg-[var(--bg-card)] font-extrabold text-[10px] shadow-[2px_2px_0_0_var(--border-dark)] hover:translate-x-[-1px] transition-all"
           >
             <ExternalLink className="w-3 h-3" /> Open Page

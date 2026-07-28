@@ -1,6 +1,7 @@
 import React from 'react';
-import { X } from 'lucide-react';
+import { ExternalLink, X } from 'lucide-react';
 import { formatPrizePool } from '../utils/formatPrize';
+import { formatAppDate } from '../utils/dateTime';
 import type { Hackathon } from '../types';
 import { useModalA11y } from '../hooks/useModalA11y';
 
@@ -110,13 +111,7 @@ export const CompareModal: React.FC<CompareModalProps> = ({
                 </td>
                 {items.map((item) => (
                   <td key={item.id} className="p-3 text-[#D97706] dark:text-[#FBBF24]">
-                    {item.registrationDeadline
-                      ? new Date(item.registrationDeadline).toLocaleDateString(undefined, {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                        })
-                      : '—'}
+                    {formatAppDate(item.registrationDeadline)}
                   </td>
                 ))}
               </tr>
@@ -126,7 +121,7 @@ export const CompareModal: React.FC<CompareModalProps> = ({
                 </td>
                 {items.map((item) => (
                   <td key={item.id} className="p-3 uppercase font-extrabold text-[#FF5A36]">
-                    {item.mode}
+                    {item.mode.replace('_', ' ')}
                   </td>
                 ))}
               </tr>
@@ -137,6 +132,24 @@ export const CompareModal: React.FC<CompareModalProps> = ({
                 {items.map((item) => (
                   <td key={item.id} className="p-3">
                     {item.teamMin}–{item.teamMax}
+                  </td>
+                ))}
+              </tr>
+              <tr className="bg-[#F8F9F4]/80 dark:bg-[#1A2336]/40">
+                <td className="p-3 font-extrabold text-[#736F66] dark:text-[#94A3B8] text-[12px]">
+                  Next step
+                </td>
+                {items.map((item) => (
+                  <td key={item.id} className="p-3">
+                    <a
+                      href={item.officialUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-[#7C3AED] dark:text-[#C4B5FD] font-extrabold hover:underline"
+                    >
+                      Official page
+                      <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
+                    </a>
                   </td>
                 ))}
               </tr>

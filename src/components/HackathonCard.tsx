@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Download,
   Calendar,
+  ExternalLink,
 } from 'lucide-react';
 import type { Hackathon } from '../types';
 import { formatPrizePool } from '../utils/formatPrize';
@@ -195,11 +196,21 @@ export const HackathonCard = memo(function HackathonCard({
 
           <button
             onClick={() => onSelect(hackathon)}
-            className="btn-sharetopus-primary text-xs py-2 px-4 font-bold"
+            className="btn-sharetopus-secondary text-xs py-2 px-4 font-bold"
           >
-            <span>Audit &amp; Detail</span>
+            <span>Details</span>
             <ArrowUpRight className="w-3.5 h-3.5" />
           </button>
+
+          <a
+            href={hackathon.officialUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-sharetopus-primary text-xs py-2 px-4 font-bold"
+          >
+            <span>Official site</span>
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
         </div>
       </div>
     );
@@ -346,7 +357,7 @@ export const HackathonCard = memo(function HackathonCard({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2 ml-auto">
+        <div className="flex items-center gap-2 ml-auto flex-wrap justify-end">
 
           {/* Compare Toggle */}
           <button
@@ -388,11 +399,21 @@ export const HackathonCard = memo(function HackathonCard({
           {/* View Details */}
           <button
             onClick={() => onSelect(hackathon)}
-            className="btn-sharetopus-primary text-xs py-2 px-4 font-bold"
+            className="btn-sharetopus-secondary text-xs py-2 px-4 font-bold"
           >
-            <span>Audit &amp; Detail</span>
+            <span>Details</span>
             <ArrowUpRight className="w-3.5 h-3.5" />
           </button>
+
+          <a
+            href={hackathon.officialUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-sharetopus-primary text-xs py-2 px-4 font-bold"
+          >
+            <span>Official site</span>
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
         </div>
 
       </div>

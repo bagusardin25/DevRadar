@@ -45,39 +45,42 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   const activeFilterCount = countActiveFilters(filters);
 
   const presetChips = filters.activeModule === 'hackathon' ? [
-    { label: 'All Hackathons', icon: Flame, apply: () => setFilters(f => ({ ...f, searchQuery: '', mode: 'all', verificationStatus: '' })) },
+    { label: 'All Hackathons', icon: Flame, apply: () => setFilters(f => ({ ...f, searchQuery: '', mode: 'all', region: '', eligibility: '', technology: '', verificationStatus: '', onlyClosingSoon: false, onlyBigPrizes: false })) },
     { label: 'Online & Worldwide', icon: Globe, apply: () => setFilters(f => ({ ...f, mode: 'online', region: 'Worldwide' })) },
     { label: '$10k+ Prize Pool', icon: DollarSign, apply: () => setFilters(f => ({ ...f, onlyBigPrizes: true })) },
     { label: 'Closing < 14 Days', icon: Clock, apply: () => setFilters(f => ({ ...f, onlyClosingSoon: true })) },
     { label: 'AI & LLM Focus', icon: Bot, apply: () => setFilters(f => ({ ...f, technology: 'AI' })) },
     { label: 'Student Eligible', icon: GraduationCap, apply: () => setFilters(f => ({ ...f, eligibility: 'Student' })) }
   ] : [
-    { label: 'All AI Deals', icon: Zap, apply: () => setFilters(f => ({ ...f, searchQuery: '', offerType: '', verificationStatus: '' })) },
-    { label: 'No Credit Card / Free Credits', icon: CreditCard, apply: () => setFilters(f => ({ ...f, offerType: 'free_credits' })) },
+    { label: 'All AI Deals', icon: Zap, apply: () => setFilters(f => ({ ...f, searchQuery: '', region: '', technology: '', offerType: '', verificationStatus: '', onlyFreeNoCard: false })) },
+    { label: 'Free Credits · No Card', icon: CreditCard, apply: () => setFilters(f => ({ ...f, offerType: 'free_credits', onlyFreeNoCard: true })) },
     { label: 'Permanent Free Tier', icon: InfinityIcon, apply: () => setFilters(f => ({ ...f, offerType: 'free_tier' })) },
     { label: 'Student Packs', icon: GraduationCap, apply: () => setFilters(f => ({ ...f, offerType: 'student_program' })) },
     { label: 'Free Open Models / Price Drops', icon: Brain, apply: () => setFilters(f => ({ ...f, offerType: 'free_model' })) }
   ];
 
   return (
-    <div className="relative py-10 md:py-14 px-4 md:px-8 max-w-6xl mx-auto text-center font-sans">
+    <section
+      aria-labelledby="catalogue-heading"
+      className="relative py-6 sm:py-10 md:py-14 px-4 md:px-8 max-w-6xl mx-auto text-center font-sans"
+    >
       
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         
         {/* Top Eyebrow Badge */}
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-extrabold border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] text-[#1C1B18] dark:text-[#F8FAF9] shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5]">
+        <div className="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-extrabold border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] text-[#1C1B18] dark:text-[#F8FAF9] shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5]">
           <span className="size-2.5 rounded-full bg-[#FF5A36]"></span>
           <span>Provenance pipeline (Official sites → Extractor → Verifier)</span>
         </div>
 
         {/* Sharetopus Headline */}
-        <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-[-0.04em] text-[#1C1B18] dark:text-white leading-[1.05]">
+        <h1 id="catalogue-heading" className="text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-[-0.04em] text-[#1C1B18] dark:text-white leading-[1.05]">
           Find bounties.<br />
           Win <span className="italic text-[#D23B14] dark:text-[#FF5A36]">everywhere.</span>
         </h1>
 
         {/* Issue 3 Fix: Subtitle Text - High Contrast Bold Black/White */}
-        <p className="text-base sm:text-lg text-[#1C1B18] dark:text-[#F8FAF9] font-extrabold max-w-2xl mx-auto leading-relaxed">
+        <p className="text-sm sm:text-lg text-[#1C1B18] dark:text-[#F8FAF9] font-bold sm:font-extrabold max-w-2xl mx-auto leading-relaxed">
           The simplest way to discover hackathons, claim free AI credits, and track model price drops across every ecosystem — without subscription fees or API key requirements.
         </p>
 
@@ -132,6 +135,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               />
               {filters.searchQuery && (
                 <button 
+                  type="button"
+                  aria-label="Clear search"
                   onClick={() => setFilters(f => ({ ...f, searchQuery: '' }))}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-[#1C1B18] hover:text-[#FF5A36]"
                 >
@@ -187,15 +192,15 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         )}
 
         {/* Presets / Filter Chips */}
-        <div className="flex items-center justify-center gap-2 overflow-x-auto pt-2 pb-1 text-xs">
-          <span className="text-[#1C1B18] dark:text-[#F8FAF9] font-mono font-extrabold uppercase text-[12px] whitespace-nowrap mr-1">Presets:</span>
+        <div className="no-scrollbar flex items-center justify-start sm:justify-center gap-2 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 pt-2 pb-2 text-xs snap-x">
+          <span className="hidden sm:inline text-[#1C1B18] dark:text-[#F8FAF9] font-mono font-extrabold uppercase text-[12px] whitespace-nowrap mr-1">Presets:</span>
           {presetChips.map((chip, idx) => {
             const ChipIcon = chip.icon;
             return (
               <button
                 key={idx}
                 onClick={chip.apply}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-full border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] text-[#1C1B18] dark:text-white font-extrabold text-xs shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5] hover:bg-[#D23B14] hover:text-white transition-all"
+                className="snap-start shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] text-[#1C1B18] dark:text-white font-extrabold text-xs shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5] hover:bg-[#D23B14] hover:text-white transition-all"
               >
                 <ChipIcon className="w-3.5 h-3.5 text-[#FF5A36] group-hover:text-white" />
                 <span>{chip.label}</span>
@@ -240,7 +245,9 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                   <label className="text-[#1C1B18] dark:text-[#F8FAF9] font-extrabold">Participation Mode</label>
                   <select
                     value={filters.mode}
-                    onChange={(e) => setFilters(f => ({ ...f, mode: e.target.value as any }))}
+                    onChange={(e) =>
+                      setFilters(f => ({ ...f, mode: e.target.value as FilterState['mode'] }))
+                    }
                     className="w-full bg-[#F3F4EF] dark:bg-[#1A2336] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] text-[#1C1B18] dark:text-white rounded-xl p-2.5 outline-none font-bold"
                   >
                     <option value="all">All Modes</option>
@@ -298,17 +305,17 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               </div>
 
               <div className="flex flex-col justify-end space-y-2">
-                <label className="flex items-center gap-2 cursor-pointer text-[#1C1B18] dark:text-[#F8FAF9] font-bold">
-                  <input
-                    type="checkbox"
-                    checked={filters.onlyClosingSoon}
-                    onChange={(e) => setFilters(f => ({ ...f, onlyClosingSoon: e.target.checked }))}
-                    className="rounded accent-[#FF5A36]"
-                  />
-                  <span>Closing in &lt; 14 Days</span>
-                </label>
-
-                {filters.activeModule === 'hackathon' && (
+                {filters.activeModule === 'hackathon' ? (
+                  <>
+                    <label className="flex items-center gap-2 cursor-pointer text-[#1C1B18] dark:text-[#F8FAF9] font-bold">
+                      <input
+                        type="checkbox"
+                        checked={filters.onlyClosingSoon}
+                        onChange={(e) => setFilters(f => ({ ...f, onlyClosingSoon: e.target.checked }))}
+                        className="rounded accent-[#FF5A36]"
+                      />
+                      <span>Closing in &lt; 14 Days</span>
+                    </label>
                   <label className="flex items-center gap-2 cursor-pointer text-[#1C1B18] dark:text-[#F8FAF9] font-bold">
                     <input
                       type="checkbox"
@@ -317,6 +324,17 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                       className="rounded accent-[#FF5A36]"
                     />
                     <span>$10,000+ Prize Pools</span>
+                  </label>
+                  </>
+                ) : (
+                  <label className="flex items-center gap-2 cursor-pointer text-[#1C1B18] dark:text-[#F8FAF9] font-bold">
+                    <input
+                      type="checkbox"
+                      checked={filters.onlyFreeNoCard}
+                      onChange={(e) => setFilters(f => ({ ...f, onlyFreeNoCard: e.target.checked }))}
+                      className="rounded accent-[#FF5A36]"
+                    />
+                    <span>No credit card required</span>
                   </label>
                 )}
               </div>
@@ -333,7 +351,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             {/* Explicit {' '} — JSX drops the whitespace around expressions on
                 their own line, which would read as "22opportunities" to a
                 screen reader and to anyone copying the text. */}
-            Showing{' '}
+            Found{' '}
             <strong className="text-[#C2410C] dark:text-[#D6DCE5] text-sm font-extrabold">{totalResults}</strong>{' '}
             {totalResults === 1 ? 'opportunity' : 'opportunities'}
             {verifiedCount != null && (
@@ -356,6 +374,6 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         </div>
 
       </div>
-    </div>
+    </section>
   );
 };

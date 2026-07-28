@@ -22,7 +22,10 @@ export const StatsOverview: React.FC<StatsOverviewProps> = ({
     : 'grid-cols-1 sm:grid-cols-3';
 
   return (
-    <div className={`grid ${cols} gap-4 max-w-6xl mx-auto px-4 lg:px-8 pt-6 font-sans`}>
+    <section
+      aria-label="Catalogue summary"
+      className={`hidden sm:grid ${cols} gap-4 max-w-6xl mx-auto px-4 lg:px-8 pt-6 font-sans`}
+    >
       
       {/* Sum of known prize pools on the current result set (not a guarantee) */}
       <div className="sharetopus-card p-5 rounded-[24px] bg-white dark:bg-[#131A29] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] shadow-[4px_4px_0_0_#1C1B18] dark:shadow-[4px_4px_0_0_#D6DCE5] relative overflow-hidden group hover:translate-y-[-2px] transition-all">
@@ -37,7 +40,7 @@ export const StatsOverview: React.FC<StatsOverviewProps> = ({
           <span className="text-xs text-[#1C1B18] dark:text-[#B8C4D2] font-bold font-sans">USD*</span>
         </div>
         <div className="mt-1 text-xs text-[#1C1B18] dark:text-[#B8C4D2] font-bold">
-          From current results · TBA prizes count as $0
+          From loaded results · TBA prizes count as $0
         </div>
       </div>
 
@@ -91,6 +94,6 @@ export const StatsOverview: React.FC<StatsOverviewProps> = ({
         </div>
       )}
 
-    </div>
+    </section>
   );
 };

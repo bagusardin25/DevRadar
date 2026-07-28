@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Bell, X, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { createAlert } from '../api/alerts';
 import { useModalA11y } from '../hooks/useModalA11y';
@@ -38,6 +38,32 @@ export const AlertSubscribeModal: React.FC<AlertSubscribeModalProps> = ({
   const [website, setWebsite] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
+  const closeTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setTargetType(defaultKind);
+    setMode(defaultMode);
+    setTechnology(defaultTechnology);
+    setOnlyClosingSoon(defaultOnlyClosingSoon);
+    setOnlyBigPrizes(defaultOnlyBigPrizes);
+    setStatus('idle');
+    setErrorMessage('');
+  }, [
+    defaultKind,
+    defaultMode,
+    defaultOnlyBigPrizes,
+    defaultOnlyClosingSoon,
+    defaultTechnology,
+    isOpen,
+  ]);
+
+  useEffect(
+    () => () => {
+      if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
+    },
+    [isOpen],
+  );
 
   if (!isOpen) return null;
 
@@ -82,9 +108,10 @@ export const AlertSubscribeModal: React.FC<AlertSubscribeModalProps> = ({
         },
       });
       setStatus('success');
-      setTimeout(() => {
+      closeTimer.current = window.setTimeout(() => {
         onClose();
         resetForm();
+        closeTimer.current = null;
       }, 2200);
     } catch (err: unknown) {
       setStatus('error');

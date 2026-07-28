@@ -110,7 +110,7 @@ function detectOfferValue(text: string, offerType: string | null): string | null
 }
 
 function detectOrganizer(text: string): string | null {
-  const m = text.match(/(?:organized|hosted|presented|powered)\s+by\s+([A-Z][\w &.+\-]{1,60})/i);
+  const m = text.match(/(?:organized|hosted|presented|powered)\s+by\s+([A-Z][\w &.+-]{1,60})/i);
   return m ? m[1].trim() : null;
 }
 

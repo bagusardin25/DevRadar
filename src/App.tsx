@@ -73,10 +73,57 @@ function ModuleFallback() {
   );
 }
 
+function CatalogueStatusNotice({
+  error,
+  onRetry,
+}: {
+  error: string | null;
+  onRetry: () => void;
+}) {
+  if (!error) return null;
+
+  return (
+    <div className="max-w-6xl mx-auto px-4 lg:px-8 pt-4">
+      <div
+        role="status"
+        className="sharetopus-card p-3 sm:p-4 rounded-2xl border-[1.5px] border-[#D97706] bg-[#D97706]/10 flex flex-col sm:flex-row sm:items-center gap-3 text-xs text-[#1C1B18] dark:text-[#F8FAF9]"
+      >
+        <WifiOff className="hidden sm:block w-5 h-5 text-[#D97706] shrink-0" />
+        <div className="min-w-0 flex-1">
+          <div className="font-extrabold">Live catalogue unavailable — browsing sample data</div>
+          <p className="mt-1 text-[#4A4845] dark:text-[#CBD5E1] font-semibold">
+            Search, compare, bookmark, and inspect the sample opportunities while DevRadar reconnects.
+          </p>
+          {import.meta.env.DEV && (
+            <details className="mt-2 text-[11px] font-mono text-[#736F66] dark:text-[#94A3B8]">
+              <summary className="cursor-pointer font-bold">Developer connection details</summary>
+              <p className="mt-1">{error}</p>
+              <p>Run the API at http://127.0.0.1:8000 for live listings.</p>
+            </details>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="btn-sharetopus-secondary justify-center text-xs py-2 px-4 font-bold sm:shrink-0"
+        >
+          Retry live data
+        </button>
+      </div>
+    </div>
+  );
+}
+
 const STORAGE_KEYS = {
   LAYOUT: 'devradar_layout_v1',
   THEME: 'devradar_theme_v1',
 };
+
+function appendUniqueById<T extends { id: string }>(current: T[], incoming: T[]): T[] {
+  const next = new Map(current.map((item) => [item.id, item]));
+  for (const item of incoming) next.set(item.id, item);
+  return [...next.values()];
+}
 
 /** Filter mock hackathons locally when backend is offline. */
 function filterMockHackathons(items: Hackathon[], filters: FilterState): Hackathon[] {
@@ -244,13 +291,22 @@ export function App() {
   const [aiDeals, setAiDeals] = useState<AIDeal[]>([]);
   const [hackTotal, setHackTotal] = useState(0);
   const [dealTotal, setDealTotal] = useState(0);
+  const [hackNextCursor, setHackNextCursor] = useState<string | null>(null);
+  const [dealNextCursor, setDealNextCursor] = useState<string | null>(null);
   const [stats, setStats] = useState<CatalogueStats | null>(null);
 
   const [catalogueLoading, setCatalogueLoading] = useState(true);
   const [catalogueError, setCatalogueError] = useState<string | null>(null);
+  const [loadingMoreKind, setLoadingMoreKind] = useState<'hackathon' | 'ai_deal' | null>(null);
+  const [loadMoreError, setLoadMoreError] = useState<{
+    kind: 'hackathon' | 'ai_deal';
+    message: string;
+  } | null>(null);
 
   const [selectedItem, setSelectedItem] = useState<Hackathon | AIDeal | null>(null);
   const [compareItems, setCompareItems] = useState<Hackathon[]>([]);
+  const [isCompareOpen, setIsCompareOpen] = useState(false);
+  const [compareNotice, setCompareNotice] = useState<string | null>(null);
 
   const [isBookmarksOpen, setIsBookmarksOpen] = useState(false);
   const [isSubmitOpen, setIsSubmitOpen] = useState(false);
@@ -272,6 +328,7 @@ export function App() {
 
   const hackAbort = useRef<AbortController | null>(null);
   const dealAbort = useRef<AbortController | null>(null);
+  const catalogueRequestId = useRef(0);
 
   const applyLocalFlags = useCallback(
     <T extends { id: string }>(items: T[]): (T & { bookmarked: boolean; alertEnabled: boolean })[] =>
@@ -284,8 +341,11 @@ export function App() {
   );
 
   const loadCatalogue = useCallback(async () => {
+    const requestId = ++catalogueRequestId.current;
     setCatalogueLoading(true);
     setCatalogueError(null);
+    setLoadMoreError(null);
+    setLoadingMoreKind(null);
 
     hackAbort.current?.abort();
     dealAbort.current?.abort();
@@ -315,10 +375,14 @@ export function App() {
         fetchCatalogueStats(hCtrl.signal).catch(() => null),
       ]);
 
+      if (requestId !== catalogueRequestId.current) return;
+
       setHackathons(hackPage.items);
       setHackTotal(hackPage.totalEstimate);
+      setHackNextCursor(hackPage.nextCursor);
       setAiDeals(dealPage.items);
       setDealTotal(dealPage.totalEstimate);
+      setDealNextCursor(dealPage.nextCursor);
       if (statsRes) setStats(statsRes);
       setIsOfflineMode(false);
       // Refresh cached snapshots for any bookmarked row that reappeared in this
@@ -330,6 +394,7 @@ export function App() {
         }),
       );
     } catch (err) {
+      if (requestId !== catalogueRequestId.current) return;
       if (err instanceof DOMException && err.name === 'AbortError') return;
       const message =
         err instanceof ApiError
@@ -355,17 +420,76 @@ export function App() {
       }));
       setHackathons(mockH);
       setHackTotal(mockH.length);
+      setHackNextCursor(null);
       setAiDeals(mockD);
       setDealTotal(mockD.length);
+      setDealNextCursor(null);
       setIsOfflineMode(true);
     } finally {
-      setCatalogueLoading(false);
+      if (requestId === catalogueRequestId.current) setCatalogueLoading(false);
     }
   }, [queryFilters]);
 
   useEffect(() => {
     void loadCatalogue();
   }, [loadCatalogue]);
+
+  const loadMoreCatalogue = useCallback(
+    async (kind: 'hackathon' | 'ai_deal') => {
+      const cursor = kind === 'hackathon' ? hackNextCursor : dealNextCursor;
+      if (!cursor || loadingMoreKind) return;
+      const requestId = catalogueRequestId.current;
+
+      setLoadingMoreKind(kind);
+      setLoadMoreError(null);
+      const bookmarks = loadBookmarkIds();
+      const alerts = loadAlertIds();
+
+      try {
+        if (kind === 'hackathon') {
+          const page = await fetchHackathons(queryFilters, {
+            cursor,
+            limit: 50,
+            bookmarks,
+            alerts,
+          });
+          if (requestId !== catalogueRequestId.current) return;
+          setHackathons((current) => appendUniqueById(current, page.items));
+          setHackTotal(page.totalEstimate);
+          setHackNextCursor(page.nextCursor);
+          setBookmarkCache((current) =>
+            reconcileSnapshots(current, bookmarks, { hackathons: page.items, deals: [] }),
+          );
+        } else {
+          const page = await fetchAIOffers(queryFilters, {
+            cursor,
+            limit: 50,
+            bookmarks,
+            alerts,
+          });
+          if (requestId !== catalogueRequestId.current) return;
+          setAiDeals((current) => appendUniqueById(current, page.items));
+          setDealTotal(page.totalEstimate);
+          setDealNextCursor(page.nextCursor);
+          setBookmarkCache((current) =>
+            reconcileSnapshots(current, bookmarks, { hackathons: [], deals: page.items }),
+          );
+        }
+      } catch (err) {
+        if (requestId !== catalogueRequestId.current) return;
+        const message =
+          err instanceof ApiError
+            ? err.detail
+            : err instanceof Error
+              ? err.message
+              : 'Could not load more opportunities';
+        setLoadMoreError({ kind, message });
+      } finally {
+        if (requestId === catalogueRequestId.current) setLoadingMoreKind(null);
+      }
+    },
+    [dealNextCursor, hackNextCursor, loadingMoreKind, queryFilters],
+  );
 
   // Pagination & Rows Per Page State
   const [rowsPerPage, setRowsPerPage] = useState<number>(12);
@@ -529,14 +653,18 @@ export function App() {
     }
   };
 
-  const handleToggleBookmark = useCallback((id: string) => {
+  const handleToggleBookmark = useCallback((id: string, fallbackItem?: Hackathon | AIDeal) => {
     setBookmarkIds((prev) => {
       const next = toggleId(prev, id);
       setBookmarkCache((cache) => {
         if (next.has(id)) {
-          const h = hackathons.find((x) => x.id === id);
+          const h =
+            hackathons.find((x) => x.id === id) ??
+            (fallbackItem && 'title' in fallbackItem ? fallbackItem : undefined);
           if (h) return upsertSnapshot(cache, h, 'hackathon');
-          const d = aiDeals.find((x) => x.id === id);
+          const d =
+            aiDeals.find((x) => x.id === id) ??
+            (fallbackItem && 'productName' in fallbackItem ? fallbackItem : undefined);
           if (d) return upsertSnapshot(cache, d, 'ai_deal');
           return cache;
         }
@@ -553,15 +681,31 @@ export function App() {
   const handleToggleCompare = useCallback((hack: Hackathon) => {
     setCompareItems((prev) => {
       if (prev.some((i) => i.id === hack.id)) {
+        setCompareNotice(`${hack.title} removed from comparison.`);
         return prev.filter((i) => i.id !== hack.id);
       }
       if (prev.length >= 3) {
-        alert('You can compare up to 3 hackathons side-by-side.');
+        setCompareNotice('You can compare up to 3 hackathons at a time.');
         return prev;
       }
+      setCompareNotice(
+        prev.length === 0
+          ? `${hack.title} added. Choose one more opportunity to compare.`
+          : `${hack.title} added to comparison.`,
+      );
       return [...prev, hack];
     });
   }, []);
+
+  useEffect(() => {
+    if (!compareNotice) return;
+    const timeout = window.setTimeout(() => setCompareNotice(null), 4_000);
+    return () => window.clearTimeout(timeout);
+  }, [compareNotice]);
+
+  useEffect(() => {
+    if (compareItems.length === 0) setIsCompareOpen(false);
+  }, [compareItems.length]);
 
   const handleSelectItem = useCallback((item: Hackathon | AIDeal) => {
     setSelectedItem(item);
@@ -687,6 +831,27 @@ export function App() {
   const displayHackCount = stats?.hackathonsActive ?? hackTotal;
   const displayDealCount = stats?.aiOffersActive ?? dealTotal;
 
+  const catalogueSummary =
+    filters.activeModule === 'hackathon' || filters.activeModule === 'ai_deal' ? (
+      <StatsOverview
+        totalPrizeValue={totalPrizePoolValue}
+        totalHackathons={displayHackCount}
+        totalDeals={displayDealCount}
+        unverifiedCount={reviewTotal}
+        showQueueStat={Boolean(admin)}
+      />
+    ) : null;
+
+  const catalogueStatus = (
+    <CatalogueStatusNotice
+      error={catalogueError}
+      onRetry={() => {
+        setIsOfflineMode(false);
+        void loadCatalogue();
+      }}
+    />
+  );
+
   return (
     <div className="min-h-screen flex flex-col font-sans transition-colors duration-250 bg-[#F3F4EF] dark:bg-[#090C15] text-[#1C1B18] dark:text-[#F8FAF9]">
       <Header
@@ -709,41 +874,6 @@ export function App() {
       />
 
       <main className="flex-1 pb-16">
-        {filters.activeModule !== 'admin_queue' || admin ? (
-          <StatsOverview
-            totalPrizeValue={totalPrizePoolValue}
-            totalHackathons={displayHackCount}
-            totalDeals={displayDealCount}
-            unverifiedCount={reviewTotal}
-            showQueueStat={Boolean(admin)}
-          />
-        ) : null}
-
-        {catalogueError &&
-          filters.activeModule !== 'admin_queue' &&
-          filters.activeModule !== 'pipeline' &&
-          filters.activeModule !== 'catalogue' && (
-          <div className="max-w-6xl mx-auto px-4 lg:px-8 pt-4">
-            <div className="sharetopus-card p-4 rounded-2xl border-[1.5px] border-[#D97706] bg-[#D97706]/10 flex items-start gap-3 text-xs font-bold text-[#1C1B18] dark:text-[#F8FAF9]">
-              <WifiOff className="w-5 h-5 text-[#D97706] shrink-0" />
-              <div>
-                <div className="font-extrabold">Backend Offline — Showing Demo Data</div>
-                <p className="mt-1 opacity-90">{catalogueError}</p>
-                <p className="mt-1 text-[11px] font-mono opacity-70">
-                  Start the backend (uvicorn app.main:app) at http://127.0.0.1:8000 to load real data.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => { setIsOfflineMode(false); void loadCatalogue(); }}
-                  className="btn-sharetopus-secondary text-xs py-1.5 px-3 mt-2 font-bold"
-                >
-                  Retry Connection
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {alertConfirmMsg && (
           <div className="max-w-6xl mx-auto px-4 lg:px-8 pt-3">
             <div className="sharetopus-card p-3 rounded-2xl border-[1.5px] border-[#059669] bg-[#059669]/10 flex items-center justify-between text-xs font-bold text-[#059669] dark:text-[#34D399]">
@@ -771,6 +901,9 @@ export function App() {
               onTriggerLiveDiscovery={() => void handleTriggerLiveDiscovery()}
               isSearchingLive={isSearchingLive}
             />
+
+            {catalogueStatus}
+            {catalogueSummary}
 
             <div className="max-w-6xl mx-auto px-4 lg:px-8 pt-8">
               {catalogueLoading ? (
@@ -828,7 +961,12 @@ export function App() {
                   <Pagination
                     currentPage={currentPage}
                     totalItems={displayHackathons.length}
+                    totalAvailable={hackTotal}
                     rowsPerPage={rowsPerPage}
+                    hasMore={Boolean(hackNextCursor)}
+                    isLoadingMore={loadingMoreKind === 'hackathon'}
+                    loadMoreError={loadMoreError?.kind === 'hackathon' ? loadMoreError.message : null}
+                    onLoadMore={() => void loadMoreCatalogue('hackathon')}
                     onPageChange={(p) => {
                       setCurrentPage(p);
                       window.scrollTo({ top: 400, behavior: 'smooth' });
@@ -855,6 +993,9 @@ export function App() {
               isSearchingLive={isSearchingLive}
             />
 
+            {catalogueStatus}
+            {catalogueSummary}
+
             <div className="max-w-6xl mx-auto px-4 lg:px-8 pt-8">
               {catalogueLoading ? (
                 <div className="sharetopus-card p-12 text-center rounded-[24px] bg-white dark:bg-[#131A29]">
@@ -866,7 +1007,7 @@ export function App() {
                   <FilterX className="w-10 h-10 text-[#FF5A36] mx-auto" />
                   <h3 className="text-lg font-extrabold">No AI Deals Matched Your Filter</h3>
                   <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Try selecting all offer types or clearing search.
+                    Try clearing the search or relaxing one of the active filters.
                   </p>
                 </div>
               ) : (
@@ -893,7 +1034,12 @@ export function App() {
                   <Pagination
                     currentPage={currentPage}
                     totalItems={displayAiDeals.length}
+                    totalAvailable={dealTotal}
                     rowsPerPage={rowsPerPage}
+                    hasMore={Boolean(dealNextCursor)}
+                    isLoadingMore={loadingMoreKind === 'ai_deal'}
+                    loadMoreError={loadMoreError?.kind === 'ai_deal' ? loadMoreError.message : null}
+                    onLoadMore={() => void loadMoreCatalogue('ai_deal')}
                     onPageChange={(p) => {
                       setCurrentPage(p);
                       window.scrollTo({ top: 400, behavior: 'smooth' });
@@ -971,23 +1117,35 @@ export function App() {
         )}
       </main>
 
+      {compareNotice && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed top-20 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-sm z-[60] sharetopus-card px-4 py-3 rounded-2xl border-[1.5px] border-[#7C3AED] bg-white dark:bg-[#131A29] text-xs font-bold text-[#1C1B18] dark:text-white shadow-[4px_4px_0_0_#7C3AED]"
+        >
+          {compareNotice}
+        </div>
+      )}
+
       {compareItems.length > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 sharetopus-card px-6 py-3.5 rounded-full border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] text-[#1C1B18] dark:text-white shadow-[4px_4px_0_0_#1C1B18] dark:shadow-[4px_4px_0_0_#D6DCE5] flex items-center gap-4 text-xs font-mono font-extrabold">
-          <span className="text-[#7C3AED] font-extrabold">
-            Comparing {compareItems.length} Opportunity (
-            {compareItems.map((i) => i.title.substring(0, 15)).join(', ')}...)
+        <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-40 sharetopus-card px-4 sm:px-6 py-3 rounded-2xl sm:rounded-full border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] text-[#1C1B18] dark:text-white shadow-[4px_4px_0_0_#1C1B18] dark:shadow-[4px_4px_0_0_#D6DCE5] flex flex-wrap sm:flex-nowrap items-center justify-between sm:justify-center gap-2 sm:gap-4 text-xs font-mono font-extrabold">
+          <span className="min-w-0 text-[#7C3AED] dark:text-[#C4B5FD] font-extrabold">
+            {compareItems.length === 1
+              ? '1 selected · choose one more'
+              : `${compareItems.length} opportunities selected`}
           </span>
           <button
             type="button"
-            onClick={() => setSelectedItem(compareItems[0])}
-            className="btn-sharetopus-primary text-xs py-1.5 px-4 font-extrabold"
+            onClick={() => setIsCompareOpen(true)}
+            disabled={compareItems.length < 2}
+            className="btn-sharetopus-primary text-xs py-1.5 px-4 font-extrabold disabled:opacity-45 disabled:cursor-not-allowed"
           >
-            Open Side-by-Side Table
+            Compare now
           </button>
           <button
             type="button"
             onClick={() => setCompareItems([])}
-            className="text-[#1C1B18] hover:text-[#FF5A36] dark:text-white font-extrabold"
+            className="text-[#1C1B18] hover:text-[#FF5A36] dark:text-white font-extrabold px-1.5 py-1"
           >
             Clear
           </button>
@@ -997,9 +1155,16 @@ export function App() {
       <DetailModal item={selectedItem} onClose={() => setSelectedItem(null)} />
 
       <CompareModal
-        items={compareItems}
-        onClose={() => setCompareItems([])}
-        onRemove={(id) => setCompareItems((prev) => prev.filter((i) => i.id !== id))}
+        items={isCompareOpen ? compareItems : []}
+        onClose={() => setIsCompareOpen(false)}
+        onRemove={(id) => {
+          setCompareItems((prev) => {
+            const next = prev.filter((i) => i.id !== id);
+            if (next.length < 2) setIsCompareOpen(false);
+            return next;
+          });
+          setCompareNotice('Opportunity removed from comparison.');
+        }}
       />
 
       {isExtensionOpen && (
@@ -1007,6 +1172,8 @@ export function App() {
           <ChromeExtensionSidePanel
             isOpen={isExtensionOpen}
             onClose={() => setIsExtensionOpen(false)}
+            exampleSaved={bookmarkIds.has('hack-001')}
+            onSaveExample={() => handleToggleBookmark('hack-001', MOCK_HACKATHONS[0])}
           />
         </Suspense>
       )}

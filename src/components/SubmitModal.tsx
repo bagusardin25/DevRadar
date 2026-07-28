@@ -342,10 +342,11 @@ export const SubmitModal: React.FC<SubmitModalProps> = ({
                 </button>
               )}
               <div className="space-y-1.5">
-                <label className="text-[#1C1B18] dark:text-[#F8FAF9] font-extrabold text-[11px] uppercase tracking-wide">
+                <label htmlFor="submission-type" className="text-[#1C1B18] dark:text-[#F8FAF9] font-extrabold text-[11px] uppercase tracking-wide">
                   Opportunity Type
                 </label>
                 <select
+                  id="submission-type"
                   value={type}
                   onChange={(e) => setType(e.target.value as 'hackathon' | 'ai_offer')}
                   className={fieldClass}
@@ -356,10 +357,11 @@ export const SubmitModal: React.FC<SubmitModalProps> = ({
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[#1C1B18] dark:text-[#F8FAF9] font-extrabold text-[11px] uppercase tracking-wide">
+                <label htmlFor="submission-title" className="text-[#1C1B18] dark:text-[#F8FAF9] font-extrabold text-[11px] uppercase tracking-wide">
                   Opportunity Title
                 </label>
                 <input
+                  id="submission-title"
                   type="text"
                   required
                   value={title}
@@ -370,10 +372,11 @@ export const SubmitModal: React.FC<SubmitModalProps> = ({
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[#1C1B18] dark:text-[#F8FAF9] font-extrabold text-[11px] uppercase tracking-wide">
+                <label htmlFor="submission-url" className="text-[#1C1B18] dark:text-[#F8FAF9] font-extrabold text-[11px] uppercase tracking-wide">
                   Official Source / Terms URL
                 </label>
                 <input
+                  id="submission-url"
                   type="url"
                   required
                   value={url}

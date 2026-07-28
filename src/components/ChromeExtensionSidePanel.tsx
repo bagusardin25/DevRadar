@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { 
   Globe, 
   X, 
@@ -8,31 +8,84 @@ import {
   Zap,
   Wrench
 } from 'lucide-react';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 interface ChromeExtensionSidePanelProps {
   isOpen: boolean;
   onClose: () => void;
+  exampleSaved: boolean;
+  onSaveExample: () => void;
 }
 
 export const ChromeExtensionSidePanel: React.FC<ChromeExtensionSidePanelProps> = ({
   isOpen,
-  onClose
+  onClose,
+  exampleSaved,
+  onSaveExample,
 }) => {
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzed, setAnalyzed] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const analyzeTimer = useRef<number | null>(null);
+  const panelRef = useModalA11y<HTMLDivElement>(isOpen, onClose);
+
+  useEffect(
+    () => () => {
+      if (analyzeTimer.current !== null) window.clearTimeout(analyzeTimer.current);
+    },
+    [],
+  );
 
   if (!isOpen) return null;
 
   const handleAnalyze = () => {
     setAnalyzing(true);
-    setTimeout(() => {
+    setFeedback(null);
+    analyzeTimer.current = window.setTimeout(() => {
       setAnalyzing(false);
       setAnalyzed(true);
+      analyzeTimer.current = null;
     }, 1200);
   };
 
+  const handleExportCalendar = () => {
+    const ics = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//DevRadar//Extension Preview//EN',
+      'BEGIN:VEVENT',
+      'UID:hack-001@devradar.local',
+      'DTSTAMP:20260728T000000Z',
+      'DTSTART:20260810T235959Z',
+      'DTEND:20260811T005959Z',
+      'SUMMARY:Registration deadline — Global AI Agents Developer Challenge',
+      'DESCRIPTION:Confirm the latest deadline on the official page before registering.',
+      'URL:https://anthropic.com/hackathon-2026',
+      'END:VEVENT',
+      'END:VCALENDAR',
+    ].join('\r\n');
+    const url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'devradar-global-ai-agents-deadline.ics';
+    link.click();
+    URL.revokeObjectURL(url);
+    setFeedback('Calendar file downloaded. Confirm the latest date on the official page.');
+  };
+
+  const handleSave = () => {
+    onSaveExample();
+    setFeedback(exampleSaved ? 'Removed from your browser bookmarks.' : 'Saved to your browser bookmarks.');
+  };
+
   return (
-    <div className="fixed inset-y-0 right-0 z-50 w-full sm:w-[420px] bg-[#F3F4EF] dark:bg-[#090C15] border-l-[3px] border-[#1C1B18] dark:border-[#D6DCE5] shadow-[-8px_0_0_0_rgba(28,27,24,0.1)] dark:shadow-[-8px_0_0_0_rgba(56,189,248,0.1)] flex flex-col justify-between animate-in slide-in-from-right duration-300 font-sans">
+    <div
+      ref={panelRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="extension-preview-title"
+      className="fixed inset-y-0 right-0 z-50 w-full sm:w-[420px] bg-[#F3F4EF] dark:bg-[#090C15] border-l-[3px] border-[#1C1B18] dark:border-[#D6DCE5] shadow-[-8px_0_0_0_rgba(28,27,24,0.1)] dark:shadow-[-8px_0_0_0_rgba(56,189,248,0.1)] flex flex-col justify-between animate-in slide-in-from-right duration-300 font-sans"
+    >
       
       {/* Side Panel Top Bar */}
       <div className="p-4 border-b-[2.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] flex items-center justify-between">
@@ -41,14 +94,16 @@ export const ChromeExtensionSidePanel: React.FC<ChromeExtensionSidePanelProps> =
             <Globe className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-sm font-extrabold text-[#1C1B18] dark:text-white">DevRadar Extension</h3>
-            <p className="text-[10px] font-mono text-[#4A4845] dark:text-[#B8C4D2] font-bold">Side Panel API v1.4 • Active Tab</p>
+            <h3 id="extension-preview-title" className="text-sm font-extrabold text-[#1C1B18] dark:text-white">Extension Preview</h3>
+            <p className="text-[10px] font-mono text-[#4A4845] dark:text-[#B8C4D2] font-bold">Interactive sample · no live page access</p>
           </div>
         </div>
 
-        <button 
+        <button
+          type="button"
           onClick={onClose}
           className="p-1.5 rounded-full border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] text-[#1C1B18] dark:text-white hover:bg-[#FF5A36] hover:text-white bg-white dark:bg-[#1A2336] transition-colors shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5]"
+          aria-label="Close extension preview"
         >
           <X className="w-4 h-4" />
         </button>
@@ -60,8 +115,8 @@ export const ChromeExtensionSidePanel: React.FC<ChromeExtensionSidePanelProps> =
         {/* Active Tab Preview */}
         <div className="p-3.5 rounded-2xl bg-white dark:bg-[#131A29] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] shadow-[4px_4px_0_0_#1C1B18] dark:shadow-[4px_4px_0_0_#D6DCE5] space-y-2">
           <div className="flex items-center justify-between text-[11px] font-mono font-extrabold text-[#4A4845] dark:text-[#B8C4D2]">
-            <span>CURRENT BROWSER TAB:</span>
-            <span className="text-[#059669] dark:text-[#34D399]">Active</span>
+            <span>SIMULATED BROWSER TAB:</span>
+            <span className="text-[#D97706] dark:text-[#FBBF24]">Sample</span>
           </div>
           <div className="font-extrabold text-[#1C1B18] dark:text-white text-xs truncate">
             https://anthropic.com/hackathon-2026
@@ -88,7 +143,7 @@ export const ChromeExtensionSidePanel: React.FC<ChromeExtensionSidePanelProps> =
             <div className="p-4 rounded-2xl bg-white dark:bg-[#131A29] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] shadow-[4px_4px_0_0_#1C1B18] dark:shadow-[4px_4px_0_0_#D6DCE5] space-y-3">
               <div className="flex items-center justify-between">
                 <span className="px-3 py-1 rounded-full bg-[#059669]/15 text-[#059669] dark:text-[#34D399] border border-[#059669] text-[10px] font-extrabold">
-                  VERIFIED TARGET
+                  SAMPLE EXTRACTION
                 </span>
                 <span className="font-mono text-[#1C1B18] dark:text-[#F8FAF9] font-extrabold bg-[#F3F4EF] dark:bg-[#1A2336] px-2.5 py-0.5 rounded-full border border-[#1C1B18] dark:border-[#D6DCE5]">
                   98% Match
@@ -117,22 +172,33 @@ export const ChromeExtensionSidePanel: React.FC<ChromeExtensionSidePanelProps> =
 
               {/* Quick Actions */}
               <div className="grid grid-cols-2 gap-2 pt-1">
-                <button 
-                  onClick={() => alert('Deadline exported to Google Calendar / iCal!')}
+                <button
+                  type="button"
+                  onClick={handleExportCalendar}
                   className="flex items-center justify-center gap-1.5 p-2 rounded-full border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#1A2336] text-[#1C1B18] dark:text-white font-extrabold shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5] hover:translate-x-[-1px] transition-all"
                 >
                   <Calendar className="w-3.5 h-3.5 text-[#1C1B18] dark:text-[#F8FAF9]" />
                   <span>Export Cal</span>
                 </button>
 
-                <button 
-                  onClick={() => alert('Saved to your DevRadar bookmarks!')}
-                  className="flex items-center justify-center gap-1.5 p-2 rounded-full border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-[#FF5A36] text-white font-extrabold shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5] hover:translate-x-[-1px] transition-all"
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  className={`flex items-center justify-center gap-1.5 p-2 rounded-full border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] font-extrabold shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5] hover:translate-x-[-1px] transition-all ${
+                    exampleSaved
+                      ? 'bg-[#059669] text-white'
+                      : 'bg-[#FF5A36] text-white'
+                  }`}
                 >
                   <Bookmark className="w-3.5 h-3.5" />
-                  <span>Save Info</span>
+                  <span>{exampleSaved ? 'Saved' : 'Save Info'}</span>
                 </button>
               </div>
+              {feedback && (
+                <p role="status" aria-live="polite" className="text-[11px] font-bold text-[#4A4845] dark:text-[#CBD5E1]">
+                  {feedback}
+                </p>
+              )}
             </div>
 
             {/* Check Similar Opportunities */}
@@ -158,7 +224,7 @@ export const ChromeExtensionSidePanel: React.FC<ChromeExtensionSidePanelProps> =
       {/* Side Panel Footer */}
       <div className="p-4 border-t-[2.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] text-[11px] font-mono font-bold text-[#4A4845] dark:text-[#B8C4D2] flex items-center justify-between">
         <span>DevRadar Helper v1.4</span>
-        <button onClick={() => setAnalyzed(false)} className="text-[#FF5A36] font-extrabold hover:underline">
+        <button type="button" onClick={() => { setAnalyzed(false); setFeedback(null); }} className="text-[#FF5A36] font-extrabold hover:underline">
           Reset Simulator
         </button>
       </div>

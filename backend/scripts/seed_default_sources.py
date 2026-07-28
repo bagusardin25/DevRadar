@@ -22,11 +22,11 @@ _BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(_BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(_BACKEND_ROOT))
 
+# Import full model graph so SQLAlchemy relationship names resolve.
+import app.models  # noqa: E402, F401
 from app.catalog.enums import ConnectorType, SourceTier  # noqa: E402
 from app.config import get_settings  # noqa: E402
 from app.db import create_engine, create_session_maker  # noqa: E402
-# Import full model graph so SQLAlchemy relationship names resolve.
-import app.models  # noqa: E402, F401
 from app.sources.models import Source, SourceQuery  # noqa: E402
 
 # 12h poll by default — gentle on third parties.

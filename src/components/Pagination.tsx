@@ -1,12 +1,17 @@
 import React from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 
 interface PaginationProps {
   currentPage: number;
   totalItems: number;
+  totalAvailable?: number;
   rowsPerPage: number; // 0 or Infinity means 'All'
   onPageChange: (page: number) => void;
   onRowsPerPageChange: (rows: number) => void;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
+  loadMoreError?: string | null;
+  onLoadMore?: () => void;
   options?: number[];
   className?: string;
 }
@@ -14,9 +19,14 @@ interface PaginationProps {
 export const Pagination: React.FC<PaginationProps> = ({
   currentPage,
   totalItems,
+  totalAvailable = totalItems,
   rowsPerPage,
   onPageChange,
   onRowsPerPageChange,
+  hasMore = false,
+  isLoadingMore = false,
+  loadMoreError = null,
+  onLoadMore,
   options = [6, 12, 24, 48],
   className = '',
 }) => {
@@ -64,14 +74,17 @@ export const Pagination: React.FC<PaginationProps> = ({
               {opt} items
             </option>
           ))}
-          <option value="all">All ({totalItems})</option>
+          <option value="all">All loaded ({totalItems})</option>
         </select>
       </div>
 
       {/* Item count summary */}
       <div className="text-[12px] font-bold text-[#1C1B18] dark:text-[#D6DCE5]">
         Showing <strong className="text-[#C2410C] dark:text-[#FF8A6B] font-extrabold">{startItem}–{endItem}</strong> of{' '}
-        <strong className="text-[#047857] dark:text-[#34D399] font-extrabold">{totalItems}</strong> items
+        <strong className="text-[#047857] dark:text-[#34D399] font-extrabold">{totalItems}</strong> loaded
+        {totalAvailable > totalItems && (
+          <span className="text-[#736F66] dark:text-[#94A3B8]"> · {totalAvailable} available</span>
+        )}
       </div>
 
       {/* Page navigation controls */}
@@ -132,6 +145,25 @@ export const Pagination: React.FC<PaginationProps> = ({
           >
             <ChevronRight className="w-4 h-4" />
           </button>
+        </div>
+      )}
+
+      {(hasMore || loadMoreError) && onLoadMore && (
+        <div className="flex flex-col items-center sm:items-end gap-1.5 sm:ml-auto">
+          <button
+            type="button"
+            onClick={onLoadMore}
+            disabled={isLoadingMore}
+            className="btn-sharetopus-secondary justify-center text-xs py-2 px-4 font-bold disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {isLoadingMore && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            <span>{isLoadingMore ? 'Loading more…' : 'Load more opportunities'}</span>
+          </button>
+          {loadMoreError && (
+            <span role="alert" className="max-w-xs text-center sm:text-right text-[11px] text-[#B91C1C] dark:text-[#F87171]">
+              {loadMoreError}
+            </span>
+          )}
         </div>
       )}
     </div>

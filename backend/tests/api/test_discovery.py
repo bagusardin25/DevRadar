@@ -111,6 +111,27 @@ class TestDiscoveryAPI:
         )
         assert r.status_code == 422
 
+    async def test_connector_payload_is_bounded(self, client) -> None:
+        too_many = await client.post(
+            "/api/v1/discovery-runs",
+            json={
+                "query": "ai hackathon",
+                "confirmLiveDiscovery": True,
+                "connectors": ["official_site", "rss", "github", "x"],
+            },
+        )
+        assert too_many.status_code == 422
+
+        oversized = await client.post(
+            "/api/v1/discovery-runs",
+            json={
+                "query": "ai hackathon",
+                "confirmLiveDiscovery": True,
+                "connectors": ["x" * 51],
+            },
+        )
+        assert oversized.status_code == 422
+
     async def test_status_exposes_progress_counters(self, client) -> None:
         r = await client.post(
             "/api/v1/discovery-runs",

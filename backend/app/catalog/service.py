@@ -12,6 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.api.limits import MAX_STATUS_PARAM_LENGTH
 from app.catalog.completeness import ai_offer_completeness, hackathon_completeness
 from app.catalog.enums import (
     ConnectorType,
@@ -489,13 +490,20 @@ def listing_etag(listing_like: HackathonPublic | AIOfferPublic) -> str:
 def parse_status_param(raw: str | None) -> list[VerificationStatus]:
     if not raw:
         return []
+    if len(raw) > MAX_STATUS_PARAM_LENGTH:
+        raise ValidationError(
+            detail="Verification status filter is too long",
+            errors=[{"field": "status", "message": "Status filter is too long"}],
+        )
     values: list[VerificationStatus] = []
     for part in raw.split(","):
         part = part.strip()
         if not part:
             continue
         try:
-            values.append(VerificationStatus(part))
+            status = VerificationStatus(part)
+            if status not in values:
+                values.append(status)
         except ValueError:
             raise ValidationError(
                 detail=f"Unknown verification status: {part}",

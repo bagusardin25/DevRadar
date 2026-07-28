@@ -8,6 +8,8 @@
     "dev": "node build.mjs --watch",
     "build": "node build.mjs",
     "build:firefox": "node build.mjs --firefox",
+    "test:stress": "node tools/stress-tests.mjs",
+    "check": "npm run test:stress && npm run typecheck && npm run build && npm run build:firefox",
     "clean": "node -e \"import('fs').then(f=>f.rmSync('dist',{recursive:true,force:true})).then(()=>import('fs').then(f=>f.rmSync('dist-firefox',{recursive:true,force:true})))\"",
     "typecheck": "tsc --noEmit"
   },

@@ -27,7 +27,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   frontend:
-    name: Frontend build
+    name: Frontend & extension checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,10 +35,19 @@ jobs:
         with:
           node-version-file: ".nvmrc"
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            extension/package-lock.json
       - name: Install
         run: npm ci
       # Same as `npm run check` / `make check-frontend` (build then lint).
       - name: Build & lint
+        run: npm run check
+      - name: Extension install
+        working-directory: extension
+        run: npm ci
+      - name: Extension stress, typecheck & builds
+        working-directory: extension
         run: npm run check
 
   backend:

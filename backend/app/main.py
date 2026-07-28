@@ -11,8 +11,11 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
+from starlette.datastructures import Headers
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from app.api.limits import MAX_TRACE_ID_LENGTH
 from app.api.router import api_router
 from app.config import Settings, get_settings
 from app.db import create_engine, create_session_maker
@@ -25,12 +28,83 @@ class TraceIdMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
-        # Use incoming trace ID or generate a new one
-        trace_id = request.headers.get("x-trace-id", str(uuid.uuid4()))
+        # Bound reflected input so a direct Uvicorn deployment cannot be used
+        # to inject pathological trace values into logs and response headers.
+        incoming = request.headers.get("x-trace-id", "").strip()
+        trace_id = (
+            incoming
+            if incoming and len(incoming) <= MAX_TRACE_ID_LENGTH and incoming.isprintable()
+            else str(uuid.uuid4())
+        )
         request.state.trace_id = trace_id
         response = await call_next(request)
         response.headers["X-Trace-Id"] = trace_id
         return response
+
+
+class RequestBodyLimitMiddleware:
+    """Reject oversized fixed-length and streamed request bodies with 413."""
+
+    def __init__(self, app: ASGIApp, *, max_body_bytes: int) -> None:
+        self.app = app
+        self.max_body_bytes = max_body_bytes
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        content_length = Headers(scope=scope).get("content-length")
+        if content_length:
+            try:
+                declared = int(content_length)
+            except ValueError:
+                declared = 0
+            if declared > self.max_body_bytes:
+                await self._reject(scope, receive, send)
+                return
+
+        # Pre-buffer at most the configured limit, then replay one body message
+        # to Starlette. Raising from receive is not sufficient: Starlette turns
+        # receive failures during JSON parsing into a generic 400 before outer
+        # middleware can convert them to 413.
+        body = bytearray()
+        disconnected = False
+        while True:
+            message = await receive()
+            if message["type"] == "http.disconnect":
+                disconnected = True
+                break
+            body.extend(message.get("body", b""))
+            if len(body) > self.max_body_bytes:
+                await self._reject(scope, receive, send)
+                return
+            if not message.get("more_body", False):
+                break
+
+        delivered = False
+
+        async def replay_receive() -> Message:
+            nonlocal delivered
+            if delivered or disconnected:
+                return {"type": "http.disconnect"}
+            delivered = True
+            return {"type": "http.request", "body": bytes(body), "more_body": False}
+
+        await self.app(scope, replay_receive, send)
+
+    async def _reject(self, scope: Scope, receive: Receive, send: Send) -> None:
+        response = JSONResponse(
+            status_code=413,
+            content={
+                "type": "https://devradar.local/problems/payload-too-large",
+                "title": "Payload Too Large",
+                "status": 413,
+                "detail": f"Request body exceeds {self.max_body_bytes} bytes",
+            },
+            media_type="application/problem+json",
+        )
+        await response(scope, receive, send)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -66,6 +140,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = _settings
 
     # --- Middleware ---
+    # Added first so CORS and trace handling wrap limit rejections too (Starlette
+    # middleware registration order is the reverse of request execution order).
+    app.add_middleware(
+        RequestBodyLimitMiddleware,
+        max_body_bytes=_settings.max_request_body_bytes,
+    )
     app.add_middleware(TraceIdMiddleware)
     app.add_middleware(
         CORSMiddleware,

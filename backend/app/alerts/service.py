@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -23,10 +24,19 @@ from app.alerts.webhook import deliver_webhook
 from app.catalog.enums import VerificationStatus
 from app.catalog.models import Listing
 from app.config import Settings
-from app.errors import ForbiddenError, NotFoundError, ValidationError
-from app.submissions.security import decrypt_email, encrypt_email, hash_email
+from app.errors import ForbiddenError, NotFoundError, RateLimitError, ValidationError
+from app.submissions.security import decrypt_email, encrypt_email, hash_email, hash_ip
 
 _VALID_CADENCES = frozenset({"instant", "daily", "weekly"})
+ALERT_RATE_LIMIT_MAX_PER_IP = 5
+ALERT_RATE_LIMIT_MAX_PER_EMAIL = 3
+ALERT_RATE_LIMIT_WINDOW_SECONDS = 3600
+
+_ALERT_RATE_LIMIT_SCRIPT = """
+local count = redis.call('INCR', KEYS[1])
+if count == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end
+return count
+"""
 
 
 class AlertService:
@@ -35,10 +45,15 @@ class AlertService:
         session: AsyncSession,
         settings: Settings,
         email: EmailProvider | None = None,
+        *,
+        redis_url: str | None = None,
+        rate_limit_store: dict[str, list[float]] | None = None,
     ) -> None:
         self._session = session
         self._settings = settings
         self._email = email or build_email_provider(settings)
+        self._redis_url = redis_url or settings.redis_url
+        self._rate_limit_store = rate_limit_store
 
     def _confirm_url(self, raw_token: str) -> str:
         """Link users open to confirm (proxied via frontend /api or direct API)."""
@@ -52,7 +67,10 @@ class AlertService:
         return f"{base}{api}/alerts/unsubscribe?token={raw_token}"
 
     async def create_subscription(
-        self, command: AlertCreateRequest
+        self,
+        command: AlertCreateRequest,
+        *,
+        ip_address: str | None = None,
     ) -> tuple[AlertCreateResponse, str]:
         """Create unconfirmed subscription; returns (response, raw_confirm_token)."""
         if command.website:
@@ -60,6 +78,8 @@ class AlertService:
 
         email_norm = str(command.email).strip().lower()
         email_h = hash_email(email_norm, self._settings.email_hmac_key)
+        if ip_address:
+            await self._enforce_creation_rate_limit(ip_address, email_h)
         cipher = encrypt_email(email_norm, self._settings)
 
         cadence = (command.cadence or "daily").strip().lower()
@@ -104,6 +124,62 @@ class AlertService:
             AlertCreateResponse(),
             confirm_raw,
         )
+
+    async def _enforce_creation_rate_limit(
+        self,
+        ip_address: str,
+        email_hash: str,
+    ) -> None:
+        """Limit confirmation-email abuse by both source IP and recipient."""
+        ip_key = f"devradar:rl:alerts:ip:{hash_ip(ip_address, self._settings.session_secret)}"
+        email_key = f"devradar:rl:alerts:email:{email_hash}"
+
+        if self._rate_limit_store is not None:
+            now = time.time()
+            buckets = [
+                (ip_key, ALERT_RATE_LIMIT_MAX_PER_IP),
+                (email_key, ALERT_RATE_LIMIT_MAX_PER_EMAIL),
+            ]
+            for key, _limit in buckets:
+                bucket = self._rate_limit_store.setdefault(key, [])
+                bucket[:] = [
+                    timestamp
+                    for timestamp in bucket
+                    if now - timestamp < ALERT_RATE_LIMIT_WINDOW_SECONDS
+                ]
+            if any(
+                len(self._rate_limit_store[key]) >= limit for key, limit in buckets
+            ):
+                raise RateLimitError(detail="Too many alert subscription attempts")
+            for key, _limit in buckets:
+                self._rate_limit_store[key].append(now)
+            return
+
+        import redis.asyncio as aioredis
+
+        redis = aioredis.from_url(self._redis_url, decode_responses=True)
+        try:
+            # One-key scripts work on both standalone Redis and Redis Cluster;
+            # a multi-key script would fail when IP/email keys land in separate
+            # hash slots.
+            for key, limit in (
+                (ip_key, ALERT_RATE_LIMIT_MAX_PER_IP),
+                (email_key, ALERT_RATE_LIMIT_MAX_PER_EMAIL),
+            ):
+                count = await redis.eval(  # type: ignore[no-untyped-call]
+                    _ALERT_RATE_LIMIT_SCRIPT,
+                    1,
+                    key,
+                    ALERT_RATE_LIMIT_WINDOW_SECONDS,
+                )
+                if int(count) > limit:
+                    raise RateLimitError(detail="Too many alert subscription attempts")
+        finally:
+            aclose = getattr(redis, "aclose", None)
+            if aclose is not None:
+                await aclose()
+            else:
+                await redis.close()
 
     async def confirm_subscription(self, token: str) -> AlertSubscription:
         th = hash_token(token, self._settings.session_secret)

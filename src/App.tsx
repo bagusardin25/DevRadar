@@ -39,6 +39,7 @@ import {
   rejectReviewItem,
   saveAlertIds,
   saveBookmarkIds,
+  sanitizeBookmarkIds,
   startAdminGoogleLogin,
   startLiveDiscovery,
   toggleId,
@@ -840,19 +841,15 @@ export function App() {
 
   const handleImportBookmarkIds = useCallback((ids: string[], mode: 'merge' | 'replace') => {
     setBookmarkIds((prev) => {
-      if (mode === 'replace') return new Set(ids);
-      const next = new Set(prev);
-      for (const id of ids) next.add(id);
-      return next;
+      const candidates = mode === 'replace' ? ids : [...prev, ...ids];
+      return new Set(sanitizeBookmarkIds(candidates));
     });
   }, []);
 
   const handleSaveSharedToLocal = useCallback(() => {
     if (!sharedBookmarkIds?.length) return;
     setBookmarkIds((prev) => {
-      const next = new Set(prev);
-      for (const id of sharedBookmarkIds) next.add(id);
-      return next;
+      return new Set(sanitizeBookmarkIds([...prev, ...sharedBookmarkIds]));
     });
     setSharedBookmarkIds(null);
     window.history.replaceState({}, '', window.location.pathname);
@@ -1233,6 +1230,7 @@ export function App() {
         onRemoveBookmark={handleToggleBookmark}
         onToggleAlert={handleToggleAlert}
         onImportIds={handleImportBookmarkIds}
+        savedIds={[...bookmarkIds]}
         sharedMode={Boolean(sharedBookmarkIds)}
         sharedIds={sharedBookmarkIds ?? []}
         onSaveSharedToLocal={handleSaveSharedToLocal}

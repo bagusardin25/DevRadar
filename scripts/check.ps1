@@ -11,13 +11,19 @@ function Step([string]$Message) {
 }
 
 # --- Frontend (same as ci.yml frontend job after npm ci) ---
-Step "Frontend build (npm run build)"
-npm run build
+Step "Frontend stress, build, and lint (npm run check)"
+npm run check
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-Step "Frontend lint (npm run lint)"
-npm run lint
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+Push-Location (Join-Path $Root "extension")
+try {
+  Step "Extension stress, typecheck, and builds (npm run check)"
+  npm run check
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
+finally {
+  Pop-Location
+}
 
 # --- Backend (same as ci.yml backend job after uv sync) ---
 Push-Location (Join-Path $Root "backend")

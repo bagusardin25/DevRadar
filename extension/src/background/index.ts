@@ -2,13 +2,16 @@ import type { Message } from '../shared/messages';
 import type { PageData } from '../shared/types';
 import { extract } from '../shared/extractor';
 import { getSettings } from '../shared/storage';
+import { PendingAnalysisRegistry } from './pendingAnalyses';
 
-let pendingResolve: ((data: PageData) => void) | null = null;
+const pendingAnalyses = new PendingAnalysisRegistry<PageData>();
+const MAX_API_RESPONSE_BYTES = 2_097_152;
+const MAX_API_REQUEST_BYTES = 1_048_576;
 
-chrome.runtime.onMessage.addListener((message: Message, _sender, sendResponse) => {
-  if (message.type === 'PAGE_DATA' && pendingResolve) {
-    pendingResolve(message.data);
-    pendingResolve = null;
+chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) => {
+  if (message.type === 'PAGE_DATA') {
+    const tabId = sender.tab?.id;
+    if (tabId !== undefined) pendingAnalyses.resolve(tabId, message.data);
     return;
   }
 
@@ -59,34 +62,23 @@ async function handleAnalyze(): Promise<Message> {
 }
 
 function injectAndScrape(tabId: number): Promise<PageData> {
-  return new Promise((resolve, reject) => {
-    pendingResolve = resolve;
-
-    chrome.scripting.executeScript(
-      {
-        target: { tabId },
-        files: ['content.js'],
-      },
-      (results) => {
-        if (chrome.runtime.lastError) {
-          pendingResolve = null;
-          reject(new Error(chrome.runtime.lastError.message));
-          return;
-        }
-        if (!results || results.length === 0) {
-          pendingResolve = null;
-          reject(new Error('Content script injection failed'));
-        }
-      },
-    );
-
-    setTimeout(() => {
-      if (pendingResolve) {
-        pendingResolve = null;
-        reject(new Error('Content script timed out (10s)'));
+  const result = pendingAnalyses.start(tabId, 10_000, 'Content script timed out (10s)');
+  chrome.scripting.executeScript(
+    {
+      target: { tabId },
+      files: ['content.js'],
+    },
+    (results) => {
+      if (chrome.runtime.lastError) {
+        pendingAnalyses.reject(tabId, new Error(chrome.runtime.lastError.message));
+        return;
       }
-    }, 10_000);
-  });
+      if (!results || results.length === 0) {
+        pendingAnalyses.reject(tabId, new Error('Content script injection failed'));
+      }
+    },
+  );
+  return result;
 }
 
 async function handleApiProxy(
@@ -95,14 +87,23 @@ async function handleApiProxy(
 ): Promise<unknown> {
   const settings = await getSettings();
   const base = settings.apiBaseUrl.replace(/\/+$/, '');
+  if (path.length > 256 || path.includes('://') || path.includes('..')) {
+    throw new Error('Invalid API path');
+  }
   const apiPath = path.startsWith('/') ? path : `/${path}`;
 
   let url = `${base}/api/v1${apiPath}`;
   if (options.query) {
+    const entries = Object.entries(options.query);
+    if (entries.length > 20) throw new Error('Too many API query parameters');
     const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(options.query)) {
+    for (const [key, value] of entries) {
       if (value !== undefined && value !== null && value !== '') {
-        params.set(key, String(value));
+        const text = String(value);
+        if (key.length > 64 || text.length > 512) {
+          throw new Error('API query parameter is too long');
+        }
+        params.set(key, text);
       }
     }
     const qs = params.toString();
@@ -111,25 +112,66 @@ async function handleApiProxy(
 
   const headers: Record<string, string> = {
     Accept: 'application/json',
-    ...options.headers,
   };
+  const idempotencyKey = options.headers?.['Idempotency-Key'];
+  if (idempotencyKey && idempotencyKey.length <= 200) {
+    headers['Idempotency-Key'] = idempotencyKey;
+  }
+  let serializedBody: string | undefined;
   if (options.body !== undefined) {
     headers['Content-Type'] = 'application/json';
+    serializedBody = JSON.stringify(options.body);
+    if (new TextEncoder().encode(serializedBody).byteLength > MAX_API_REQUEST_BYTES) {
+      throw new Error('API request body is too large');
+    }
   }
 
+  const method = (options.method || 'GET').toUpperCase();
+  if (method !== 'GET' && method !== 'POST') throw new Error('Unsupported API method');
   const resp = await fetch(url, {
-    method: options.method || 'GET',
+    method,
     headers,
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+    body: serializedBody,
   });
 
+  const text = await readBoundedResponse(resp, MAX_API_RESPONSE_BYTES);
   if (!resp.ok) {
-    const text = await resp.text();
     throw new Error(`API ${resp.status}: ${text.slice(0, 200)}`);
   }
 
   if (resp.status === 204) return null;
-  return resp.json();
+  if (!text) return null;
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    throw new Error('API returned invalid JSON');
+  }
+}
+
+async function readBoundedResponse(response: Response, maxBytes: number): Promise<string> {
+  const declared = Number(response.headers.get('content-length') || 0);
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    throw new Error('API response is too large');
+  }
+  if (!response.body) return response.text();
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let received = 0;
+  let text = '';
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      received += value.byteLength;
+      if (received > maxBytes) throw new Error('API response is too large');
+      text += decoder.decode(value, { stream: true });
+    }
+    return text + decoder.decode();
+  } finally {
+    if (received > maxBytes) await reader.cancel();
+    reader.releaseLock();
+  }
 }
 
 chrome.action.onClicked.addListener((tab) => {

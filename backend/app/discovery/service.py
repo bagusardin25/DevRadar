@@ -13,6 +13,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.limits import MAX_SEARCH_QUERY_LENGTH
 from app.discovery.constants import ALLOWED_MODULES, DEFAULT_MODULE
 from app.discovery.enqueue import DiscoveryEnqueuePort
 from app.discovery.models import LiveDiscoveryRun
@@ -126,10 +127,24 @@ class LiveDiscoveryService:
                 detail=f"Query must be at least {MIN_QUERY_LEN} characters",
                 errors=[{"field": "query", "message": "too short"}],
             )
+        if len(q) > MAX_SEARCH_QUERY_LENGTH:
+            raise ValidationError(
+                detail=f"Query must be at most {MAX_SEARCH_QUERY_LENGTH} characters",
+                errors=[{"field": "query", "message": "too long"}],
+            )
         cap = max(1, min(result_cap, MAX_RESULTS))
-        connectors = connectors or ["official_site"]
-        if len(connectors) > 3:
+        requested_connectors = connectors or ["official_site"]
+        if len(requested_connectors) > 3:
             raise ValidationError(detail="Too many connectors (max 3)")
+        if any(len(connector) > 50 for connector in requested_connectors):
+            raise ValidationError(detail="Connector name is too long")
+        connectors = list(
+            dict.fromkeys(
+                connector.strip().lower()
+                for connector in requested_connectors
+                if connector.strip()
+            )
+        ) or ["official_site"]
         mod = module.strip().lower()
         if mod not in ALLOWED_MODULES:
             raise ValidationError(

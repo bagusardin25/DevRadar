@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Request
@@ -20,9 +21,12 @@ router = APIRouter(prefix="/discovery-runs", tags=["Discovery"])
 
 class DiscoveryStartRequest(CamelModel):
     query: str = Field(min_length=1, max_length=200)
-    connectors: list[str] = Field(default_factory=lambda: ["official_site", "rss"])
+    connectors: list[Annotated[str, Field(min_length=1, max_length=50)]] = Field(
+        default_factory=lambda: ["official_site", "rss"],
+        max_length=3,
+    )
     result_cap: int = Field(default=10, ge=1, le=20)
-    module: str = DEFAULT_MODULE
+    module: str = Field(default=DEFAULT_MODULE, min_length=1, max_length=32)
     # Explicit opt-in required
     confirm_live_discovery: bool = False
 

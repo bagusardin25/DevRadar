@@ -8,7 +8,9 @@ export default defineConfig({
   root: resolve(__dirname, 'src/sidepanel'),
   base: './',
   build: {
-    outDir: resolve(__dirname, 'dist/sidepanel'),
+    outDir: process.env.DEVRADAR_EXTENSION_OUT_DIR
+      ? resolve(process.env.DEVRADAR_EXTENSION_OUT_DIR)
+      : resolve(__dirname, 'dist/sidepanel'),
     emptyOutDir: true,
     rollupOptions: {
       input: resolve(__dirname, 'src/sidepanel/index.html'),

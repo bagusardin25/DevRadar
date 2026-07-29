@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.alerts.email_provider import ConsoleEmailProvider
@@ -101,6 +101,56 @@ class TestAlertService:
         await session.flush()
         with pytest.raises(ValidationError):
             await svc.confirm_subscription(raw)
+
+    @pytest.mark.asyncio
+    async def test_pending_duplicate_reuses_subscription_row(
+        self, session: AsyncSession, settings: Settings
+    ) -> None:
+        email = f"retry-{uuid4().hex[:8]}@example.com"
+        email_prov = ConsoleEmailProvider()
+        svc = AlertService(session, settings, email_prov)
+        request = AlertCreateRequest(
+            email=email,
+            filters={"q": "AI", "kind": "hackathon"},
+            cadence="daily",
+        )
+
+        _, first_token = await svc.create_subscription(request)
+        _, second_token = await svc.create_subscription(request)
+
+        email_h = hash_email(email, settings.email_hmac_key)
+        row_count = await session.scalar(
+            select(func.count())
+            .select_from(AlertSubscription)
+            .where(AlertSubscription.email_hash == email_h)
+        )
+        assert row_count == 1
+        assert first_token != second_token
+        assert len(email_prov.sent) == 2
+
+    @pytest.mark.asyncio
+    async def test_new_signup_cleans_expired_unconfirmed_rows(
+        self, session: AsyncSession, settings: Settings
+    ) -> None:
+        email_prov = ConsoleEmailProvider()
+        svc = AlertService(session, settings, email_prov)
+        expired_email = f"expired-{uuid4().hex[:8]}@example.com"
+        await svc.create_subscription(
+            AlertCreateRequest(email=expired_email, filters={"q": "AI"})
+        )
+        expired = await _get_sub_by_email(session, settings, expired_email)
+        expired_id = expired.id
+        expired.confirm_expires_at = datetime.now(UTC) - timedelta(seconds=1)
+        await session.flush()
+
+        await svc.create_subscription(
+            AlertCreateRequest(
+                email=f"fresh-{uuid4().hex[:8]}@example.com",
+                filters={"q": "AI"},
+            )
+        )
+
+        assert await session.get(AlertSubscription, expired_id) is None
 
     @pytest.mark.asyncio
     async def test_delivery_idempotent(

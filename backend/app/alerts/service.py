@@ -5,8 +5,8 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from sqlalchemy import delete, select
 from sqlalchemy import inspect as sa_inspect
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -69,20 +69,56 @@ class AlertService:
         filters = normalize_alert_filters(command.filters or {})
 
         confirm_raw = generate_token()
-        unsub_raw = generate_token()
         now = datetime.now(UTC)
+        confirm_hash = hash_token(confirm_raw, self._settings.session_secret)
 
-        sub = AlertSubscription(
-            email_ciphertext=cipher,
-            email_hash=email_h,
-            confirmed=False,
-            filter_json=filters,
-            cadence=cadence,
-            confirm_token_hash=hash_token(confirm_raw, self._settings.session_secret),
-            unsubscribe_token_hash=hash_token(unsub_raw, self._settings.session_secret),
-            confirm_expires_at=confirmation_expiry(now),
+        # Opportunistically bound storage from abandoned, never-confirmed signups.
+        await self._session.execute(
+            delete(AlertSubscription).where(
+                AlertSubscription.confirmed.is_(False),
+                AlertSubscription.confirmed_at.is_(None),
+                AlertSubscription.confirm_expires_at.is_not(None),
+                AlertSubscription.confirm_expires_at < now,
+            )
         )
-        self._session.add(sub)
+
+        existing_result = await self._session.execute(
+            select(AlertSubscription)
+            .where(
+                AlertSubscription.email_hash == email_h,
+                AlertSubscription.cadence == cadence,
+                AlertSubscription.filter_json == filters,
+                AlertSubscription.unsubscribed_at.is_(None),
+            )
+            .order_by(AlertSubscription.created_at.desc())
+            .limit(1)
+            .with_for_update()
+        )
+        sub = existing_result.scalar_one_or_none()
+        if sub is not None and sub.confirmed:
+            # Keep the public response non-enumerating without sending another email.
+            return AlertCreateResponse(), ""
+
+        if sub is None:
+            unsub_raw = generate_token()
+            sub = AlertSubscription(
+                email_ciphertext=cipher,
+                email_hash=email_h,
+                confirmed=False,
+                filter_json=filters,
+                cadence=cadence,
+                confirm_token_hash=confirm_hash,
+                unsubscribe_token_hash=hash_token(
+                    unsub_raw, self._settings.session_secret
+                ),
+                confirm_expires_at=confirmation_expiry(now),
+            )
+            self._session.add(sub)
+        else:
+            # A bounded resend rotates the confirmation token but reuses the row.
+            sub.email_ciphertext = cipher
+            sub.confirm_token_hash = confirm_hash
+            sub.confirm_expires_at = confirmation_expiry(now)
         await self._session.flush()
 
         confirm_url = self._confirm_url(confirm_raw)
@@ -97,7 +133,7 @@ class AlertService:
                 to_address=email_norm,
                 subject="Confirm your DevRadar alerts",
                 body_text=body,
-                idempotency_key=f"confirm:{sub.id}",
+                idempotency_key=f"confirm:{sub.id}:{confirm_hash[:12]}",
             )
         )
         return (

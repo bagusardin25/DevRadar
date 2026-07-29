@@ -35,12 +35,14 @@ class AppError(Exception):
         detail: str,
         type_: str = "about:blank",
         errors: list[dict[str, Any]] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> None:
         self.status = status
         self.title = title
         self.detail = detail
         self.type = type_
         self.errors = errors
+        self.headers = headers or {}
         super().__init__(detail)
 
 
@@ -86,8 +88,19 @@ class ForbiddenError(AppError):
 class RateLimitError(AppError):
     """Too many requests (429)."""
 
-    def __init__(self, detail: str = "Rate limit exceeded") -> None:
-        super().__init__(status=429, title="Too Many Requests", detail=detail)
+    def __init__(
+        self,
+        detail: str = "Rate limit exceeded",
+        *,
+        retry_after: int | None = None,
+    ) -> None:
+        headers = {"Retry-After": str(retry_after)} if retry_after is not None else None
+        super().__init__(
+            status=429,
+            title="Too Many Requests",
+            detail=detail,
+            headers=headers,
+        )
 
 
 async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
@@ -105,5 +118,5 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
     return JSONResponse(
         status_code=exc.status,
         content=problem.model_dump(by_alias=True, exclude_none=True),
-        headers={"Content-Type": "application/problem+json"},
+        headers={"Content-Type": "application/problem+json", **exc.headers},
     )

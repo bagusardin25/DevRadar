@@ -38,11 +38,7 @@ async def run(
     dry_run: bool,
 ) -> int:
     settings = get_settings()
-    kind_enum: ListingKind | None
-    if kind in (None, "all"):
-        kind_enum = None
-    else:
-        kind_enum = ListingKind(kind)
+    kind_enum = None if kind in (None, "all") else ListingKind(kind)
 
     print(
         f"Recheck kind={kind or 'all'} limit={limit} "

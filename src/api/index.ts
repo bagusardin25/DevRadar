@@ -49,6 +49,7 @@ export {
   loadBookmarkIds,
   saveAlertIds,
   saveBookmarkIds,
+  sanitizeBookmarkIds,
   toggleId,
   buildBookmarkExport,
   buildShareUrl,
@@ -63,6 +64,7 @@ export {
   removeSnapshot,
   type BookmarkExportPayload,
   type BookmarkSnapshotStore,
+  MAX_BOOKMARK_IDS,
 } from './bookmarks';
 export {
   createAlert,

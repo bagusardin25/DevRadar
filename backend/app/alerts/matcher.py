@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import math
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
@@ -276,7 +277,9 @@ def normalize_alert_filters(raw: dict[str, Any] | None) -> dict[str, Any]:
     )
     if min_prize is not None and str(min_prize).strip() != "":
         with contextlib.suppress(TypeError, ValueError):
-            out["minPrize"] = float(min_prize)
+            value = float(min_prize)
+            if math.isfinite(value) and 0 <= value <= 1_000_000_000_000:
+                out["minPrize"] = value
     elif raw.get("onlyBigPrizes") or raw.get("only_big_prizes"):
         out["onlyBigPrizes"] = True
 
@@ -285,7 +288,7 @@ def normalize_alert_filters(raw: dict[str, Any] | None) -> dict[str, Any]:
         days = raw.get("closingSoonDays") or raw.get("closing_soon_days")
         if days is not None:
             try:
-                out["closingSoonDays"] = int(days)
+                out["closingSoonDays"] = max(1, min(int(days), 90))
             except (TypeError, ValueError):
                 out["closingSoonDays"] = 14
 

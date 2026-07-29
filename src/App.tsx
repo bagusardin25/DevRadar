@@ -17,6 +17,7 @@ import {
   type AdminMe,
   type CatalogueStats,
   type DiscoveryStatus,
+  type FilterMeta,
   type ReviewCorrections,
   type ReviewItem,
   adminLogout,
@@ -24,6 +25,7 @@ import {
   fetchAIOffers,
   fetchAdminMe,
   fetchCatalogueStats,
+  fetchFilterMeta,
   fetchHackathons,
   fetchReviewItems,
   loadAlertIds,
@@ -38,6 +40,7 @@ import {
   rejectReviewItem,
   saveAlertIds,
   saveBookmarkIds,
+  sanitizeBookmarkIds,
   startAdminGoogleLogin,
   startLiveDiscovery,
   toggleId,
@@ -53,6 +56,7 @@ import {
   X,
   XCircle,
 } from 'lucide-react';
+import { readLocalStorage, writeLocalStorage } from './utils/storage';
 
 type DiscoveryToastKind = 'info' | 'success' | 'warning' | 'error';
 type DiscoveryToastAction = { label: string; onClick: () => void };
@@ -107,10 +111,57 @@ function ModuleFallback() {
   );
 }
 
+function CatalogueStatusNotice({
+  error,
+  onRetry,
+}: {
+  error: string | null;
+  onRetry: () => void;
+}) {
+  if (!error) return null;
+
+  return (
+    <div className="max-w-6xl mx-auto px-4 lg:px-8 pt-4">
+      <div
+        role="status"
+        className="sharetopus-card p-3 sm:p-4 rounded-2xl border-[1.5px] border-[#D97706] bg-[#D97706]/10 flex flex-col sm:flex-row sm:items-center gap-3 text-xs text-[#1C1B18] dark:text-[#F8FAF9]"
+      >
+        <WifiOff className="hidden sm:block w-5 h-5 text-[#D97706] shrink-0" />
+        <div className="min-w-0 flex-1">
+          <div className="font-extrabold">Live catalogue unavailable — browsing sample data</div>
+          <p className="mt-1 text-[#4A4845] dark:text-[#CBD5E1] font-semibold">
+            Search, compare, bookmark, and inspect the sample opportunities while DevRadar reconnects.
+          </p>
+          {import.meta.env.DEV && (
+            <details className="mt-2 text-[11px] font-mono text-[#736F66] dark:text-[#94A3B8]">
+              <summary className="cursor-pointer font-bold">Developer connection details</summary>
+              <p className="mt-1">{error}</p>
+              <p>Run the API at http://127.0.0.1:8000 for live listings.</p>
+            </details>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="btn-sharetopus-secondary justify-center text-xs py-2 px-4 font-bold sm:shrink-0"
+        >
+          Retry live data
+        </button>
+      </div>
+    </div>
+  );
+}
+
 const STORAGE_KEYS = {
   LAYOUT: 'devradar_layout_v1',
   THEME: 'devradar_theme_v1',
 };
+
+function appendUniqueById<T extends { id: string }>(current: T[], incoming: T[]): T[] {
+  const next = new Map(current.map((item) => [item.id, item]));
+  for (const item of incoming) next.set(item.id, item);
+  return [...next.values()];
+}
 
 /** Filter mock hackathons locally when backend is offline. */
 function filterMockHackathons(items: Hackathon[], filters: FilterState): Hackathon[] {
@@ -155,18 +206,23 @@ function filterMockAIDeals(items: AIDeal[], filters: FilterState): AIDeal[] {
 
 export function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.THEME);
-    return saved === 'dark' || saved === 'light' ? saved : 'light';
+    const saved = readLocalStorage(STORAGE_KEYS.THEME);
+    if (saved === 'dark' || saved === 'light') return saved;
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.THEME, theme);
+    writeLocalStorage(STORAGE_KEYS.THEME, theme);
     const root = document.documentElement;
+    root.style.colorScheme = theme;
     if (theme === 'dark') {
       root.classList.add('dark', 'dark-theme');
     } else {
       root.classList.remove('dark', 'dark-theme');
     }
+    document
+      .querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+      ?.setAttribute('content', theme === 'dark' ? '#090C15' : '#F3F4EF');
   }, [theme]);
 
   // Pause marquee / continuous work when the tab is not visible
@@ -241,15 +297,16 @@ export function App() {
   ]);
 
   const [viewLayout, setViewLayout] = useState<'grid' | 'compact'>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.LAYOUT);
+    const saved = readLocalStorage(STORAGE_KEYS.LAYOUT);
     return saved === 'compact' || saved === 'grid' ? saved : 'grid';
   });
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.LAYOUT, viewLayout);
+    writeLocalStorage(STORAGE_KEYS.LAYOUT, viewLayout);
   }, [viewLayout]);
 
   const [bookmarkIds, setBookmarkIds] = useState<Set<string>>(() => loadBookmarkIds());
+  const bookmarkIdsRef = useRef(bookmarkIds);
   const [alertIds, setAlertIds] = useState<Set<string>>(() => loadAlertIds());
   /** Cache of bookmarked entities so the drawer works when filters change.
       Persisted to localStorage — without persistence, a bookmark whose id
@@ -278,13 +335,47 @@ export function App() {
   const [aiDeals, setAiDeals] = useState<AIDeal[]>([]);
   const [hackTotal, setHackTotal] = useState(0);
   const [dealTotal, setDealTotal] = useState(0);
+  const [hackNextCursor, setHackNextCursor] = useState<string | null>(null);
+  const [dealNextCursor, setDealNextCursor] = useState<string | null>(null);
   const [stats, setStats] = useState<CatalogueStats | null>(null);
+  const [filterMeta, setFilterMeta] = useState<FilterMeta | null>(null);
 
   const [catalogueLoading, setCatalogueLoading] = useState(true);
   const [catalogueError, setCatalogueError] = useState<string | null>(null);
+  const [loadingMoreKind, setLoadingMoreKind] = useState<'hackathon' | 'ai_deal' | null>(null);
+  const [loadMoreError, setLoadMoreError] = useState<{
+    kind: 'hackathon' | 'ai_deal';
+    message: string;
+  } | null>(null);
 
   const [selectedItem, setSelectedItem] = useState<Hackathon | AIDeal | null>(null);
   const [compareItems, setCompareItems] = useState<Hackathon[]>([]);
+  const compareItemsRef = useRef(compareItems);
+  const [isCompareOpen, setIsCompareOpen] = useState(false);
+  const [compareNotice, setCompareNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    bookmarkIdsRef.current = bookmarkIds;
+  }, [bookmarkIds]);
+
+  useEffect(() => {
+    compareItemsRef.current = compareItems;
+  }, [compareItems]);
+
+  // Filter choices come from the same catalogue that executes the query, so
+  // newly indexed technologies, regions, and offer types become discoverable
+  // without a frontend release. HeroSection retains useful offline fallbacks.
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetchFilterMeta(controller.signal)
+      .then(setFilterMeta)
+      .catch((err: unknown) => {
+        if (!(err instanceof DOMException && err.name === 'AbortError')) {
+          setFilterMeta(null);
+        }
+      });
+    return () => controller.abort();
+  }, []);
 
   const [isBookmarksOpen, setIsBookmarksOpen] = useState(false);
   const [isSubmitOpen, setIsSubmitOpen] = useState(false);
@@ -306,6 +397,17 @@ export function App() {
 
   const hackAbort = useRef<AbortController | null>(null);
   const dealAbort = useRef<AbortController | null>(null);
+  const loadMoreAbort = useRef<AbortController | null>(null);
+  const catalogueRequestId = useRef(0);
+
+  useEffect(
+    () => () => {
+      hackAbort.current?.abort();
+      dealAbort.current?.abort();
+      loadMoreAbort.current?.abort();
+    },
+    [],
+  );
 
   const applyLocalFlags = useCallback(
     <T extends { id: string }>(items: T[]): (T & { bookmarked: boolean; alertEnabled: boolean })[] =>
@@ -318,11 +420,15 @@ export function App() {
   );
 
   const loadCatalogue = useCallback(async () => {
+    const requestId = ++catalogueRequestId.current;
     setCatalogueLoading(true);
     setCatalogueError(null);
+    setLoadMoreError(null);
+    setLoadingMoreKind(null);
 
     hackAbort.current?.abort();
     dealAbort.current?.abort();
+    loadMoreAbort.current?.abort();
     const hCtrl = new AbortController();
     const dCtrl = new AbortController();
     hackAbort.current = hCtrl;
@@ -349,10 +455,14 @@ export function App() {
         fetchCatalogueStats(hCtrl.signal).catch(() => null),
       ]);
 
+      if (requestId !== catalogueRequestId.current) return;
+
       setHackathons(hackPage.items);
       setHackTotal(hackPage.totalEstimate);
+      setHackNextCursor(hackPage.nextCursor);
       setAiDeals(dealPage.items);
       setDealTotal(dealPage.totalEstimate);
+      setDealNextCursor(dealPage.nextCursor);
       if (statsRes) setStats(statsRes);
       setIsOfflineMode(false);
       // Refresh cached snapshots for any bookmarked row that reappeared in this
@@ -364,6 +474,7 @@ export function App() {
         }),
       );
     } catch (err) {
+      if (requestId !== catalogueRequestId.current) return;
       if (err instanceof DOMException && err.name === 'AbortError') return;
       const message =
         err instanceof ApiError
@@ -389,17 +500,83 @@ export function App() {
       }));
       setHackathons(mockH);
       setHackTotal(mockH.length);
+      setHackNextCursor(null);
       setAiDeals(mockD);
       setDealTotal(mockD.length);
+      setDealNextCursor(null);
       setIsOfflineMode(true);
     } finally {
-      setCatalogueLoading(false);
+      if (requestId === catalogueRequestId.current) setCatalogueLoading(false);
     }
   }, [queryFilters]);
 
   useEffect(() => {
     void loadCatalogue();
   }, [loadCatalogue]);
+
+  const loadMoreCatalogue = useCallback(
+    async (kind: 'hackathon' | 'ai_deal') => {
+      const cursor = kind === 'hackathon' ? hackNextCursor : dealNextCursor;
+      if (!cursor || loadingMoreKind) return;
+      const requestId = catalogueRequestId.current;
+      loadMoreAbort.current?.abort();
+      const controller = new AbortController();
+      loadMoreAbort.current = controller;
+
+      setLoadingMoreKind(kind);
+      setLoadMoreError(null);
+      const bookmarks = loadBookmarkIds();
+      const alerts = loadAlertIds();
+
+      try {
+        if (kind === 'hackathon') {
+          const page = await fetchHackathons(queryFilters, {
+            cursor,
+            limit: 50,
+            bookmarks,
+            alerts,
+            signal: controller.signal,
+          });
+          if (requestId !== catalogueRequestId.current) return;
+          setHackathons((current) => appendUniqueById(current, page.items));
+          setHackTotal(page.totalEstimate);
+          setHackNextCursor(page.nextCursor);
+          setBookmarkCache((current) =>
+            reconcileSnapshots(current, bookmarks, { hackathons: page.items, deals: [] }),
+          );
+        } else {
+          const page = await fetchAIOffers(queryFilters, {
+            cursor,
+            limit: 50,
+            bookmarks,
+            alerts,
+            signal: controller.signal,
+          });
+          if (requestId !== catalogueRequestId.current) return;
+          setAiDeals((current) => appendUniqueById(current, page.items));
+          setDealTotal(page.totalEstimate);
+          setDealNextCursor(page.nextCursor);
+          setBookmarkCache((current) =>
+            reconcileSnapshots(current, bookmarks, { hackathons: [], deals: page.items }),
+          );
+        }
+      } catch (err) {
+        if (requestId !== catalogueRequestId.current) return;
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        const message =
+          err instanceof ApiError
+            ? err.detail
+            : err instanceof Error
+              ? err.message
+              : 'Could not load more opportunities';
+        setLoadMoreError({ kind, message });
+      } finally {
+        if (loadMoreAbort.current === controller) loadMoreAbort.current = null;
+        if (requestId === catalogueRequestId.current) setLoadingMoreKind(null);
+      }
+    },
+    [dealNextCursor, hackNextCursor, loadingMoreKind, queryFilters],
+  );
 
   // Pagination & Rows Per Page State
   const [rowsPerPage, setRowsPerPage] = useState<number>(12);
@@ -504,31 +681,42 @@ export function App() {
   // After Google OAuth redirect, alert confirmation, or shared bookmark link
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const consumedParams = new Set<string>();
     if (params.get('admin_auth') === 'ok') {
       void loadAdminSession().then(() => {
         setFilters((f) => ({ ...f, activeModule: 'admin_queue' }));
-        window.history.replaceState({}, '', window.location.pathname);
       });
+      consumedParams.add('admin_auth');
     }
     if (params.get('admin_auth') === 'error') {
       const reason = params.get('reason') || 'unknown_error';
       setReviewError(`Google login failed: ${reason}`);
       setFilters((f) => ({ ...f, activeModule: 'admin_queue' }));
-      window.history.replaceState({}, '', window.location.pathname);
+      consumedParams.add('admin_auth');
+      consumedParams.add('reason');
     }
     if (params.get('alert') === 'confirmed') {
-      setAlertConfirmMsg('✅ Email alert subscription confirmed! You will receive notifications.');
-      window.history.replaceState({}, '', window.location.pathname);
+      setAlertConfirmMsg('Email alert subscription confirmed. You will receive notifications.');
+      consumedParams.add('alert');
     }
     if (params.get('alert') === 'unsubscribed') {
       setAlertConfirmMsg('You have been unsubscribed from DevRadar email alerts.');
-      window.history.replaceState({}, '', window.location.pathname);
+      consumedParams.add('alert');
     }
     const shared = parseShareIdsFromSearch(window.location.search);
     if (shared.length > 0) {
       setSharedBookmarkIds(shared);
       setIsBookmarksOpen(true);
       // Keep ?bm= in the URL so the link remains shareable while viewing.
+    }
+    if (consumedParams.size > 0) {
+      const nextUrl = new URL(window.location.href);
+      for (const key of consumedParams) nextUrl.searchParams.delete(key);
+      window.history.replaceState(
+        {},
+        '',
+        `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`,
+      );
     }
   }, [loadAdminSession]);
 
@@ -606,20 +794,23 @@ export function App() {
     return () => window.clearTimeout(t);
   }, [liveDiscoveryToast]);
 
-  const handleToggleBookmark = useCallback((id: string) => {
-    setBookmarkIds((prev) => {
-      const next = toggleId(prev, id);
-      setBookmarkCache((cache) => {
-        if (next.has(id)) {
-          const h = hackathons.find((x) => x.id === id);
-          if (h) return upsertSnapshot(cache, h, 'hackathon');
-          const d = aiDeals.find((x) => x.id === id);
-          if (d) return upsertSnapshot(cache, d, 'ai_deal');
-          return cache;
-        }
-        return removeSnapshot(cache, id);
-      });
-      return next;
+  const handleToggleBookmark = useCallback((id: string, fallbackItem?: Hackathon | AIDeal) => {
+    const next = toggleId(bookmarkIdsRef.current, id);
+    bookmarkIdsRef.current = next;
+    setBookmarkIds(next);
+    setBookmarkCache((cache) => {
+      if (next.has(id)) {
+        const h =
+          hackathons.find((x) => x.id === id) ??
+          (fallbackItem && 'title' in fallbackItem ? fallbackItem : undefined);
+        if (h) return upsertSnapshot(cache, h, 'hackathon');
+        const d =
+          aiDeals.find((x) => x.id === id) ??
+          (fallbackItem && 'productName' in fallbackItem ? fallbackItem : undefined);
+        if (d) return upsertSnapshot(cache, d, 'ai_deal');
+        return cache;
+      }
+      return removeSnapshot(cache, id);
     });
   }, [hackathons, aiDeals]);
 
@@ -628,17 +819,37 @@ export function App() {
   }, []);
 
   const handleToggleCompare = useCallback((hack: Hackathon) => {
-    setCompareItems((prev) => {
-      if (prev.some((i) => i.id === hack.id)) {
-        return prev.filter((i) => i.id !== hack.id);
-      }
-      if (prev.length >= 3) {
-        alert('You can compare up to 3 hackathons side-by-side.');
-        return prev;
-      }
-      return [...prev, hack];
-    });
+    const current = compareItemsRef.current;
+    if (current.some((item) => item.id === hack.id)) {
+      const next = current.filter((item) => item.id !== hack.id);
+      compareItemsRef.current = next;
+      setCompareItems(next);
+      setCompareNotice(`${hack.title} removed from comparison.`);
+      return;
+    }
+    if (current.length >= 3) {
+      setCompareNotice('You can compare up to 3 hackathons at a time.');
+      return;
+    }
+    const next = [...current, hack];
+    compareItemsRef.current = next;
+    setCompareItems(next);
+    setCompareNotice(
+      current.length === 0
+        ? `${hack.title} added. Choose one more opportunity to compare.`
+        : `${hack.title} added to comparison.`,
+    );
   }, []);
+
+  useEffect(() => {
+    if (!compareNotice) return;
+    const timeout = window.setTimeout(() => setCompareNotice(null), 4_000);
+    return () => window.clearTimeout(timeout);
+  }, [compareNotice]);
+
+  useEffect(() => {
+    if (compareItems.length < 2) setIsCompareOpen(false);
+  }, [compareItems.length]);
 
   const handleSelectItem = useCallback((item: Hackathon | AIDeal) => {
     setSelectedItem(item);
@@ -737,21 +948,19 @@ export function App() {
   const totalBookmarks = bookmarkIds.size;
 
   const handleImportBookmarkIds = useCallback((ids: string[], mode: 'merge' | 'replace') => {
-    setBookmarkIds((prev) => {
-      if (mode === 'replace') return new Set(ids);
-      const next = new Set(prev);
-      for (const id of ids) next.add(id);
-      return next;
-    });
+    const candidates = mode === 'replace' ? ids : [...bookmarkIdsRef.current, ...ids];
+    const next = new Set(sanitizeBookmarkIds(candidates));
+    bookmarkIdsRef.current = next;
+    setBookmarkIds(next);
   }, []);
 
   const handleSaveSharedToLocal = useCallback(() => {
     if (!sharedBookmarkIds?.length) return;
-    setBookmarkIds((prev) => {
-      const next = new Set(prev);
-      for (const id of sharedBookmarkIds) next.add(id);
-      return next;
-    });
+    const next = new Set(
+      sanitizeBookmarkIds([...bookmarkIdsRef.current, ...sharedBookmarkIds]),
+    );
+    bookmarkIdsRef.current = next;
+    setBookmarkIds(next);
     setSharedBookmarkIds(null);
     window.history.replaceState({}, '', window.location.pathname);
   }, [sharedBookmarkIds]);
@@ -763,6 +972,28 @@ export function App() {
 
   const displayHackCount = stats?.hackathonsActive ?? hackTotal;
   const displayDealCount = stats?.aiOffersActive ?? dealTotal;
+
+  const catalogueSummary =
+    filters.activeModule === 'hackathon' || filters.activeModule === 'ai_deal' ? (
+      <StatsOverview
+        totalPrizeValue={totalPrizePoolValue}
+        totalHackathons={displayHackCount}
+        totalDeals={displayDealCount}
+        unverifiedCount={reviewTotal}
+        showQueueStat={Boolean(admin)}
+        loading={catalogueLoading && !stats}
+      />
+    ) : null;
+
+  const catalogueStatus = (
+    <CatalogueStatusNotice
+      error={catalogueError}
+      onRetry={() => {
+        setIsOfflineMode(false);
+        void loadCatalogue();
+      }}
+    />
+  );
 
   return (
     <div className="min-h-screen flex flex-col font-sans transition-colors duration-250 bg-[#F3F4EF] dark:bg-[#090C15] text-[#1C1B18] dark:text-[#F8FAF9]">
@@ -786,42 +1017,6 @@ export function App() {
       />
 
       <main className="flex-1 pb-16">
-        {filters.activeModule !== 'admin_queue' || admin ? (
-          <StatsOverview
-            totalPrizeValue={totalPrizePoolValue}
-            totalHackathons={displayHackCount}
-            totalDeals={displayDealCount}
-            unverifiedCount={reviewTotal}
-            showQueueStat={Boolean(admin)}
-            loading={catalogueLoading && !stats}
-          />
-        ) : null}
-
-        {catalogueError &&
-          filters.activeModule !== 'admin_queue' &&
-          filters.activeModule !== 'pipeline' &&
-          filters.activeModule !== 'catalogue' && (
-          <div className="max-w-6xl mx-auto px-4 lg:px-8 pt-4">
-            <div className="sharetopus-card p-4 rounded-2xl border-[1.5px] border-[#D97706] bg-[#D97706]/10 flex items-start gap-3 text-xs font-bold text-[#1C1B18] dark:text-[#F8FAF9]">
-              <WifiOff className="w-5 h-5 text-[#D97706] shrink-0" />
-              <div>
-                <div className="font-extrabold">Backend Offline — Showing Demo Data</div>
-                <p className="mt-1 opacity-90">{catalogueError}</p>
-                <p className="mt-1 text-[11px] font-mono opacity-70">
-                  Start the backend (uvicorn app.main:app) at http://127.0.0.1:8000 to load real data.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => { setIsOfflineMode(false); void loadCatalogue(); }}
-                  className="btn-sharetopus-secondary text-xs py-1.5 px-3 mt-2 font-bold"
-                >
-                  Retry Connection
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {alertConfirmMsg && (
           <div className="max-w-6xl mx-auto px-4 lg:px-8 pt-3">
             <div className="sharetopus-card p-3 rounded-2xl border-[1.5px] border-[#059669] bg-[#059669]/10 flex items-center justify-between text-xs font-bold text-[#059669] dark:text-[#34D399]">
@@ -837,11 +1032,15 @@ export function App() {
             <HeroSection
               filters={filters}
               setFilters={setFilters}
+              filterMeta={filterMeta}
               totalResults={hackTotal || hackathons.length}
               verifiedCount={verifiedHackathonCount}
               onTriggerLiveDiscovery={() => void handleTriggerLiveDiscovery()}
               isSearchingLive={isSearchingLive}
             />
+
+            {catalogueStatus}
+            {catalogueSummary}
 
             <div className="max-w-6xl mx-auto px-4 lg:px-8 pt-8">
               {catalogueLoading ? (
@@ -899,7 +1098,12 @@ export function App() {
                   <Pagination
                     currentPage={currentPage}
                     totalItems={displayHackathons.length}
+                    totalAvailable={hackTotal}
                     rowsPerPage={rowsPerPage}
+                    hasMore={Boolean(hackNextCursor)}
+                    isLoadingMore={loadingMoreKind === 'hackathon'}
+                    loadMoreError={loadMoreError?.kind === 'hackathon' ? loadMoreError.message : null}
+                    onLoadMore={() => void loadMoreCatalogue('hackathon')}
                     onPageChange={(p) => {
                       setCurrentPage(p);
                       window.scrollTo({ top: 400, behavior: 'smooth' });
@@ -920,11 +1124,15 @@ export function App() {
             <HeroSection
               filters={filters}
               setFilters={setFilters}
+              filterMeta={filterMeta}
               totalResults={dealTotal || aiDeals.length}
               verifiedCount={verifiedDealCount}
               onTriggerLiveDiscovery={() => void handleTriggerLiveDiscovery()}
               isSearchingLive={isSearchingLive}
             />
+
+            {catalogueStatus}
+            {catalogueSummary}
 
             <div className="max-w-6xl mx-auto px-4 lg:px-8 pt-8">
               {catalogueLoading ? (
@@ -937,7 +1145,7 @@ export function App() {
                   <FilterX className="w-10 h-10 text-[#FF5A36] mx-auto" />
                   <h3 className="text-lg font-extrabold">No AI Deals Matched Your Filter</h3>
                   <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Try selecting all offer types or clearing search.
+                    Try clearing the search or relaxing one of the active filters.
                   </p>
                 </div>
               ) : (
@@ -964,7 +1172,12 @@ export function App() {
                   <Pagination
                     currentPage={currentPage}
                     totalItems={displayAiDeals.length}
+                    totalAvailable={dealTotal}
                     rowsPerPage={rowsPerPage}
+                    hasMore={Boolean(dealNextCursor)}
+                    isLoadingMore={loadingMoreKind === 'ai_deal'}
+                    loadMoreError={loadMoreError?.kind === 'ai_deal' ? loadMoreError.message : null}
+                    onLoadMore={() => void loadMoreCatalogue('ai_deal')}
                     onPageChange={(p) => {
                       setCurrentPage(p);
                       window.scrollTo({ top: 400, behavior: 'smooth' });
@@ -1048,23 +1261,38 @@ export function App() {
         )}
       </main>
 
+      {compareNotice && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed top-20 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-sm z-[60] sharetopus-card px-4 py-3 rounded-2xl border-[1.5px] border-[#7C3AED] bg-white dark:bg-[#131A29] text-xs font-bold text-[#1C1B18] dark:text-white shadow-[4px_4px_0_0_#7C3AED]"
+        >
+          {compareNotice}
+        </div>
+      )}
+
       {compareItems.length > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 sharetopus-card px-6 py-3.5 rounded-full border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] text-[#1C1B18] dark:text-white shadow-[4px_4px_0_0_#1C1B18] dark:shadow-[4px_4px_0_0_#D6DCE5] flex items-center gap-4 text-xs font-mono font-extrabold">
-          <span className="text-[#7C3AED] font-extrabold">
-            Comparing {compareItems.length} Opportunity (
-            {compareItems.map((i) => i.title.substring(0, 15)).join(', ')}...)
+        <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-40 sharetopus-card px-4 sm:px-6 py-3 rounded-2xl sm:rounded-full border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] text-[#1C1B18] dark:text-white shadow-[4px_4px_0_0_#1C1B18] dark:shadow-[4px_4px_0_0_#D6DCE5] flex flex-wrap sm:flex-nowrap items-center justify-between sm:justify-center gap-2 sm:gap-4 text-xs font-mono font-extrabold">
+          <span className="min-w-0 text-[#7C3AED] dark:text-[#C4B5FD] font-extrabold">
+            {compareItems.length === 1
+              ? '1 selected · choose one more'
+              : `${compareItems.length} opportunities selected`}
           </span>
           <button
             type="button"
-            onClick={() => setSelectedItem(compareItems[0])}
-            className="btn-sharetopus-primary text-xs py-1.5 px-4 font-extrabold"
+            onClick={() => setIsCompareOpen(true)}
+            disabled={compareItems.length < 2}
+            className="btn-sharetopus-primary text-xs py-1.5 px-4 font-extrabold disabled:opacity-45 disabled:cursor-not-allowed"
           >
-            Open Side-by-Side Table
+            Compare now
           </button>
           <button
             type="button"
-            onClick={() => setCompareItems([])}
-            className="text-[#1C1B18] hover:text-[#FF5A36] dark:text-white font-extrabold"
+            onClick={() => {
+              compareItemsRef.current = [];
+              setCompareItems([]);
+            }}
+            className="text-[#1C1B18] hover:text-[#FF5A36] dark:text-white font-extrabold px-1.5 py-1"
           >
             Clear
           </button>
@@ -1074,9 +1302,15 @@ export function App() {
       <DetailModal item={selectedItem} onClose={() => setSelectedItem(null)} />
 
       <CompareModal
-        items={compareItems}
-        onClose={() => setCompareItems([])}
-        onRemove={(id) => setCompareItems((prev) => prev.filter((i) => i.id !== id))}
+        items={isCompareOpen ? compareItems : []}
+        onClose={() => setIsCompareOpen(false)}
+        onRemove={(id) => {
+          const next = compareItemsRef.current.filter((item) => item.id !== id);
+          compareItemsRef.current = next;
+          setCompareItems(next);
+          if (next.length < 2) setIsCompareOpen(false);
+          setCompareNotice('Opportunity removed from comparison.');
+        }}
       />
 
       {isExtensionOpen && (
@@ -1084,6 +1318,8 @@ export function App() {
           <ChromeExtensionSidePanel
             isOpen={isExtensionOpen}
             onClose={() => setIsExtensionOpen(false)}
+            exampleSaved={bookmarkIds.has('hack-001')}
+            onSaveExample={() => handleToggleBookmark('hack-001', MOCK_HACKATHONS[0])}
           />
         </Suspense>
       )}
@@ -1106,6 +1342,7 @@ export function App() {
         onRemoveBookmark={handleToggleBookmark}
         onToggleAlert={handleToggleAlert}
         onImportIds={handleImportBookmarkIds}
+        savedIds={[...bookmarkIds]}
         sharedMode={Boolean(sharedBookmarkIds)}
         sharedIds={sharedBookmarkIds ?? []}
         onSaveSharedToLocal={handleSaveSharedToLocal}

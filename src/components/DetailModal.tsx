@@ -38,6 +38,7 @@ import {
 import { generateAIPrompt, getPromptMeta, isHackathonItem } from '../utils/aiPrompt';
 import type { PromptSectionIcon } from '../utils/aiPrompt';
 import { DEDUPE_THRESHOLD, compactDescription, dedupeHighlights } from '../utils/cardSummary';
+import { formatAppDate, formatAppDateTime } from '../utils/dateTime';
 import { useModalA11y } from '../hooks/useModalA11y';
 
 /** Icon per prompt-section slot, keyed by the meta's semantic icon name. */
@@ -93,6 +94,15 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
   const isHackathon = item ? isHackathonItem(item) : false;
   const hackathon = item && isHackathon ? (item as Hackathon) : null;
   const deal = item && !isHackathon ? (item as AIDeal) : null;
+  const officialUrl = isHackathon ? hackathon?.officialUrl : deal?.claimUrl || deal?.officialTermsUrl;
+  const officialHost = useMemo(() => {
+    if (!officialUrl) return null;
+    try {
+      return new URL(officialUrl).hostname.replace(/^www\./, '');
+    } catch {
+      return officialUrl;
+    }
+  }, [officialUrl]);
 
   const promptText = useMemo(
     () => (item ? generateAIPrompt(item) : ''),
@@ -308,7 +318,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
                 <div className="sharetopus-card p-3.5 rounded-2xl bg-[#F8F9F4] dark:bg-[#1A2336] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5]">
                   <div className="text-[12px] text-[#4A4845] dark:text-[#B8C4D2] font-semibold">LAST CHECKED</div>
                   <div className="text-[12px] sm:text-sm font-bold text-[#1C1B18] dark:text-white">
-                    {new Date(item.lastCheckedAt).toLocaleString(undefined, {
+                    {formatAppDateTime(item.lastCheckedAt, {
                       month: 'short',
                       day: 'numeric',
                       hour: '2-digit',
@@ -369,10 +379,10 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
                     {/* Labels stay at normal weight so the dates beside them
                         are what the eye picks up. */}
                     <div className="space-y-2 text-[#4A4845] dark:text-[#CBD5E1]">
-                      <div>Registration Opens: <strong className="text-[#1C1B18] dark:text-white font-bold">{new Date(hackathon!.registrationOpenAt).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}</strong></div>
+                      <div>Registration Opens: <strong className="text-[#1C1B18] dark:text-white font-bold">{formatAppDateTime(hackathon!.registrationOpenAt, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}</strong></div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span>Registration Deadline:</span>
-                        <strong className="text-[#047857] dark:text-[#34D399] font-bold">{new Date(hackathon!.registrationDeadline).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}</strong>
+                        <strong className="text-[#047857] dark:text-[#34D399] font-bold">{formatAppDateTime(hackathon!.registrationDeadline, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}</strong>
                         {regDeadlineInfo && (
                           <span className={`urgency-badge urgency-${regDeadlineInfo.urgency}`}>
                             <Clock className="w-3.5 h-3.5" />
@@ -382,7 +392,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span>Submission Deadline:</span>
-                        <strong className="text-[#C2410C] dark:text-[#FF8A6B] font-bold">{new Date(hackathon!.submissionDeadline).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}</strong>
+                        <strong className="text-[#C2410C] dark:text-[#FF8A6B] font-bold">{formatAppDateTime(hackathon!.submissionDeadline, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}</strong>
                         {subDeadlineInfo && (
                           <span className={`urgency-badge urgency-${subDeadlineInfo.urgency}`}>
                             <Clock className="w-3.5 h-3.5" />
@@ -699,7 +709,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-bold text-[#C2410C] dark:text-[#FF8A6B]">
                       {deal.expiresAt
-                        ? new Date(deal.expiresAt).toLocaleDateString(undefined, {
+                        ? formatAppDate(deal.expiresAt, {
                             year: 'numeric', month: 'short', day: 'numeric',
                           })
                         : 'No fixed expiry'}
@@ -769,7 +779,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
                   <p className="text-[12px] text-[#4A4845] dark:text-[#B8C4D2]">
                     Quotas, pricing and eligibility change often — DevRadar last checked{' '}
                     <strong className="text-[#1C1B18] dark:text-white font-bold">
-                      {new Date(deal.lastCheckedAt).toLocaleString(undefined, {
+                      {formatAppDateTime(deal.lastCheckedAt, {
                         year: 'numeric', month: 'short', day: 'numeric',
                       })}
                     </strong>
@@ -828,7 +838,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
               A hackathon has an organiser you register with; an AI offer has a
               provider you claim from. Using one word for both made the deal
               modal read as if it were describing a hackathon. */}
-          <div className="px-6 pt-3 flex items-start gap-2 text-[11px] leading-relaxed text-[#4A4845] dark:text-[#94A3B8]">
+          <div className="px-4 sm:px-6 pt-3 flex items-start gap-2 text-[11px] leading-relaxed text-[#4A4845] dark:text-[#94A3B8]">
             <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px text-[#D97706]" />
             <p>
               DevRadar is not affiliated with this {isHackathon ? 'organiser' : 'provider'}. Details
@@ -837,18 +847,32 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
             </p>
           </div>
 
-          <div className="p-4 px-6 flex items-center justify-between gap-4 text-xs">
-            <div className="text-[#4A4845] dark:text-[#B8C4D2] font-mono truncate">
-              Official URL: <a href={isHackathon ? hackathon?.officialUrl : deal?.officialTermsUrl} target="_blank" rel="noreferrer" className="text-[#C2410C] dark:text-[#FF8A6B] hover:underline font-semibold">{isHackathon ? hackathon?.officialUrl : deal?.officialTermsUrl}</a>
+          <div className="p-3 px-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="min-w-0 text-[#4A4845] dark:text-[#B8C4D2] font-mono">
+              <span className="block text-[10px] uppercase tracking-wide font-bold">Official destination</span>
+              <span className="block truncate font-semibold text-[#1C1B18] dark:text-white">
+                {officialHost ?? 'No official destination available'}
+              </span>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:shrink-0">
+              {officialUrl && (
+                <a
+                  href={officialUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-sharetopus-primary justify-center text-xs py-2 px-4 font-bold flex-1 sm:flex-none"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>{isHackathon ? 'Open official page' : 'Claim on provider'}</span>
+                </a>
+              )}
               {reportUrl && (
                 <a
                   href={reportUrl}
                   target="_blank"
                   rel="noreferrer"
                   title="Report a dead link or wrong information"
-                  className="flex items-center gap-1.5 text-[#4A4845] dark:text-[#94A3B8] hover:text-[#B45309] dark:hover:text-[#FBBF24] py-1.5 px-3 font-semibold"
+                  className="flex items-center justify-center gap-1.5 text-[#4A4845] dark:text-[#94A3B8] hover:text-[#B45309] dark:hover:text-[#FBBF24] py-2 px-3 font-semibold"
                 >
                   <Flag className="w-3.5 h-3.5" />
                   <span>Report issue</span>

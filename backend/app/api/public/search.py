@@ -7,6 +7,11 @@ from typing import Annotated
 from fastapi import APIRouter, Query
 
 from app.api.dependencies import Catalogue
+from app.api.limits import (
+    MAX_CURSOR_LENGTH,
+    MAX_SEARCH_QUERY_LENGTH,
+    MAX_STATUS_PARAM_LENGTH,
+)
 from app.catalog.enums import ListingKind
 from app.catalog.public_schemas import (
     CatalogueStatsResponse,
@@ -21,10 +26,13 @@ router = APIRouter(tags=["Search"])
 @router.get("/search", response_model=CombinedSearchResponse)
 async def combined_search(
     service: Catalogue,
-    q: Annotated[str | None, Query(description="Full-text / fuzzy search")] = None,
+    q: Annotated[
+        str | None,
+        Query(max_length=MAX_SEARCH_QUERY_LENGTH, description="Full-text / fuzzy search"),
+    ] = None,
     kind: Annotated[ListingKind | None, Query()] = None,
-    status: Annotated[str | None, Query()] = None,
-    cursor: Annotated[str | None, Query()] = None,
+    status: Annotated[str | None, Query(max_length=MAX_STATUS_PARAM_LENGTH)] = None,
+    cursor: Annotated[str | None, Query(max_length=MAX_CURSOR_LENGTH)] = None,
     limit: Annotated[int | None, Query(ge=1, le=100)] = None,
 ) -> CombinedSearchResponse:
     items, next_cursor, total = await service.combined_search(

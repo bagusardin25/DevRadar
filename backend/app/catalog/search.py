@@ -15,6 +15,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.sql import ColumnElement
 
+from app.api.limits import (
+    MAX_CURSOR_LENGTH,
+    MAX_FILTER_VALUE_LENGTH,
+    MAX_SEARCH_QUERY_LENGTH,
+    MAX_TAG_FILTERS,
+    MAX_TAGS_PARAM_LENGTH,
+)
 from app.catalog.enums import (
     HackathonMode,
     ListingKind,
@@ -102,6 +109,11 @@ def encode_cursor(score: Decimal, sort_ts: datetime, listing_id: UUID) -> str:
 
 
 def decode_cursor(cursor: str) -> CursorPayload:
+    if len(cursor) > MAX_CURSOR_LENGTH:
+        raise ValidationError(
+            detail="Invalid cursor",
+            errors=[{"field": "cursor", "message": "Cursor is too long"}],
+        )
     try:
         raw = base64.urlsafe_b64decode(cursor.encode("ascii"))
         data = json.loads(raw.decode("utf-8"))
@@ -142,12 +154,81 @@ def _text_search_clause(query: str | None) -> ColumnElement[bool] | None:
     if not query or not query.strip():
         return None
     q = query.strip()
+    if len(q) > MAX_SEARCH_QUERY_LENGTH:
+        raise ValidationError(
+            detail="Search query is too long",
+            errors=[
+                {
+                    "field": "q",
+                    "message": f"Must be at most {MAX_SEARCH_QUERY_LENGTH} characters",
+                }
+            ],
+        )
     ts_query = func.websearch_to_tsquery("english", q)
     fts = Listing.search_document.op("@@")(ts_query)
     # Trigram similarity fallback for short / fuzzy titles.
     trigram = func.similarity(Listing.title, q) >= 0.15
     ilike = Listing.title.ilike(f"%{q}%")
     return or_(fts, trigram, ilike)
+
+
+def parse_tag_filters(raw: str | None) -> list[str]:
+    """Parse and bound comma-separated public AI-offer tag filters."""
+    if not raw:
+        return []
+    if len(raw) > MAX_TAGS_PARAM_LENGTH:
+        raise ValidationError(
+            detail="Tag filter is too long",
+            errors=[{"field": "tags", "message": "Too many tag characters"}],
+        )
+    tags = list(dict.fromkeys(tag.strip() for tag in raw.split(",") if tag.strip()))
+    if len(tags) > MAX_TAG_FILTERS:
+        raise ValidationError(
+            detail=f"Too many tags (max {MAX_TAG_FILTERS})",
+            errors=[{"field": "tags", "message": f"Maximum {MAX_TAG_FILTERS} tags"}],
+        )
+    if any(len(tag) > MAX_FILTER_VALUE_LENGTH for tag in tags):
+        raise ValidationError(
+            detail="Tag filter value is too long",
+            errors=[
+                {
+                    "field": "tags",
+                    "message": f"Each tag must be at most {MAX_FILTER_VALUE_LENGTH} characters",
+                }
+            ],
+        )
+    return tags
+
+
+def _clean_filter_value(value: str | None, field_name: str) -> str | None:
+    if not value or not value.strip():
+        return None
+    cleaned = value.strip()
+    if len(cleaned) > MAX_FILTER_VALUE_LENGTH:
+        raise ValidationError(
+            detail=f"{field_name} filter is too long",
+            errors=[
+                {
+                    "field": field_name,
+                    "message": f"Must be at most {MAX_FILTER_VALUE_LENGTH} characters",
+                }
+            ],
+        )
+    return cleaned
+
+
+def _clean_tag_list(tags: list[str]) -> list[str]:
+    cleaned = list(
+        dict.fromkeys(tag.strip() for tag in tags if isinstance(tag, str) and tag.strip())
+    )
+    if len(cleaned) > MAX_TAG_FILTERS:
+        raise ValidationError(
+            detail=f"Too many tags (max {MAX_TAG_FILTERS})",
+            errors=[{"field": "tags", "message": f"Maximum {MAX_TAG_FILTERS} tags"}],
+        )
+    for tag in cleaned:
+        _clean_filter_value(tag, "tags")
+    return cleaned
 
 
 def _cursor_clause(
@@ -210,8 +291,8 @@ async def search_hackathons(
     if filters.mode is not None:
         stmt = stmt.where(Hackathon.mode == filters.mode.value)
 
-    if filters.region:
-        region = filters.region.strip()
+    region = _clean_filter_value(filters.region, "region")
+    if region:
         stmt = stmt.where(
             or_(
                 Hackathon.eligible_countries.contains([region]),
@@ -220,11 +301,13 @@ async def search_hackathons(
             )
         )
 
-    if filters.eligibility:
-        stmt = stmt.where(Hackathon.eligibility.contains([filters.eligibility.strip()]))
+    eligibility = _clean_filter_value(filters.eligibility, "eligibility")
+    if eligibility:
+        stmt = stmt.where(Hackathon.eligibility.contains([eligibility]))
 
-    if filters.technology:
-        stmt = stmt.where(Hackathon.technologies.contains([filters.technology.strip()]))
+    technology = _clean_filter_value(filters.technology, "technology")
+    if technology:
+        stmt = stmt.where(Hackathon.technologies.contains([technology]))
 
     if filters.deadline_before is not None:
         stmt = stmt.where(Hackathon.submission_deadline <= filters.deadline_before)
@@ -310,11 +393,12 @@ async def search_ai_offers(
     if filters.offer_type is not None:
         stmt = stmt.where(AIOffer.offer_type == filters.offer_type.value)
 
-    if filters.target_user:
-        stmt = stmt.where(AIOffer.target_users.contains([filters.target_user.strip()]))
+    target_user = _clean_filter_value(filters.target_user, "targetUser")
+    if target_user:
+        stmt = stmt.where(AIOffer.target_users.contains([target_user]))
 
-    if filters.region:
-        region = filters.region.strip()
+    region = _clean_filter_value(filters.region, "region")
+    if region:
         stmt = stmt.where(
             or_(
                 AIOffer.supported_regions.contains([region]),
@@ -336,8 +420,8 @@ async def search_ai_offers(
             )
         )
 
-    for tag in filters.tags:
-        stmt = stmt.where(AIOffer.tags.contains([tag.strip()]))
+    for tag in _clean_tag_list(filters.tags):
+        stmt = stmt.where(AIOffer.tags.contains([tag]))
 
     if filters.only_free_no_card:
         free_types = [

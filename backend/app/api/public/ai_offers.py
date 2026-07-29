@@ -5,12 +5,20 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Header, Query, Response
+from fastapi import APIRouter, Header, Path, Query, Response
 
 from app.api.dependencies import Catalogue
+from app.api.limits import (
+    MAX_CURSOR_LENGTH,
+    MAX_FILTER_VALUE_LENGTH,
+    MAX_SEARCH_QUERY_LENGTH,
+    MAX_SLUG_LENGTH,
+    MAX_STATUS_PARAM_LENGTH,
+    MAX_TAGS_PARAM_LENGTH,
+)
 from app.catalog.enums import OfferType
 from app.catalog.public_schemas import AIOfferCollectionResponse, AIOfferPublic
-from app.catalog.search import AIOfferFilters
+from app.catalog.search import AIOfferFilters, parse_tag_filters
 from app.catalog.service import listing_etag, parse_status_param
 
 router = APIRouter(prefix="/ai-offers", tags=["AI Offers"])
@@ -19,25 +27,33 @@ router = APIRouter(prefix="/ai-offers", tags=["AI Offers"])
 @router.get("", response_model=AIOfferCollectionResponse)
 async def list_ai_offers(
     service: Catalogue,
-    q: Annotated[str | None, Query(description="Full-text / fuzzy search")] = None,
+    q: Annotated[
+        str | None,
+        Query(max_length=MAX_SEARCH_QUERY_LENGTH, description="Full-text / fuzzy search"),
+    ] = None,
     offer_type: Annotated[OfferType | None, Query(alias="offerType")] = None,
-    target_user: Annotated[str | None, Query(alias="targetUser")] = None,
-    region: Annotated[str | None, Query()] = None,
+    target_user: Annotated[
+        str | None, Query(alias="targetUser", max_length=MAX_FILTER_VALUE_LENGTH)
+    ] = None,
+    region: Annotated[str | None, Query(max_length=MAX_FILTER_VALUE_LENGTH)] = None,
     status: Annotated[
         str | None,
-        Query(description="Comma-separated statuses; default verified_active,likely_active"),
+        Query(
+            max_length=MAX_STATUS_PARAM_LENGTH,
+            description="Comma-separated statuses; default verified_active,likely_active",
+        ),
     ] = None,
     expires_before: Annotated[datetime | None, Query(alias="expiresBefore")] = None,
     expires_after: Annotated[datetime | None, Query(alias="expiresAfter")] = None,
     tags: Annotated[
         str | None,
-        Query(description="Comma-separated tags"),
+        Query(max_length=MAX_TAGS_PARAM_LENGTH, description="Comma-separated tags"),
     ] = None,
     only_free_no_card: Annotated[bool, Query(alias="onlyFreeNoCard")] = False,
-    cursor: Annotated[str | None, Query()] = None,
+    cursor: Annotated[str | None, Query(max_length=MAX_CURSOR_LENGTH)] = None,
     limit: Annotated[int | None, Query(ge=1, le=100)] = None,
 ) -> AIOfferCollectionResponse:
-    tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
+    tag_list = parse_tag_filters(tags)
     filters = AIOfferFilters(
         query=q,
         offer_type=offer_type,
@@ -61,7 +77,7 @@ async def list_ai_offers(
 
 @router.get("/{slug}", response_model=AIOfferPublic)
 async def get_ai_offer(
-    slug: str,
+    slug: Annotated[str, Path(min_length=1, max_length=MAX_SLUG_LENGTH)],
     service: Catalogue,
     response: Response,
     if_none_match: Annotated[str | None, Header(alias="If-None-Match")] = None,

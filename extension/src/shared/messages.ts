@@ -15,5 +15,5 @@ export interface ApiProxyOptions {
   method?: string;
   query?: Record<string, string | number | boolean | undefined | null>;
   body?: unknown;
-  headers?: Record<string, string>;
+  headers?: { 'Idempotency-Key'?: string };
 }

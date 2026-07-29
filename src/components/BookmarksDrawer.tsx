@@ -31,6 +31,8 @@ interface BookmarksDrawerProps {
   onToggleAlert: (id: string) => void;
   /** Merge imported ids into local bookmarks */
   onImportIds?: (ids: string[], mode: 'merge' | 'replace') => void;
+  /** All locally saved ids, including rows not loaded in the current catalogue. */
+  savedIds?: string[];
   /** When viewing a shared list (read-only share link) */
   sharedMode?: boolean;
   sharedIds?: string[];
@@ -45,6 +47,7 @@ export const BookmarksDrawer: React.FC<BookmarksDrawerProps> = ({
   bookmarkedDeals,
   onRemoveBookmark,
   onImportIds,
+  savedIds = [],
   sharedMode = false,
   sharedIds = [],
   onSaveSharedToLocal,
@@ -63,9 +66,10 @@ export const BookmarksDrawer: React.FC<BookmarksDrawerProps> = ({
   const allIds = [
     ...bookmarkedHackathons.map((h) => h.id),
     ...bookmarkedDeals.map((d) => d.id),
-    ...(sharedMode ? sharedIds : []),
+    ...(sharedMode ? sharedIds : savedIds),
   ];
   const uniqueIds = [...new Set(allIds)];
+  const unresolvedCount = Math.max(0, uniqueIds.length - total);
 
   const handleExport = () => {
     const items = [
@@ -135,7 +139,9 @@ export const BookmarksDrawer: React.FC<BookmarksDrawerProps> = ({
             <p className="text-xs font-mono font-bold text-[#1C1B18] dark:text-[#B8C4D2]">
               {sharedMode
                 ? `${sharedIds.length} id(s) from share link`
-                : `${total} items in this browser`}
+                : unresolvedCount > 0
+                  ? `${uniqueIds.length} saved · ${total} loaded`
+                  : `${total} items in this browser`}
             </p>
           </div>
         </div>
@@ -235,17 +241,23 @@ export const BookmarksDrawer: React.FC<BookmarksDrawerProps> = ({
           <div className="py-12 text-center space-y-2">
             <Bookmark className="w-10 h-10 text-[#736F66] mx-auto" />
             <h4 className="font-extrabold text-[#1C1B18] dark:text-white text-sm">
-              {sharedMode ? 'Shared ids not in current catalogue' : 'No Saved Opportunities'}
+              {sharedMode
+                ? 'Shared ids not in current catalogue'
+                : uniqueIds.length > 0
+                  ? 'Saved ids not in current catalogue'
+                  : 'No Saved Opportunities'}
             </h4>
             <p className="text-xs text-[#1C1B18] dark:text-[#B8C4D2] font-bold">
               {sharedMode
                 ? 'Ids are in the URL — open matching filters or save them locally. Some may be expired or not loaded.'
-                : 'Click the bookmark icon on any card to save it for quick access. Export/import works offline.'}
+                : uniqueIds.length > 0
+                  ? 'The ids are preserved and can still be exported or shared. Their listings may be expired, filtered out, or not loaded yet.'
+                  : 'Click the bookmark icon on any card to save it for quick access. Export/import works offline.'}
             </p>
-            {sharedMode && sharedIds.length > 0 && (
+            {uniqueIds.length > 0 && (
               <p className="text-[11px] font-mono text-[#736F66] break-all px-2">
-                {sharedIds.slice(0, 8).join(', ')}
-                {sharedIds.length > 8 ? ` +${sharedIds.length - 8} more` : ''}
+                {uniqueIds.slice(0, 8).join(', ')}
+                {uniqueIds.length > 8 ? ` +${uniqueIds.length - 8} more` : ''}
               </p>
             )}
           </div>

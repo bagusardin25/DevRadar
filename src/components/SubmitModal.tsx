@@ -18,6 +18,7 @@ import {
   type SubmissionStatus,
 } from '../api';
 import { useModalA11y } from '../hooks/useModalA11y';
+import { readLocalStorage, writeLocalStorage } from '../utils/storage';
 
 interface SubmitModalProps {
   isOpen: boolean;
@@ -76,7 +77,7 @@ export const SubmitModal: React.FC<SubmitModalProps> = ({
       setSubmitted(false);
       setTrackingId(null);
       setSubmissionStatus(null);
-      setLastTrackingId(window.localStorage.getItem(LAST_TRACKING_KEY));
+      setLastTrackingId(readLocalStorage(LAST_TRACKING_KEY));
       setError(null);
       setSubmitting(false);
     }
@@ -135,7 +136,7 @@ export const SubmitModal: React.FC<SubmitModalProps> = ({
       );
       setTrackingId(receipt.trackingId);
       setLastTrackingId(receipt.trackingId);
-      window.localStorage.setItem(LAST_TRACKING_KEY, receipt.trackingId);
+      writeLocalStorage(LAST_TRACKING_KEY, receipt.trackingId);
       setSubmitted(true);
       onSubmitted?.(receipt.trackingId);
     } catch (err) {
@@ -342,10 +343,11 @@ export const SubmitModal: React.FC<SubmitModalProps> = ({
                 </button>
               )}
               <div className="space-y-1.5">
-                <label className="text-[#1C1B18] dark:text-[#F8FAF9] font-extrabold text-[11px] uppercase tracking-wide">
+                <label htmlFor="submission-type" className="text-[#1C1B18] dark:text-[#F8FAF9] font-extrabold text-[11px] uppercase tracking-wide">
                   Opportunity Type
                 </label>
                 <select
+                  id="submission-type"
                   value={type}
                   onChange={(e) => setType(e.target.value as 'hackathon' | 'ai_offer')}
                   className={fieldClass}
@@ -356,10 +358,11 @@ export const SubmitModal: React.FC<SubmitModalProps> = ({
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[#1C1B18] dark:text-[#F8FAF9] font-extrabold text-[11px] uppercase tracking-wide">
+                <label htmlFor="submission-title" className="text-[#1C1B18] dark:text-[#F8FAF9] font-extrabold text-[11px] uppercase tracking-wide">
                   Opportunity Title
                 </label>
                 <input
+                  id="submission-title"
                   type="text"
                   required
                   value={title}
@@ -370,10 +373,11 @@ export const SubmitModal: React.FC<SubmitModalProps> = ({
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[#1C1B18] dark:text-[#F8FAF9] font-extrabold text-[11px] uppercase tracking-wide">
+                <label htmlFor="submission-url" className="text-[#1C1B18] dark:text-[#F8FAF9] font-extrabold text-[11px] uppercase tracking-wide">
                   Official Source / Terms URL
                 </label>
                 <input
+                  id="submission-url"
                   type="url"
                   required
                   value={url}

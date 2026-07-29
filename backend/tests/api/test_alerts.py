@@ -43,6 +43,7 @@ class TestAlertsAPI:
         assert r.status_code == 202
         body = r.json()
         assert body["status"] == "pending_confirmation"
+        assert r.headers["X-RateLimit-Limit"] == "10"
 
     async def test_honeypot(self, client) -> None:
         r = await client.post(
@@ -58,6 +59,20 @@ class TestAlertsAPI:
     async def test_confirm_invalid_token(self, client) -> None:
         r = await client.get("/api/v1/alerts/confirm", params={"token": "nope"})
         assert r.status_code == 404
+
+    async def test_rejects_pathological_filter_payload(self, client) -> None:
+        response = await client.post(
+            "/api/v1/alerts",
+            json={"email": "dev@example.com", "filters": {"q": "x" * 201}},
+        )
+        assert response.status_code == 422
+
+    async def test_rejects_unknown_cadence(self, client) -> None:
+        response = await client.post(
+            "/api/v1/alerts",
+            json={"email": "dev@example.com", "cadence": "every-second"},
+        )
+        assert response.status_code == 422
 
     async def test_repeated_address_is_bounded(self, client) -> None:
         email = f"victim-{uuid4().hex[:8]}@example.com"

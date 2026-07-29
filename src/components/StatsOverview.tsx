@@ -47,8 +47,10 @@ export const StatsOverview: React.FC<StatsOverviewProps> = ({
     : 'grid-cols-1 sm:grid-cols-3';
 
   return (
-    <div className={`grid ${cols} gap-4 max-w-6xl mx-auto px-4 lg:px-8 pt-6 font-sans`}>
-
+    <section
+      aria-label="Catalogue summary"
+      className={`hidden sm:grid ${cols} gap-4 max-w-6xl mx-auto px-4 lg:px-8 pt-6 font-sans`}
+    >
       {/* Sum of known prize pools on the current result set (not a guarantee) */}
       <div className={CARD} aria-busy={loading}>
         <div className="flex items-center justify-between">
@@ -132,6 +134,6 @@ export const StatsOverview: React.FC<StatsOverviewProps> = ({
         </div>
       )}
 
-    </div>
+    </section>
   );
 };

@@ -61,6 +61,10 @@ class DiscoverySummary:
     fetched: int = 0
     published: int = 0
     needs_review: int = 0
+    #: Subset of `published` that went live on partial evidence and opened a
+    #: review item. Counted separately so a run never reports a clean publish
+    #: for something still waiting on a human.
+    flagged_for_review: int = 0
     failed: int = 0
     cost_units: int = 0
     unsupported_connectors: list[str] = field(default_factory=list)
@@ -73,6 +77,7 @@ class DiscoverySummary:
             "fetched": self.fetched,
             "published": self.published,
             "needs_review": self.needs_review,
+            "flagged_for_review": self.flagged_for_review,
             "failed": self.failed,
             "unsupported_connectors": self.unsupported_connectors,
             "feeds_failed": self.feeds_failed,
@@ -147,6 +152,8 @@ async def _process_candidate(
     if outcome.listing_id is not None and outcome.status in _PUBLISHED:
         summary.published += 1
         summary.verified_listing_ids.append(str(outcome.listing_id))
+        if outcome.review_item_id is not None:
+            summary.flagged_for_review += 1
     else:
         summary.needs_review += 1
 

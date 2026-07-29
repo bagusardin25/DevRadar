@@ -1,17 +1,16 @@
 import React, { useState } from 'react';
-import { 
-  Search, 
-  Globe, 
-  Database, 
-  Filter, 
-  X, 
+import {
+  Search,
+  Globe,
+  Database,
+  Filter,
+  X,
   RefreshCw,
-  Flame,
+  RotateCcw,
   DollarSign,
   Clock,
   Bot,
   GraduationCap,
-  Zap,
   CreditCard,
   Infinity as InfinityIcon,
   Brain
@@ -44,30 +43,95 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   const [showFilters, setShowFilters] = useState(false);
   const activeFilterCount = countActiveFilters(filters);
 
+  // Preset chips carry `isActive` so users see which filter is applied, and a
+  // single `toggle` that inverts the state — clicking an active chip removes
+  // its filter instead of re-applying a no-op.
   const presetChips = filters.activeModule === 'hackathon' ? [
-    { label: 'All Hackathons', icon: Flame, apply: () => setFilters(f => ({ ...f, searchQuery: '', mode: 'all', verificationStatus: '' })) },
-    { label: 'Online & Worldwide', icon: Globe, apply: () => setFilters(f => ({ ...f, mode: 'online', region: 'Worldwide' })) },
-    { label: '$10k+ Prize Pool', icon: DollarSign, apply: () => setFilters(f => ({ ...f, onlyBigPrizes: true })) },
-    { label: 'Closing < 14 Days', icon: Clock, apply: () => setFilters(f => ({ ...f, onlyClosingSoon: true })) },
-    { label: 'AI & LLM Focus', icon: Bot, apply: () => setFilters(f => ({ ...f, technology: 'AI' })) },
-    { label: 'Student Eligible', icon: GraduationCap, apply: () => setFilters(f => ({ ...f, eligibility: 'Student' })) }
+    {
+      label: 'Online & Worldwide',
+      icon: Globe,
+      isActive: filters.mode === 'online' && filters.region === 'Worldwide',
+      toggle: () => setFilters(f =>
+        f.mode === 'online' && f.region === 'Worldwide'
+          ? { ...f, mode: 'all', region: '' }
+          : { ...f, mode: 'online', region: 'Worldwide' }
+      ),
+    },
+    {
+      label: '$10k+ Prize Pool',
+      icon: DollarSign,
+      isActive: filters.onlyBigPrizes,
+      toggle: () => setFilters(f => ({ ...f, onlyBigPrizes: !f.onlyBigPrizes })),
+    },
+    {
+      label: 'Closing < 14 Days',
+      icon: Clock,
+      isActive: filters.onlyClosingSoon,
+      toggle: () => setFilters(f => ({ ...f, onlyClosingSoon: !f.onlyClosingSoon })),
+    },
+    {
+      label: 'AI & LLM Focus',
+      icon: Bot,
+      isActive: filters.technology === 'AI',
+      toggle: () => setFilters(f => ({ ...f, technology: f.technology === 'AI' ? '' : 'AI' })),
+    },
+    {
+      label: 'Student Eligible',
+      icon: GraduationCap,
+      isActive: filters.eligibility === 'Student',
+      toggle: () => setFilters(f => ({ ...f, eligibility: f.eligibility === 'Student' ? '' : 'Student' })),
+    },
   ] : [
-    { label: 'All AI Deals', icon: Zap, apply: () => setFilters(f => ({ ...f, searchQuery: '', offerType: '', verificationStatus: '' })) },
-    { label: 'No Credit Card / Free Credits', icon: CreditCard, apply: () => setFilters(f => ({ ...f, offerType: 'free_credits' })) },
-    { label: 'Permanent Free Tier', icon: InfinityIcon, apply: () => setFilters(f => ({ ...f, offerType: 'free_tier' })) },
-    { label: 'Student Packs', icon: GraduationCap, apply: () => setFilters(f => ({ ...f, offerType: 'student_program' })) },
-    { label: 'Free Open Models / Price Drops', icon: Brain, apply: () => setFilters(f => ({ ...f, offerType: 'free_model' })) }
+    {
+      label: 'No Credit Card / Free Credits',
+      icon: CreditCard,
+      isActive: filters.offerType === 'free_credits',
+      toggle: () => setFilters(f => ({ ...f, offerType: f.offerType === 'free_credits' ? '' : 'free_credits' })),
+    },
+    {
+      label: 'Permanent Free Tier',
+      icon: InfinityIcon,
+      isActive: filters.offerType === 'free_tier',
+      toggle: () => setFilters(f => ({ ...f, offerType: f.offerType === 'free_tier' ? '' : 'free_tier' })),
+    },
+    {
+      label: 'Student Packs',
+      icon: GraduationCap,
+      isActive: filters.offerType === 'student_program',
+      toggle: () => setFilters(f => ({ ...f, offerType: f.offerType === 'student_program' ? '' : 'student_program' })),
+    },
+    {
+      label: 'Free Open Models / Price Drops',
+      icon: Brain,
+      isActive: filters.offerType === 'free_model',
+      toggle: () => setFilters(f => ({ ...f, offerType: f.offerType === 'free_model' ? '' : 'free_model' })),
+    },
   ];
 
+  const clearAll = () => setFilters(f => ({
+    ...f,
+    searchQuery: '',
+    mode: 'all',
+    region: '',
+    eligibility: '',
+    technology: '',
+    offerType: '',
+    verificationStatus: '',
+    onlyClosingSoon: false,
+    onlyBigPrizes: false,
+    onlyFreeNoCard: false,
+  }));
+  const hasAnyFilter = activeFilterCount > 0 || filters.searchQuery.trim().length > 0;
+
   return (
-    <div className="relative py-10 md:py-14 px-4 md:px-8 max-w-6xl mx-auto text-center font-sans">
-      
-      <div className="space-y-6">
-        
-        {/* Top Eyebrow Badge */}
+    <div className="relative py-6 md:py-10 px-4 md:px-8 max-w-6xl mx-auto text-center font-sans">
+
+      <div className="space-y-5">
+
+        {/* Top Eyebrow Badge — benefit language, not internal pipeline jargon */}
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-extrabold border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] text-[#1C1B18] dark:text-[#F8FAF9] shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5]">
-          <span className="size-2.5 rounded-full bg-[#FF5A36]"></span>
-          <span>Provenance pipeline (Official sites → Extractor → Verifier)</span>
+          <span className="size-2.5 rounded-full bg-[#059669]"></span>
+          <span>Every listing verified from its official source</span>
         </div>
 
         {/* Sharetopus Headline */}
@@ -76,13 +140,15 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           Win <span className="italic text-[#D23B14] dark:text-[#FF5A36]">everywhere.</span>
         </h1>
 
-        {/* Issue 3 Fix: Subtitle Text - High Contrast Bold Black/White */}
+        {/* Subtitle — single line, benefit-forward */}
         <p className="text-base sm:text-lg text-[#1C1B18] dark:text-[#F8FAF9] font-extrabold max-w-2xl mx-auto leading-relaxed">
-          The simplest way to discover hackathons, claim free AI credits, and track model price drops across every ecosystem — without subscription fees or API key requirements.
+          Hackathons, free AI credits, and model price drops. No login, no fees, no API keys.
         </p>
 
-        {/* Mode selector: query the existing catalogue vs scan registered sources now */}
-        <div className="flex items-center justify-center gap-3 pt-2">
+        {/* Mode selector — the pill toggles WHERE we search (catalogue vs live),
+            NOT whether we run. The actual live scan is one explicit button in the
+            search bar so users don't accidentally burn their 5/hr rate limit. */}
+        <div className="flex flex-col items-center gap-2 pt-2">
           <div className="inline-flex items-center gap-2 p-1.5 rounded-full bg-white dark:bg-[#131A29] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] shadow-[3px_3px_0_0_#1C1B18] dark:shadow-[3px_3px_0_0_#D6DCE5] text-xs font-bold">
             <button
               onClick={() => setFilters(f => ({ ...f, searchExecutionMode: 'indexed' }))}
@@ -97,21 +163,22 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             </button>
 
             <button
-              onClick={() => {
-                setFilters(f => ({ ...f, searchExecutionMode: 'live_discovery' }));
-                onTriggerLiveDiscovery();
-              }}
-              disabled={isSearchingLive}
+              onClick={() => setFilters(f => ({ ...f, searchExecutionMode: 'live_discovery' }))}
               className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all ${
                 filters.searchExecutionMode === 'live_discovery'
                   ? 'bg-[#D23B14] text-white font-extrabold'
                   : 'text-[#1C1B18] dark:text-slate-200 hover:text-[#C2410C] dark:hover:text-[#FF8A6B]'
               }`}
             >
-              <Globe className={`w-3.5 h-3.5 ${isSearchingLive ? 'animate-spin' : ''}`} />
-              <span>{isSearchingLive ? 'Scanning sources…' : 'Scan sources'}</span>
+              <Globe className="w-3.5 h-3.5" />
+              <span>Live scan</span>
             </button>
           </div>
+          {filters.searchExecutionMode === 'live_discovery' && !isSearchingLive && (
+            <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+              Live scan takes ~30s · limited to 5 attempts per hour.
+            </p>
+          )}
         </div>
 
         {/* Main Search Command Bar */}
@@ -125,8 +192,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 onChange={(e) => setFilters(f => ({ ...f, searchQuery: e.target.value }))}
                 placeholder={
                   filters.activeModule === 'hackathon'
-                    ? 'Search hackathons e.g., "online AI", "Next.js", "$10k USD"...'
-                    : 'Search AI deals e.g., "free credits", "Claude 3.7", "Vercel"...'
+                    ? 'Search hackathons: online AI, Next.js, $10k prize…'
+                    : 'Search AI deals: free credits, Claude, Vercel…'
                 }
                 className="w-full bg-transparent text-[#1C1B18] dark:text-white pl-12 pr-4 py-3 text-base outline-none font-extrabold placeholder:text-[#545454] dark:placeholder:text-slate-400"
               />
@@ -160,48 +227,55 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 <button
                   onClick={onTriggerLiveDiscovery}
                   disabled={isSearchingLive}
+                  title="Scans configured sources live. Takes ~30 seconds. Uses 1 of your 5 hourly attempts."
                   className="btn-sharetopus-primary text-xs py-3 px-5 font-extrabold"
                 >
                   <RefreshCw className={`w-4 h-4 ${isSearchingLive ? 'animate-spin' : ''}`} />
-                  <span>Run discovery</span>
+                  <span>{isSearchingLive ? 'Scanning…' : 'Scan now'}</span>
                 </button>
               )}
             </div>
           </div>
         </div>
 
-        {/* Live Discovery Banner — describes only what the run actually does. */}
-        {isSearchingLive && (
-          <div className="sharetopus-card p-4 rounded-[20px] bg-[#FFF1EE] border-[#FF5A36] text-left max-w-3xl mx-auto space-y-2">
-            <div className="flex items-center justify-between text-xs font-bold text-[#FF5A36]">
-              <span className="flex items-center gap-2">
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                Fetching configured sources…
-              </span>
-              <span className="font-mono font-bold">Results appear below when done</span>
-            </div>
-            <p className="text-xs text-[#1C1B18] dark:text-[#D6DCE5] font-mono font-bold">
-              Seed URLs &amp; RSS feeds → Fetch → Parse → Extract → Verify
-            </p>
-          </div>
-        )}
-
-        {/* Presets / Filter Chips */}
+        {/* Presets / Filter Chips — additive presets first, then a distinct
+            secondary "Clear all" chip that only appears when there is anything
+            to clear (avoids offering a no-op when the state is already clean). */}
         <div className="flex items-center justify-center gap-2 overflow-x-auto pt-2 pb-1 text-xs">
           <span className="text-[#1C1B18] dark:text-[#F8FAF9] font-mono font-extrabold uppercase text-[12px] whitespace-nowrap mr-1">Presets:</span>
           {presetChips.map((chip, idx) => {
             const ChipIcon = chip.icon;
+            const { isActive } = chip;
             return (
               <button
                 key={idx}
-                onClick={chip.apply}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-full border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] text-[#1C1B18] dark:text-white font-extrabold text-xs shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5] hover:bg-[#D23B14] hover:text-white transition-all"
+                type="button"
+                onClick={chip.toggle}
+                aria-pressed={isActive}
+                title={isActive ? `Remove "${chip.label}" filter` : `Apply "${chip.label}" filter`}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-full border-[1.5px] font-extrabold text-xs shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5] transition-all ${
+                  isActive
+                    ? 'bg-[#D23B14] text-white border-[#D23B14]'
+                    : 'bg-white dark:bg-[#131A29] text-[#1C1B18] dark:text-white border-[#1C1B18] dark:border-[#D6DCE5] hover:bg-[#D23B14] hover:text-white hover:border-[#D23B14]'
+                }`}
               >
-                <ChipIcon className="w-3.5 h-3.5 text-[#FF5A36] group-hover:text-white" />
+                <ChipIcon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-[#FF5A36]'}`} />
                 <span>{chip.label}</span>
+                {isActive && <X className="w-3 h-3 opacity-80" />}
               </button>
             );
           })}
+          {hasAnyFilter && (
+            <button
+              type="button"
+              onClick={clearAll}
+              title="Reset search and all active filters"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-full border-[1.5px] border-dashed border-[#1C1B18]/40 dark:border-white/30 bg-transparent text-[#1C1B18]/70 dark:text-white/70 font-bold text-xs hover:border-solid hover:border-[#FF5A36] hover:text-[#FF5A36] transition-all"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Clear</span>
+            </button>
+          )}
         </div>
 
         {/* Expanded Filters Drawer */}
@@ -325,10 +399,12 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           </div>
         )}
 
-        {/* Result count. "verified" is reported as its own number rather than
-            applied to the whole set: most listings sit at likely_active, so
+        {/* Result summary bar — a distinct strip so users read this as a
+            transition into the results grid rather than a caption of the
+            preset chips above. "verified" is reported as its own count instead
+            of applied to the whole set: most listings sit at likely_active, so
             calling every result verified overstates what the pipeline knows. */}
-        <div className="flex items-center justify-between gap-3 flex-wrap text-xs text-[#1C1B18] dark:text-[#F8FAF9] pt-2 font-mono max-w-3xl mx-auto font-medium">
+        <div className="mt-3 flex items-center justify-between gap-3 flex-wrap max-w-3xl mx-auto px-4 py-2.5 rounded-2xl border-[1.5px] border-[#1C1B18]/15 dark:border-white/15 bg-white/70 dark:bg-[#131A29]/70 text-xs font-mono text-[#1C1B18] dark:text-[#F8FAF9] font-medium">
           <div>
             {/* Explicit {' '} — JSX drops the whitespace around expressions on
                 their own line, which would read as "22opportunities" to a
@@ -350,8 +426,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             )}
           </div>
           <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#059669]" /> Tier 1 Verified</span>
-            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#D97706]" /> Tier 3 X Signal</span>
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#059669]" /> Verified from source</span>
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#D97706]" /> Community-reported</span>
           </div>
         </div>
 

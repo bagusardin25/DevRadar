@@ -59,9 +59,9 @@ export const MOCK_HACKATHONS: Hackathon[] = [
       scoreBreakdown: {
         statusAndDeadline: 35,
         keywordMatch: 25,
-        sourceCredibility: 20,
-        freshness: 14,
-        completeness: 4
+        sourceCredibility: 25,
+        freshness: 3,
+        completeness: 10
       },
       checkedUrls: [
         'https://anthropic.com/hackathon-2026',
@@ -119,9 +119,9 @@ export const MOCK_HACKATHONS: Hackathon[] = [
       scoreBreakdown: {
         statusAndDeadline: 34,
         keywordMatch: 24,
-        sourceCredibility: 19,
-        freshness: 12,
-        completeness: 5
+        sourceCredibility: 22,
+        freshness: 4,
+        completeness: 10
       },
       checkedUrls: [
         'https://huggingface.co/events/infra-hack-2026'
@@ -169,9 +169,9 @@ export const MOCK_HACKATHONS: Hackathon[] = [
       scoreBreakdown: {
         statusAndDeadline: 35,
         keywordMatch: 24,
-        sourceCredibility: 18,
-        freshness: 14,
-        completeness: 5
+        sourceCredibility: 22,
+        freshness: 5,
+        completeness: 10
       },
       checkedUrls: ['https://mlh.io/seasons/2026/events/student-innovation'],
       pipelineStep: 'verified'
@@ -217,9 +217,9 @@ export const MOCK_HACKATHONS: Hackathon[] = [
       scoreBreakdown: {
         statusAndDeadline: 32,
         keywordMatch: 23,
-        sourceCredibility: 18,
-        freshness: 11,
-        completeness: 4
+        sourceCredibility: 20,
+        freshness: 4,
+        completeness: 9
       },
       checkedUrls: ['https://jetbrains.com/challenge/code-refactor-2026'],
       pipelineStep: 'verified'
@@ -272,9 +272,9 @@ export const MOCK_AI_DEALS: AIDeal[] = [
       scoreBreakdown: {
         statusAndDeadline: 35,
         keywordMatch: 25,
-        sourceCredibility: 20,
-        freshness: 13,
-        completeness: 4
+        sourceCredibility: 24,
+        freshness: 3,
+        completeness: 10
       },
       checkedUrls: ['https://console.anthropic.com/settings/credits'],
       pipelineStep: 'verified'
@@ -319,9 +319,9 @@ export const MOCK_AI_DEALS: AIDeal[] = [
       scoreBreakdown: {
         statusAndDeadline: 35,
         keywordMatch: 25,
-        sourceCredibility: 20,
-        freshness: 14,
-        completeness: 5
+        sourceCredibility: 25,
+        freshness: 4,
+        completeness: 10
       },
       checkedUrls: ['https://vercel.com/pricing'],
       pipelineStep: 'verified'
@@ -364,9 +364,9 @@ export const MOCK_AI_DEALS: AIDeal[] = [
       scoreBreakdown: {
         statusAndDeadline: 35,
         keywordMatch: 25,
-        sourceCredibility: 20,
-        freshness: 14,
-        completeness: 5
+        sourceCredibility: 25,
+        freshness: 4,
+        completeness: 10
       },
       checkedUrls: ['https://education.github.com/pack'],
       pipelineStep: 'verified'
@@ -415,9 +415,9 @@ export const MOCK_AI_DEALS: AIDeal[] = [
       scoreBreakdown: {
         statusAndDeadline: 34,
         keywordMatch: 24,
-        sourceCredibility: 19,
-        freshness: 13,
-        completeness: 5
+        sourceCredibility: 23,
+        freshness: 4,
+        completeness: 10
       },
       checkedUrls: ['https://platform.deepseek.com/api-docs/pricing'],
       pipelineStep: 'verified'

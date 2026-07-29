@@ -8,6 +8,24 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  // Pin every React entrypoint into a single optimize pass. Left to discover
+  // them on its own, the dep optimizer emitted two CommonJS React modules —
+  // `react.js` (used by react-dom + the JSX runtime) and a second chunk (used
+  // by react-dom/client + lucide-react). Two modules means two dispatchers, so
+  // createRoot installed hooks on one instance while components read them from
+  // the other: every render died with "Invalid hook call".
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-dom/client',
+      'react/jsx-runtime',
+      'react/jsx-dev-runtime',
+    ],
+  },
+  resolve: {
+    dedupe: ['react', 'react-dom'],
+  },
   server: {
     proxy: {
       // Dev: browser calls /api/* and /health/* on Vite; proxied to FastAPI.

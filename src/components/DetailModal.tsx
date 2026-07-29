@@ -63,9 +63,9 @@ type DetailTab = 'overview' | 'audit' | 'prompt' | 'claim';
 const SCORE_COMPONENTS = [
   { key: 'statusAndDeadline', label: 'Status & Deadline Active', max: 35, textClass: 'text-[#047857] dark:text-[#34D399]', barClass: 'bg-[#059669]' },
   { key: 'keywordMatch', label: 'Keyword & Developer Relevance', max: 25, textClass: 'text-[#0369A1] dark:text-[#38BDF8]', barClass: 'bg-[#0284C7]' },
-  { key: 'sourceCredibility', label: 'Source Tier Credibility', max: 20, textClass: 'text-[#6D28D9] dark:text-[#C4B5FD]', barClass: 'bg-[#7C3AED]' },
-  { key: 'freshness', label: 'Data Freshness', max: 15, textClass: 'text-[#C2410C] dark:text-[#FF8A6B]', barClass: 'bg-[#FF5A36]' },
-  { key: 'completeness', label: 'Field Completeness', max: 5, textClass: 'text-[#B45309] dark:text-[#FBBF24]', barClass: 'bg-[#D97706]' },
+  { key: 'sourceCredibility', label: 'Source Tier & Corroboration', max: 25, textClass: 'text-[#6D28D9] dark:text-[#C4B5FD]', barClass: 'bg-[#7C3AED]' },
+  { key: 'freshness', label: 'Data Freshness', max: 5, textClass: 'text-[#C2410C] dark:text-[#FF8A6B]', barClass: 'bg-[#FF5A36]' },
+  { key: 'completeness', label: 'Field Completeness', max: 10, textClass: 'text-[#B45309] dark:text-[#FBBF24]', barClass: 'bg-[#D97706]' },
 ] as const satisfies ReadonlyArray<{
   key: keyof VerificationAudit['scoreBreakdown'];
   label: string;
@@ -148,6 +148,11 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
   // and the breakdown came from different places.
   const scoreMismatch =
     item != null && Math.abs(Math.round(item.confidenceScore * 100) - scoreTotal) > 1;
+  // A breakdown stored under an older scoring version can exceed today's maxima
+  // — freshness used to be worth 15 points and is now worth 5. Rendering
+  // "15 / 5 pts" would be nonsense, so say plainly that the row predates the
+  // current scale rather than dressing it up as a valid score.
+  const legacyScale = scoreRows.some((row) => row.value > row.max);
 
   const handleCopyPrompt = useCallback(async () => {
     if (!promptText) return;
@@ -494,13 +499,22 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
                     up to the confidence it claimed to explain. */}
                 {/* Labels read as prose; only the point figures are mono, so the
                     numbers line up in a column without the words shouting. */}
+                {legacyScale && (
+                  <p className="text-[12px] font-medium text-[#B45309] dark:text-[#FBBF24] leading-relaxed">
+                    This listing was scored by an earlier version of the pipeline, whose
+                    components carried different weights. The points below are shown as
+                    stored — the “max” figures are today’s and do not apply to them.
+                    Re-running verification will rescore it on the current scale.
+                  </p>
+                )}
+
                 <div className="space-y-3">
                   {scoreRows.map((row, i) => (
                     <div key={row.key}>
                       <div className="flex justify-between gap-3 text-[#4A4845] dark:text-[#CBD5E1] mb-1">
                         <span>{i + 1}. {row.label} <span className="text-[#736F66] dark:text-[#94A3B8]">(max {row.max})</span></span>
                         <span className={`${row.textClass} font-mono font-bold whitespace-nowrap`}>
-                          {row.value} / {row.max} pts
+                          {legacyScale ? `${row.value} pts` : `${row.value} / ${row.max} pts`}
                         </span>
                       </div>
                       <div className="h-2.5 bg-[#E5E6DF] dark:bg-slate-800 rounded-full border border-[#1C1B18] dark:border-[#D6DCE5] overflow-hidden">
@@ -623,7 +637,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
               {/* Prompt preview */}
               <div className="relative">
                 <pre
-                  className="p-4 sm:p-5 rounded-2xl bg-[#090C15] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] text-[#34D399] dark:text-[#7DD3FC] font-mono text-[11px] sm:text-xs overflow-x-auto leading-relaxed whitespace-pre-wrap max-h-[min(50vh,420px)] select-text"
+                  className="p-4 sm:p-5 rounded-2xl bg-[#F8F9F4] dark:bg-[#1A2336] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] text-[#2A2825] dark:text-[#DCE3EC] font-mono text-[11px] sm:text-xs overflow-x-auto leading-relaxed whitespace-pre-wrap max-h-[min(50vh,420px)] select-text"
                   aria-label="Generated AI agent prompt"
                 >
                   {promptText}

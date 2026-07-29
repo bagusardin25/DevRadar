@@ -239,10 +239,20 @@ button[class*="shadow-"]:active, a[class*="shadow-"]:active {
 .animate-marquee {
   display: flex;
   width: max-content;
-  animation: marquee 40s linear infinite;
+  /* 60s per loop keeps the pace readable — the previous 40s felt frantic
+     enough to pull the eye away from the search area. */
+  animation: marquee 60s linear infinite;
 }
 
 .animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* Rest the animation once the user has scrolled past the fold. The header is
+   sticky so the ticker never leaves the viewport, but constant motion above
+   the results is unnecessary noise — this quiets it. Toggled from Header.tsx
+   on scroll. */
+.animate-marquee.marquee-paused {
   animation-play-state: paused;
 }
 

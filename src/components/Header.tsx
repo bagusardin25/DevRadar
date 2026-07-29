@@ -1,29 +1,27 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Radar,
   Zap,
   ShieldCheck,
   Bookmark,
   Plus,
-  Globe,
   Activity,
   Flame,
-  LayoutGrid,
-  List,
   Unlock,
   DollarSign,
   GraduationCap,
   Trophy,
-  Sun,
-  Moon,
   Bell,
   Database,
   Gift,
   Clock,
   FolderKanban,
+  BookOpen,
+  Settings2,
 } from 'lucide-react';
 import type { FilterState, Hackathon, AIDeal } from '../types';
 import { buildCatalogueHighlights } from '../utils/buildHighlights';
+import { HeaderPreferences } from './HeaderPreferences';
 
 interface HeaderProps {
   filters: FilterState;
@@ -70,6 +68,44 @@ export const Header: React.FC<HeaderProps> = ({
   // Duplicate list for seamless marquee loop
   const tickerItems = [...highlights, ...highlights];
   const mobileTickerItem = highlights[0];
+
+  // Pause the marquee once the user has scrolled past the initial fold.
+  // The header is `sticky top-0` so the marquee never leaves the viewport —
+  // IntersectionObserver won't trigger. A scroll-depth threshold is the honest
+  // proxy for "user is now reading results, no need to keep the ticker moving".
+  const marqueeRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = marqueeRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      el.classList.toggle('marquee-paused', window.scrollY > 300);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // Consolidate low-frequency display and resource controls so the primary
+  // header row stays focused on alerts, submissions, and saved opportunities.
+  const [preferencesOpen, setPreferencesOpen] = useState(false);
+  const preferencesRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!preferencesOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (preferencesRef.current && !preferencesRef.current.contains(e.target as Node)) {
+        setPreferencesOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPreferencesOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [preferencesOpen]);
 
   const iconFor = (kind: string) => {
     switch (kind) {
@@ -121,7 +157,10 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             ) : null}
             <div className="hidden md:block">
-              <div className="animate-marquee whitespace-nowrap flex items-center gap-6 py-0.5 text-[#1C1B18] dark:text-white font-bold md:gap-8">
+              <div
+                ref={marqueeRef}
+                className="animate-marquee whitespace-nowrap flex items-center gap-6 py-0.5 text-[#1C1B18] dark:text-white font-bold md:gap-8"
+              >
               {tickerItems.map((item, i) => (
                 <span key={`${item.id}-${i}`} className="inline-flex items-center gap-1.5 shrink-0">
                   {iconFor(item.kind)}
@@ -154,7 +193,7 @@ export const Header: React.FC<HeaderProps> = ({
               className="flex items-center gap-2 sm:gap-3 cursor-pointer group min-w-0"
               onClick={() => setFilters((f) => ({ ...f, activeModule: 'hackathon' }))}
             >
-              <div className="relative flex items-center justify-center w-10 h-10 rounded-2xl bg-white dark:bg-[#131A29] border-[1.5px] border-[#1C1B18] text-[#FF5A36] shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5] group-hover:scale-105 transition-transform shrink-0">
+              <div className="relative flex items-center justify-center w-10 h-10 rounded-2xl bg-white dark:bg-[#131A29] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] text-[#FF5A36] shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5] group-hover:scale-105 transition-transform shrink-0">
                 <picture>
                   <source srcSet="/logomark.webp" type="image/webp" />
                   <img
@@ -175,80 +214,40 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
 
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-              <div className="hidden sm:flex items-center gap-1 p-1 bg-white dark:bg-[#131A29] rounded-full border-[1.5px] border-[#1C1B18] shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5]">
+              <div ref={preferencesRef} className="relative">
                 <button
                   type="button"
-                  onClick={() => setViewLayout('grid')}
-                  title="Grid View"
-                  aria-label="Grid view"
-                  aria-pressed={viewLayout === 'grid'}
-                  className={`p-1.5 rounded-full transition-all ${
-                    viewLayout === 'grid'
-                      ? 'bg-[#D23B14] text-white font-bold'
-                      : 'text-[#4A4845] dark:text-[#B8C4D2] hover:text-[#1C1B18]'
+                  onClick={() => setPreferencesOpen((open) => !open)}
+                  title="Preferences"
+                  aria-label="Open preferences"
+                  aria-haspopup="dialog"
+                  aria-expanded={preferencesOpen}
+                  aria-controls="header-preferences"
+                  className={`p-2 sm:p-2.5 rounded-full border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D23B14] ${
+                    preferencesOpen
+                      ? 'bg-[#1C1B18] text-white dark:bg-white dark:text-[#1C1B18]'
+                      : 'bg-white text-[#1C1B18] dark:bg-[#131A29] dark:text-white'
                   }`}
                 >
-                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <Settings2 className="w-4 h-4" />
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setViewLayout('compact')}
-                  title="Compact List View"
-                  aria-label="Compact list view"
-                  aria-pressed={viewLayout === 'compact'}
-                  className={`p-1.5 rounded-full transition-all ${
-                    viewLayout === 'compact'
-                      ? 'bg-[#D23B14] text-white font-bold'
-                      : 'text-[#4A4845] dark:text-[#B8C4D2] hover:text-[#1C1B18]'
-                  }`}
-                >
-                  <List className="w-3.5 h-3.5" />
-                </button>
+                <HeaderPreferences
+                  isOpen={preferencesOpen}
+                  viewLayout={viewLayout}
+                  setViewLayout={setViewLayout}
+                  theme={theme}
+                  setTheme={setTheme}
+                  onOpenExtensionPanel={onOpenExtensionPanel}
+                  onClose={() => setPreferencesOpen(false)}
+                />
               </div>
-
-              <button
-                type="button"
-                onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-                title="Toggle Theme"
-                aria-label={theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
-                className="p-2 sm:p-2.5 rounded-full bg-white dark:bg-[#131A29] border-[1.5px] border-[#1C1B18] text-[#1C1B18] dark:text-white shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5] font-bold"
-              >
-                {theme === 'light' ? (
-                  <Moon className="w-4 h-4 text-[#1C1B18]" />
-                ) : (
-                  <Sun className="w-4 h-4 text-amber-400" />
-                )}
-              </button>
-
-              <a
-                href="https://github.com/bagusardin25/DevRadar.git"
-                target="_blank"
-                rel="noreferrer"
-                title="GitHub"
-                aria-label="DevRadar on GitHub (opens in a new tab)"
-                className="hidden sm:flex p-2.5 rounded-full bg-white dark:bg-[#131A29] border-[1.5px] border-[#1C1B18] text-[#1C1B18] dark:text-white shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5] font-bold"
-              >
-                <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                  <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
-                </svg>
-              </a>
-
-              <button
-                type="button"
-                onClick={onOpenExtensionPanel}
-                title="Extension preview"
-                aria-label="Open browser extension preview"
-                className="hidden sm:flex p-2.5 rounded-full bg-white dark:bg-[#131A29] border-[1.5px] border-[#1C1B18] text-[#1C1B18] dark:text-white shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5] font-bold"
-              >
-                <Globe className="w-4 h-4 text-[#FF5A36]" />
-              </button>
 
               <button
                 type="button"
                 onClick={onOpenAlerts}
                 title="Email alerts"
                 aria-label="Subscribe to email alerts"
-                className="p-2 sm:p-2.5 rounded-full bg-white dark:bg-[#131A29] border-[1.5px] border-[#1C1B18] text-[#1C1B18] dark:text-white shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5] font-bold"
+                className="p-2 sm:p-2.5 rounded-full bg-white dark:bg-[#131A29] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] text-[#1C1B18] dark:text-white shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5] font-bold"
               >
                 <Bell className="w-4 h-4 text-[#7C3AED]" />
               </button>
@@ -275,7 +274,7 @@ export const Header: React.FC<HeaderProps> = ({
                     : 'Saved opportunities'
                 }
                 title="Saved opportunities"
-                className="relative p-2 sm:p-2.5 rounded-full bg-white dark:bg-[#131A29] border-[1.5px] border-[#1C1B18] text-[#1C1B18] dark:text-white shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5] font-bold"
+                className="relative p-2 sm:p-2.5 rounded-full bg-white dark:bg-[#131A29] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] text-[#1C1B18] dark:text-white shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5] font-bold"
               >
                 <Bookmark className="w-4 h-4 text-[#FF5A36]" />
                 {bookmarkCount > 0 && (
@@ -291,7 +290,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           {/* Module switcher — scrollable on mobile */}
-          <div className="flex items-center gap-1 bg-white dark:bg-[#131A29] p-1.5 rounded-full border-[1.5px] border-[#1C1B18] shadow-[3px_3px_0_0_#1C1B18] dark:shadow-[3px_3px_0_0_#D6DCE5] text-xs sm:text-sm font-extrabold w-full overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-1 bg-white dark:bg-[#131A29] p-1.5 rounded-full border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] shadow-[3px_3px_0_0_#1C1B18] dark:shadow-[3px_3px_0_0_#D6DCE5] text-xs sm:text-sm font-extrabold w-full overflow-x-auto no-scrollbar">
             <button
               type="button"
               onClick={() => setFilters((f) => ({ ...f, activeModule: 'hackathon' }))}
@@ -378,6 +377,19 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               </>
             )}
+
+            <button
+              type="button"
+              onClick={() => setFilters((f) => ({ ...f, activeModule: 'guide' }))}
+              className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-full transition-all whitespace-nowrap shrink-0 ${
+                filters.activeModule === 'guide'
+                  ? 'bg-[#1C1B18] dark:bg-white text-white dark:text-[#1C1B18] font-bold shadow-sm'
+                  : 'text-[#1C1B18] dark:text-[#D6DCE5] hover:text-[#736F66] dark:hover:text-white'
+              }`}
+            >
+              <BookOpen className="w-4 h-4" />
+              <span>Guide</span>
+            </button>
 
             {!showAdminNav && onOpenAdmin && (
               <button

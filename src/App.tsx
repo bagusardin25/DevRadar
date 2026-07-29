@@ -16,6 +16,7 @@ import {
   ApiError,
   type AdminMe,
   type CatalogueStats,
+  type DiscoveryStatus,
   type ReviewCorrections,
   type ReviewItem,
   adminLogout,
@@ -43,7 +44,37 @@ import {
   waitForDiscovery,
 } from './api';
 import { MOCK_HACKATHONS, MOCK_AI_DEALS } from './data/mockData';
-import { FilterX, Loader2, WifiOff } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  FilterX,
+  Loader2,
+  WifiOff,
+  X,
+  XCircle,
+} from 'lucide-react';
+
+type DiscoveryToastKind = 'info' | 'success' | 'warning' | 'error';
+type DiscoveryToastAction = { label: string; onClick: () => void };
+type DiscoveryToast = {
+  text: string;
+  kind: DiscoveryToastKind;
+  /** Optional CTA — used to route users away from an empty-result dead end. */
+  action?: DiscoveryToastAction;
+};
+
+/**
+ * Map a finished discovery run to a toast severity so users see immediately
+ * whether the run produced listings, silently failed to, or errored out.
+ */
+function classifyDiscoveryResult(run: DiscoveryStatus): DiscoveryToastKind {
+  const s = run.status.toLowerCase();
+  if (s === 'failed' || s === 'error') return 'error';
+  // Polling timed out before the worker finished → warn, don't claim success.
+  if (s === 'queued' || s === 'running') return 'warning';
+  if (run.published > 0) return 'success';
+  return 'warning';
+}
 
 /** Heavy admin / tooling views — split out of the initial catalogue bundle. */
 const PipelineViewer = lazy(() =>
@@ -62,6 +93,9 @@ const ChromeExtensionSidePanel = lazy(() =>
 );
 const SourcesManager = lazy(() =>
   import('./components/SourcesManager').then((m) => ({ default: m.SourcesManager })),
+);
+const GuidePage = lazy(() =>
+  import('./components/GuidePage').then((m) => ({ default: m.GuidePage })),
 );
 
 function ModuleFallback() {
@@ -260,7 +294,7 @@ export function App() {
   /** Read-only shared bookmark ids from ?bm= / ?bookmarks= (does not overwrite local). */
   const [sharedBookmarkIds, setSharedBookmarkIds] = useState<string[] | null>(null);
   const [isSearchingLive, setIsSearchingLive] = useState(false);
-  const [liveDiscoveryMessage, setLiveDiscoveryMessage] = useState<string | null>(null);
+  const [liveDiscoveryToast, setLiveDiscoveryToast] = useState<DiscoveryToast | null>(null);
   const [, setIsOfflineMode] = useState(false);
 
   // Admin review state
@@ -502,20 +536,55 @@ export function App() {
     const trimmed = filters.searchQuery.trim();
     const q = trimmed.length >= 2 ? trimmed : 'AI hackathon';
     setIsSearchingLive(true);
-    setLiveDiscoveryMessage(null);
+    setLiveDiscoveryToast({
+      text: 'Queuing discovery run…',
+      kind: 'info',
+    });
     try {
       const receipt = await startLiveDiscovery({
         query: q,
         module: filters.activeModule === 'ai_deal' ? 'ai_offer' : 'hackathon',
         resultCap: 10,
       });
-      setLiveDiscoveryMessage(receipt.message || `Discovery started (${receipt.status})`);
+      setLiveDiscoveryToast({
+        text: receipt.message || `Discovery started (${receipt.status}). Scanning configured sources…`,
+        kind: 'info',
+      });
       const result = await waitForDiscovery(receipt.id, { timeoutMs: 45_000 });
       // Only claim a refresh when the run actually published something.
       if (result.published > 0) {
         await loadCatalogue();
       }
-      setLiveDiscoveryMessage(describeDiscoveryResult(result));
+      const kind = classifyDiscoveryResult(result);
+      // Warning outcomes (no candidates OR nothing verified) are the classic
+      // "empty result dead end". Route the user somewhere useful:
+      // - admin operators can configure the missing source themselves
+      // - regular users can submit the listing they were looking for
+      let action: DiscoveryToastAction | undefined;
+      if (kind === 'warning') {
+        if (admin) {
+          action = {
+            label: 'Configure sources',
+            onClick: () => {
+              setLiveDiscoveryToast(null);
+              setFilters((f) => ({ ...f, activeModule: 'sources' }));
+            },
+          };
+        } else {
+          action = {
+            label: 'Submit a listing',
+            onClick: () => {
+              setLiveDiscoveryToast(null);
+              setIsSubmitOpen(true);
+            },
+          };
+        }
+      }
+      setLiveDiscoveryToast({
+        text: describeDiscoveryResult(result),
+        kind,
+        action,
+      });
     } catch (err) {
       const message =
         err instanceof ApiError
@@ -523,11 +592,19 @@ export function App() {
           : err instanceof Error
             ? err.message
             : 'Live discovery failed';
-      setLiveDiscoveryMessage(message);
+      setLiveDiscoveryToast({ text: message, kind: 'error' });
     } finally {
       setIsSearchingLive(false);
     }
   };
+
+  // Auto-dismiss success toasts; keep info/warning/error visible so the user
+  // sees why nothing was published or what went wrong.
+  useEffect(() => {
+    if (liveDiscoveryToast?.kind !== 'success') return;
+    const t = window.setTimeout(() => setLiveDiscoveryToast(null), 8_000);
+    return () => window.clearTimeout(t);
+  }, [liveDiscoveryToast]);
 
   const handleToggleBookmark = useCallback((id: string) => {
     setBookmarkIds((prev) => {
@@ -716,6 +793,7 @@ export function App() {
             totalDeals={displayDealCount}
             unverifiedCount={reviewTotal}
             showQueueStat={Boolean(admin)}
+            loading={catalogueLoading && !stats}
           />
         ) : null}
 
@@ -753,13 +831,6 @@ export function App() {
           </div>
         )}
 
-        {liveDiscoveryMessage && (
-          <div className="max-w-6xl mx-auto px-4 lg:px-8 pt-3">
-            <div className="text-xs font-bold font-mono px-3 py-2 rounded-xl bg-white dark:bg-[#131A29] border border-[#1C1B18] dark:border-[#D6DCE5]">
-              {liveDiscoveryMessage}
-            </div>
-          </div>
-        )}
 
         {filters.activeModule === 'hackathon' && (
           <div>
@@ -930,6 +1001,12 @@ export function App() {
           </Suspense>
         )}
 
+        {filters.activeModule === 'guide' && (
+          <Suspense fallback={<ModuleFallback />}>
+            <GuidePage />
+          </Suspense>
+        )}
+
         {/* Review always reachable so operators can start Google login */}
         {filters.activeModule === 'admin_queue' && (
           <Suspense fallback={<ModuleFallback />}>
@@ -1034,6 +1111,86 @@ export function App() {
         onSaveSharedToLocal={handleSaveSharedToLocal}
         onClearShared={handleClearShared}
       />
+
+      {liveDiscoveryToast && (() => {
+        const { kind, text, action } = liveDiscoveryToast;
+        // Inline `borderColor` because `.sharetopus-card` sets `border` as a
+        // shorthand, which beats Tailwind's arbitrary-color utility.
+        const palette = {
+          info: {
+            color: '#2563EB',
+            label: 'Scanning sources',
+            Icon: Loader2,
+            spin: true,
+          },
+          success: {
+            color: '#059669',
+            label: 'Discovery complete',
+            Icon: CheckCircle2,
+            spin: false,
+          },
+          warning: {
+            color: '#D97706',
+            label: 'No new listings',
+            Icon: AlertTriangle,
+            spin: false,
+          },
+          error: {
+            color: '#FF5A36',
+            label: 'Discovery failed',
+            Icon: XCircle,
+            spin: false,
+          },
+        }[kind];
+        const { Icon, color } = palette;
+        return (
+          <div
+            role="status"
+            aria-live="polite"
+            className="fixed bottom-6 right-6 z-50 w-[min(24rem,calc(100vw-3rem))]"
+          >
+            <div
+              style={{ borderColor: color, borderWidth: '1.5px', borderStyle: 'solid' }}
+              className="p-4 rounded-2xl bg-white dark:bg-[#131A29] shadow-[4px_4px_0_0_#1C1B18] dark:shadow-[4px_4px_0_0_#D6DCE5] flex items-start gap-3"
+            >
+              <Icon
+                style={{ color }}
+                className={`w-5 h-5 shrink-0 ${palette.spin ? 'animate-spin' : ''}`}
+              />
+              <div className="flex-1 min-w-0">
+                <div
+                  style={{ color }}
+                  className="text-[10px] font-extrabold uppercase font-mono tracking-wider"
+                >
+                  {palette.label}
+                </div>
+                <p className="text-xs font-bold text-[#1C1B18] dark:text-[#F8FAF9] mt-1 leading-relaxed break-words">
+                  {text}
+                </p>
+                {action && (
+                  <button
+                    type="button"
+                    onClick={action.onClick}
+                    style={{ backgroundColor: color, borderColor: color }}
+                    className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border-[1.5px] text-white text-[11px] font-extrabold shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5] hover:brightness-110 transition-all"
+                  >
+                    {action.label}
+                    <span aria-hidden="true">→</span>
+                  </button>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setLiveDiscoveryToast(null)}
+                aria-label="Dismiss discovery notification"
+                className="shrink-0 text-[#1C1B18] dark:text-[#F8FAF9] hover:text-[#FF5A36] transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       <AlertSubscribeModal
         isOpen={isAlertModalOpen}

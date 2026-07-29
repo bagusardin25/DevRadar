@@ -56,6 +56,30 @@ jobs:
         working-directory: extension
         run: npm run check
 
+  extension:
+    name: Extension test & package
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: extension
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+          cache-dependency-path: extension/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Test & typecheck
+        run: |
+          npm test
+          npm run typecheck
+      - name: Package Chrome
+        run: npm run build
+      - name: Package Firefox
+        run: npm run build:firefox
+
   backend:
     name: Backend tests
     runs-on: ubuntu-latest

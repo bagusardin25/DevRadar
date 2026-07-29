@@ -15,7 +15,14 @@ from app.ingestion.scoring import (
     score_verification,
 )
 
-VERIFIER_VERSION = "1.0.0"
+VERIFIER_VERSION = "2.0.0"
+
+#: Minimum score to publish at all (as LIKELY_ACTIVE).
+MIN_PUBLISH_SCORE = 70
+#: Minimum score to claim VERIFIED_ACTIVE without a human confirming it.
+#: Calibrated against scoring v2, where freshness and corroboration no longer
+#: hand out constant points — reaching this now takes real evidence.
+MIN_VERIFIED_SCORE = 85
 
 Decision = Literal[
     "verified_active",
@@ -33,7 +40,11 @@ class VerificationEvidence:
 
     source_tier: str = "tier_2"  # tier_1 | tier_2 | tier_3
     link_ok: bool = True
+    #: Independent sources backing this candidate, including the originating
+    #: one. 1 (the default) means nothing has corroborated it yet.
     cross_source_count: int = 1
+    #: When the source document was fetched. None = unknown, and unknown
+    #: freshness scores zero — it is never treated as freshly checked.
     last_checked_at: datetime | None = None
     official_cancellation: bool = False
     only_tier3: bool = False
@@ -95,7 +106,7 @@ def verify(
                 keyword_hits=0,
                 source_tier=evidence.source_tier,
                 cross_source_count=evidence.cross_source_count,
-                last_checked_at=evidence.last_checked_at or now,
+                last_checked_at=evidence.last_checked_at,
                 now=now,
                 required_fields_present=0,
                 required_fields_total=5,
@@ -147,11 +158,6 @@ def verify(
             deadline_in_future = False
             status = VerificationStatus.EXPIRED
             reasons.append("submission_deadline_passed")
-        elif reg_or_start is not None and reg_or_start < now and sub_or_exp >= now:
-            # registration may be closed while submission still open
-            if reg_or_start < now:
-                # If registration deadline passed
-                pass
         if reg_or_start is not None and reg_or_start < now and sub_or_exp >= now:
             # Check registration_deadline field specifically
             reg_dl = candidate.fields.get("registration_deadline")
@@ -226,11 +232,11 @@ def verify(
 
     # Publishable tiers 1/2 with good evidence
     tier_ok = evidence.source_tier in {"tier_1", "tier_2"}
-    if tier_ok and score.total >= 70 and evidence.link_ok and (
+    if tier_ok and score.total >= MIN_PUBLISH_SCORE and evidence.link_ok and (
         has_valid_dates or permanent_offer
     ):
         # Auto-publish policy: high confidence → verified; medium → likely
-        if score.total >= 85 and present >= total - 1:
+        if score.total >= MIN_VERIFIED_SCORE and present >= total - 1:
             status = VerificationStatus.VERIFIED_ACTIVE
             reasons.append("auto_verified")
         else:
@@ -242,9 +248,10 @@ def verify(
             checks=checks,
             reasons=reasons,
             publishable=True,
-            needs_human_review=(
-                status == VerificationStatus.LIKELY_ACTIVE and score.total < 80
-            ),
+            # LIKELY_ACTIVE means "published on partial evidence" by definition,
+            # so it always earns a human check — the listing goes live, but an
+            # admin gets asked to confirm it.
+            needs_human_review=status == VerificationStatus.LIKELY_ACTIVE,
         )
 
     reasons.append("default_needs_review")

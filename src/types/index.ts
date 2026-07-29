@@ -124,7 +124,7 @@ export interface AIDeal {
 
 export interface FilterState {
   searchQuery: string;
-  activeModule: 'hackathon' | 'ai_deal' | 'pipeline' | 'admin_queue' | 'catalogue' | 'sources';
+  activeModule: 'hackathon' | 'ai_deal' | 'pipeline' | 'admin_queue' | 'catalogue' | 'sources' | 'guide';
   mode: 'all' | 'online' | 'hybrid' | 'in_person';
   region: string;
   eligibility: string;

@@ -4,7 +4,15 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from app.ingestion.scoring import ScoringInput, score_verification
+from app.ingestion.scoring import (
+    MAX_COMPLETENESS,
+    MAX_FRESHNESS,
+    MAX_KEYWORD,
+    MAX_SOURCE,
+    MAX_STATUS_DEADLINE,
+    ScoringInput,
+    score_verification,
+)
 
 
 def _inp(**kwargs: object) -> ScoringInput:
@@ -37,11 +45,22 @@ class TestScoring:
             + b.completeness
         )
         assert 0 <= b.total <= 100
-        assert b.status_and_deadline <= 35
-        assert b.keyword_match <= 25
-        assert b.source_credibility <= 20
-        assert b.freshness <= 15
-        assert b.completeness <= 5
+        # Assert against the constants, not copies of them: hardcoding the
+        # maxima here is what let this test lock in the old weighting.
+        assert b.status_and_deadline <= MAX_STATUS_DEADLINE
+        assert b.keyword_match <= MAX_KEYWORD
+        assert b.source_credibility <= MAX_SOURCE
+        assert b.freshness <= MAX_FRESHNESS
+        assert b.completeness <= MAX_COMPLETENESS
+
+    def test_maxima_sum_to_100(self) -> None:
+        assert (
+            MAX_STATUS_DEADLINE
+            + MAX_KEYWORD
+            + MAX_SOURCE
+            + MAX_FRESHNESS
+            + MAX_COMPLETENESS
+        ) == 100
 
     def test_boundaries_min(self) -> None:
         b = score_verification(
@@ -77,3 +96,22 @@ class TestScoring:
             _inp(now=now, last_checked_at=now - timedelta(days=40))
         )
         assert fresh.freshness > stale.freshness
+
+    def test_unknown_freshness_scores_zero(self) -> None:
+        """Unknown observation time must not be paid out as freshly checked."""
+        assert score_verification(_inp(last_checked_at=None)).freshness == 0
+
+    def test_lone_source_earns_no_corroboration(self) -> None:
+        """A single source agrees with nothing, so it gets the tier points only."""
+        alone = score_verification(_inp(cross_source_count=1))
+        corroborated = score_verification(_inp(cross_source_count=2))
+        assert alone.source_credibility < corroborated.source_credibility
+        # Zero and one source are equivalent: neither has a second opinion.
+        assert (
+            score_verification(_inp(cross_source_count=0)).source_credibility
+            == alone.source_credibility
+        )
+
+    def test_corroboration_caps(self) -> None:
+        many = score_verification(_inp(cross_source_count=50))
+        assert many.source_credibility <= MAX_SOURCE

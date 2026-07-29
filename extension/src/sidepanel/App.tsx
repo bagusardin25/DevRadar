@@ -10,21 +10,11 @@ import type { ExtractionResult, HackathonFields, AIOfferFields } from '../shared
 import { submitUrl, searchCatalogue, getSubmissionStatus } from '../shared/api';
 import type { SubmissionReceipt, SearchResult } from '../shared/api';
 import { getSettings, saveSettings, addToHistory } from '../shared/storage';
+import { generateICS } from '../shared/ics';
 
 type ViewState = 'idle' | 'analyzing' | 'results' | 'submitted' | 'settings' | 'error';
 
 const hasChromeRuntime = typeof chrome !== 'undefined' && !!chrome.runtime?.sendMessage;
-
-function generateICS(title: string, dateStr: string): string {
-  const d = new Date(dateStr);
-  const fmt = (dt: Date) => dt.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-  const end = new Date(d.getTime() + 3600000);
-  return [
-    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//DevRadar//EN',
-    'BEGIN:VEVENT', `DTSTART:${fmt(d)}`, `DTEND:${fmt(end)}`,
-    `SUMMARY:${title}`, 'END:VEVENT', 'END:VCALENDAR',
-  ].join('\r\n');
-}
 
 function downloadICS(title: string, dateStr: string) {
   const ics = generateICS(title, dateStr);

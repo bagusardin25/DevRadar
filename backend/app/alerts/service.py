@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import time
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from sqlalchemy import delete, select
 from sqlalchemy import inspect as sa_inspect
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -24,19 +23,10 @@ from app.alerts.webhook import deliver_webhook
 from app.catalog.enums import VerificationStatus
 from app.catalog.models import Listing
 from app.config import Settings
-from app.errors import ForbiddenError, NotFoundError, RateLimitError, ValidationError
-from app.submissions.security import decrypt_email, encrypt_email, hash_email, hash_ip
+from app.errors import ForbiddenError, NotFoundError, ValidationError
+from app.submissions.security import decrypt_email, encrypt_email, hash_email
 
 _VALID_CADENCES = frozenset({"instant", "daily", "weekly"})
-ALERT_RATE_LIMIT_MAX_PER_IP = 5
-ALERT_RATE_LIMIT_MAX_PER_EMAIL = 3
-ALERT_RATE_LIMIT_WINDOW_SECONDS = 3600
-
-_ALERT_RATE_LIMIT_SCRIPT = """
-local count = redis.call('INCR', KEYS[1])
-if count == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end
-return count
-"""
 
 
 class AlertService:
@@ -45,15 +35,10 @@ class AlertService:
         session: AsyncSession,
         settings: Settings,
         email: EmailProvider | None = None,
-        *,
-        redis_url: str | None = None,
-        rate_limit_store: dict[str, list[float]] | None = None,
     ) -> None:
         self._session = session
         self._settings = settings
         self._email = email or build_email_provider(settings)
-        self._redis_url = redis_url or settings.redis_url
-        self._rate_limit_store = rate_limit_store
 
     def _confirm_url(self, raw_token: str) -> str:
         """Link users open to confirm (proxied via frontend /api or direct API)."""
@@ -67,10 +52,7 @@ class AlertService:
         return f"{base}{api}/alerts/unsubscribe?token={raw_token}"
 
     async def create_subscription(
-        self,
-        command: AlertCreateRequest,
-        *,
-        ip_address: str | None = None,
+        self, command: AlertCreateRequest
     ) -> tuple[AlertCreateResponse, str]:
         """Create unconfirmed subscription; returns (response, raw_confirm_token)."""
         if command.website:
@@ -78,9 +60,6 @@ class AlertService:
 
         email_norm = str(command.email).strip().lower()
         email_h = hash_email(email_norm, self._settings.email_hmac_key)
-        # Email throttling must remain active even when the deployment cannot
-        # resolve a client IP (for example, a nonstandard ASGI gateway).
-        await self._enforce_creation_rate_limit(ip_address, email_h)
         cipher = encrypt_email(email_norm, self._settings)
 
         cadence = (command.cadence or "daily").strip().lower()
@@ -90,20 +69,56 @@ class AlertService:
         filters = normalize_alert_filters(command.filters or {})
 
         confirm_raw = generate_token()
-        unsub_raw = generate_token()
         now = datetime.now(UTC)
+        confirm_hash = hash_token(confirm_raw, self._settings.session_secret)
 
-        sub = AlertSubscription(
-            email_ciphertext=cipher,
-            email_hash=email_h,
-            confirmed=False,
-            filter_json=filters,
-            cadence=cadence,
-            confirm_token_hash=hash_token(confirm_raw, self._settings.session_secret),
-            unsubscribe_token_hash=hash_token(unsub_raw, self._settings.session_secret),
-            confirm_expires_at=confirmation_expiry(now),
+        # Opportunistically bound storage from abandoned, never-confirmed signups.
+        await self._session.execute(
+            delete(AlertSubscription).where(
+                AlertSubscription.confirmed.is_(False),
+                AlertSubscription.confirmed_at.is_(None),
+                AlertSubscription.confirm_expires_at.is_not(None),
+                AlertSubscription.confirm_expires_at < now,
+            )
         )
-        self._session.add(sub)
+
+        existing_result = await self._session.execute(
+            select(AlertSubscription)
+            .where(
+                AlertSubscription.email_hash == email_h,
+                AlertSubscription.cadence == cadence,
+                AlertSubscription.filter_json == filters,
+                AlertSubscription.unsubscribed_at.is_(None),
+            )
+            .order_by(AlertSubscription.created_at.desc())
+            .limit(1)
+            .with_for_update()
+        )
+        sub = existing_result.scalar_one_or_none()
+        if sub is not None and sub.confirmed:
+            # Keep the public response non-enumerating without sending another email.
+            return AlertCreateResponse(), ""
+
+        if sub is None:
+            unsub_raw = generate_token()
+            sub = AlertSubscription(
+                email_ciphertext=cipher,
+                email_hash=email_h,
+                confirmed=False,
+                filter_json=filters,
+                cadence=cadence,
+                confirm_token_hash=confirm_hash,
+                unsubscribe_token_hash=hash_token(
+                    unsub_raw, self._settings.session_secret
+                ),
+                confirm_expires_at=confirmation_expiry(now),
+            )
+            self._session.add(sub)
+        else:
+            # A bounded resend rotates the confirmation token but reuses the row.
+            sub.email_ciphertext = cipher
+            sub.confirm_token_hash = confirm_hash
+            sub.confirm_expires_at = confirmation_expiry(now)
         await self._session.flush()
 
         confirm_url = self._confirm_url(confirm_raw)
@@ -118,68 +133,13 @@ class AlertService:
                 to_address=email_norm,
                 subject="Confirm your DevRadar alerts",
                 body_text=body,
-                idempotency_key=f"confirm:{sub.id}",
+                idempotency_key=f"confirm:{sub.id}:{confirm_hash[:12]}",
             )
         )
         return (
             AlertCreateResponse(),
             confirm_raw,
         )
-
-    async def _enforce_creation_rate_limit(
-        self,
-        ip_address: str | None,
-        email_hash: str,
-    ) -> None:
-        """Limit confirmation-email abuse by both source IP and recipient."""
-        email_key = f"devradar:rl:alerts:email:{email_hash}"
-        buckets = [(email_key, ALERT_RATE_LIMIT_MAX_PER_EMAIL)]
-        if ip_address:
-            ip_key = (
-                "devradar:rl:alerts:ip:"
-                f"{hash_ip(ip_address, self._settings.session_secret)}"
-            )
-            buckets.insert(0, (ip_key, ALERT_RATE_LIMIT_MAX_PER_IP))
-
-        if self._rate_limit_store is not None:
-            now = time.time()
-            for key, _limit in buckets:
-                bucket = self._rate_limit_store.setdefault(key, [])
-                bucket[:] = [
-                    timestamp
-                    for timestamp in bucket
-                    if now - timestamp < ALERT_RATE_LIMIT_WINDOW_SECONDS
-                ]
-            if any(
-                len(self._rate_limit_store[key]) >= limit for key, limit in buckets
-            ):
-                raise RateLimitError(detail="Too many alert subscription attempts")
-            for key, _limit in buckets:
-                self._rate_limit_store[key].append(now)
-            return
-
-        import redis.asyncio as aioredis
-
-        redis = aioredis.from_url(self._redis_url, decode_responses=True)
-        try:
-            # One-key scripts work on both standalone Redis and Redis Cluster;
-            # a multi-key script would fail when IP/email keys land in separate
-            # hash slots.
-            for key, limit in buckets:
-                count = await redis.eval(  # type: ignore[no-untyped-call]
-                    _ALERT_RATE_LIMIT_SCRIPT,
-                    1,
-                    key,
-                    ALERT_RATE_LIMIT_WINDOW_SECONDS,
-                )
-                if int(count) > limit:
-                    raise RateLimitError(detail="Too many alert subscription attempts")
-        finally:
-            aclose = getattr(redis, "aclose", None)
-            if aclose is not None:
-                await aclose()
-            else:
-                await redis.close()
 
     async def confirm_subscription(self, token: str) -> AlertSubscription:
         th = hash_token(token, self._settings.session_secret)

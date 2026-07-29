@@ -26,7 +26,15 @@ from app.ingestion.normalizer import CandidateListing
 from app.ingestion.verifier import VerificationEvidence, VerificationResult, verify
 from app.review.models import ReviewItem
 
-PIPELINE_VERSION = "1.0.0"
+PIPELINE_VERSION = "1.1.0"
+
+# Review queue priorities (higher = more urgent to clear).
+#: Backed only by social/unofficial sources — nothing is published yet.
+_PRIORITY_TIER3_ONLY = 80
+#: Published on partial evidence. It is already public, so confirming it
+#: outranks a candidate still sitting in the queue unpublished.
+_PRIORITY_PUBLISHED_UNCONFIRMED = 60
+_PRIORITY_DEFAULT = 50
 
 
 @dataclass(slots=True)
@@ -76,33 +84,50 @@ class IngestionPipeline:
     async def _find_by_idempotency(self, key: str) -> PipelineOutcome | None:
         # Filter in Python for portable JSONB key lookup.
         items = list((await self._session.execute(select(ReviewItem))).scalars().all())
-        for item in items:
-            snap = item.candidate_snapshot or {}
-            if snap.get("pipeline_idempotency_key") == key:
-                return PipelineOutcome(
-                    listing_id=item.listing_id,
-                    review_item_id=item.id,
-                    status=VerificationStatus.NEEDS_REVIEW,
-                    created_listing=False,
-                    created_review=False,
-                    idempotent_replay=True,
-                    score_total=0,
-                    reasons=["idempotent_replay"],
-                )
+        matched_item = next(
+            (
+                item
+                for item in items
+                if (item.candidate_snapshot or {}).get("pipeline_idempotency_key") == key
+            ),
+            None,
+        )
         listings = list((await self._session.execute(select(Listing))).scalars().all())
-        for listing in listings:
-            breakdown = listing.score_breakdown or {}
-            if breakdown.get("pipelineIdempotencyKey") == key:
-                return PipelineOutcome(
-                    listing_id=listing.id,
-                    review_item_id=None,
-                    status=VerificationStatus(str(listing.verification_status)),
-                    created_listing=False,
-                    created_review=False,
-                    idempotent_replay=True,
-                    score_total=int(breakdown.get("total") or 0),
-                    reasons=["idempotent_replay"],
-                )
+        matched_listing = next(
+            (
+                listing
+                for listing in listings
+                if (listing.score_breakdown or {}).get("pipelineIdempotencyKey") == key
+            ),
+            None,
+        )
+
+        # A published listing wins: it may *also* carry a review item when it was
+        # flagged for confirmation, and reporting NEEDS_REVIEW for something
+        # already live would misdescribe the replay.
+        if matched_listing is not None:
+            breakdown = matched_listing.score_breakdown or {}
+            return PipelineOutcome(
+                listing_id=matched_listing.id,
+                review_item_id=matched_item.id if matched_item is not None else None,
+                status=VerificationStatus(str(matched_listing.verification_status)),
+                created_listing=False,
+                created_review=False,
+                idempotent_replay=True,
+                score_total=int(breakdown.get("total") or 0),
+                reasons=["idempotent_replay"],
+            )
+        if matched_item is not None:
+            return PipelineOutcome(
+                listing_id=matched_item.listing_id,
+                review_item_id=matched_item.id,
+                status=VerificationStatus.NEEDS_REVIEW,
+                created_listing=False,
+                created_review=False,
+                idempotent_replay=True,
+                score_total=0,
+                reasons=["idempotent_replay"],
+            )
         return None
 
     async def _apply(
@@ -143,26 +168,38 @@ class IngestionPipeline:
                     actor_type="pipeline",
                 )
             )
+            # The verifier can publish something and still ask for a human to
+            # confirm it (LIKELY_ACTIVE = partial evidence). Honour that: the
+            # listing goes live, and an admin gets it in the queue.
+            if result.needs_human_review:
+                item = self._build_review_item(
+                    candidate,
+                    result,
+                    score_dict,
+                    idempotency_key,
+                    priority=_PRIORITY_PUBLISHED_UNCONFIRMED,
+                    reason=(
+                        f"Published as {result.status.value} on partial evidence "
+                        f"({result.score.total}/100) — confirm or correct. "
+                        + "; ".join(result.reasons)
+                    ).strip(),
+                )
+                item.listing_id = listing.id
+                self._session.add(item)
+                await self._session.flush()
+                review_id = item.id
+                created_review = True
         else:
             # Always create review item for needs_review / cancelled / low confidence
-            item = ReviewItem(
-                candidate_type=ReviewCandidateType.LISTING,
-                candidate_snapshot={
-                    "title": candidate.title,
-                    "kind": candidate.kind.value,
-                    "fields": _jsonable(candidate.fields),
-                    "canonical_url": candidate.canonical_url,
-                    "pipeline_idempotency_key": idempotency_key,
-                    "verification": {
-                        "status": result.status.value,
-                        "reasons": result.reasons,
-                        "checks": result.checks,
-                        "score": score_dict,
-                    },
-                },
+            item = self._build_review_item(
+                candidate,
+                result,
+                score_dict,
+                idempotency_key,
+                priority=(
+                    _PRIORITY_TIER3_ONLY if evidence.only_tier3 else _PRIORITY_DEFAULT
+                ),
                 reason="; ".join(result.reasons) or "needs_review",
-                priority=80 if evidence.only_tier3 else 50,
-                state=ReviewItemState.OPEN,
             )
             self._session.add(item)
             await self._session.flush()
@@ -205,6 +242,37 @@ class IngestionPipeline:
             idempotent_replay=False,
             score_total=result.score.total,
             reasons=list(result.reasons),
+        )
+
+    def _build_review_item(
+        self,
+        candidate: CandidateListing,
+        result: VerificationResult,
+        score_dict: dict[str, Any],
+        idempotency_key: str,
+        *,
+        priority: int,
+        reason: str,
+    ) -> ReviewItem:
+        """Queue entry carrying everything an admin needs to judge the candidate."""
+        return ReviewItem(
+            candidate_type=ReviewCandidateType.LISTING,
+            candidate_snapshot={
+                "title": candidate.title,
+                "kind": candidate.kind.value,
+                "fields": _jsonable(candidate.fields),
+                "canonical_url": candidate.canonical_url,
+                "pipeline_idempotency_key": idempotency_key,
+                "verification": {
+                    "status": result.status.value,
+                    "reasons": result.reasons,
+                    "checks": result.checks,
+                    "score": score_dict,
+                },
+            },
+            reason=reason[:500],
+            priority=priority,
+            state=ReviewItemState.OPEN,
         )
 
     async def _create_listing(

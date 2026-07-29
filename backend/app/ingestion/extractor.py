@@ -31,10 +31,19 @@ _US_DATE = re.compile(
     r"\b((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+20\d{2})\b",
     re.I,
 )
+# A currency marker is REQUIRED. The old pattern made it optional, so prose like
+# "Grand prize awarded to teams of 2-5" parsed as a $5 prize pool.
 _PRIZE = re.compile(
-    r"(?:prize|pool|award)[^\n$€£]{0,40}(?:\$|USD\s*)?([\d,]+(?:\.\d+)?)\s*(k|K|USD|usd)?",
+    r"(?:prizes?|pool|awards?)[^\n]{0,40}?"
+    r"(?:"
+    r"(?P<sym>[$€£])\s*(?P<sym_amt>\d[\d,]*(?:\.\d+)?)\s*(?P<sym_mult>[km])?"
+    r"|(?P<pre_code>USD|EUR|GBP)\s*(?P<pre_amt>\d[\d,]*(?:\.\d+)?)\s*(?P<pre_mult>[km])?"
+    r"|(?P<post_amt>\d[\d,]*(?:\.\d+)?)\s*(?P<post_mult>[km])?\s*(?P<post_code>USD|EUR|GBP)\b"
+    r")",
     re.I,
 )
+_CURRENCY_SYMBOLS = {"$": "USD", "€": "EUR", "£": "GBP"}
+_MULTIPLIERS = {"k": 1_000, "m": 1_000_000}
 _CREDITS = re.compile(
     r"(?:\$|USD\s*)?([\d,]+(?:\.\d+)?)\s*(?:USD\s+)?(?:in\s+)?(?:free\s+)?credits",
     re.I,
@@ -55,6 +64,85 @@ _TECH_KEYWORDS = (
     "CUDA",
     "PyTorch",
     "TensorFlow",
+)
+
+
+def _keyword_boundary(keyword: str) -> re.Pattern[str]:
+    """Match `keyword` as a whole token rather than as a substring.
+
+    Plain `in` matching read "AI" out of *available*, *email* and *domain*, and
+    "Go" out of *google*, so nearly every page scored tech hits it never
+    mentioned. `+`/`#` count as part of a token so a future "C++"/"C#" keyword
+    is not clipped mid-name.
+    """
+    prefix = r"(?<![\w+#])" if keyword[0].isalnum() else ""
+    suffix = r"(?![\w+#])" if keyword[-1].isalnum() else ""
+    return re.compile(prefix + re.escape(keyword) + suffix, re.I)
+
+
+_TECH_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
+    (tech, _keyword_boundary(tech)) for tech in _TECH_KEYWORDS
+)
+
+#: How far from a label to look for its date. Long enough to bridge
+#: "Registration opens 2026-07-01 and closes 2026-08-10", short enough that a
+#: footer copyright is never adopted by a heading paragraphs above it.
+_DATE_LABEL_WINDOW = 120
+
+# Ordered most-specific first: `registration_deadline` is claimed before
+# `submission_deadline` so the latter's bare `\bdeadline\b` fallback cannot
+# steal the date belonging to "Registration deadline".
+_HACKATHON_DATE_LABELS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    (
+        "registration_open_at",
+        re.compile(
+            r"registration\s+(?:opens?|begins?|starts?)"
+            r"|(?:applications?|sign[-\s]?ups?)\s+open"
+            r"|kick[-\s]?off",
+            re.I,
+        ),
+    ),
+    (
+        "registration_deadline",
+        re.compile(
+            r"registration[^.\n]{0,40}?\b(?:closes?|closed|deadline|ends?)\b"
+            r"|(?:apply|register|sign\s+up)\s+by"
+            r"|applications?\s+close"
+            r"|last\s+day\s+to\s+register"
+            r"|entry\s+deadline",
+            re.I,
+        ),
+    ),
+    (
+        "submission_deadline",
+        re.compile(
+            r"submissions?[^.\n]{0,20}?\b(?:deadline|due|closes?|ends?)\b"
+            r"|(?:projects?|entries)\s+due"
+            r"|final\s+submission"
+            r"|hacking\s+ends?"
+            r"|due\s+by"
+            r"|\bdeadline\b",
+            re.I,
+        ),
+    ),
+)
+
+_AI_OFFER_DATE_LABELS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    (
+        "starts_at",
+        re.compile(
+            r"\b(?:starts?|begins?|available\s+from|effective|valid\s+from)\b",
+            re.I,
+        ),
+    ),
+    (
+        "expires_at",
+        re.compile(
+            r"\b(?:expires?|expiry|expiration|ends?|until|through"
+            r"|valid\s+(?:until|through|till))\b",
+            re.I,
+        ),
+    ),
 )
 
 _MODE_MAP = (
@@ -111,17 +199,57 @@ def _parse_date(raw: str) -> datetime | None:
     return None
 
 
-def _find_dates(text: str) -> list[datetime]:
-    found: list[datetime] = []
-    for m in _ISO_DT.finditer(text):
-        dt = _parse_date(m.group(1))
-        if dt:
-            found.append(dt)
-    for m in _US_DATE.finditer(text):
-        dt = _parse_date(m.group(1))
-        if dt:
-            found.append(dt)
+def _find_dates_with_pos(text: str) -> list[tuple[int, datetime]]:
+    """Every parseable date with the offset it was written at, in reading order."""
+    found: list[tuple[int, datetime]] = []
+    for pattern in (_ISO_DT, _US_DATE):
+        for m in pattern.finditer(text):
+            dt = _parse_date(m.group(1))
+            if dt:
+                found.append((m.start(1), dt))
+    found.sort(key=lambda pair: pair[0])
     return found
+
+
+def _label_dates(
+    text: str,
+    labels: tuple[tuple[str, re.Pattern[str]], ...],
+) -> dict[str, datetime]:
+    """Assign dates to fields by the wording written next to them.
+
+    Dates used to be assigned by sort order — earliest opens, latest closes —
+    which happily promoted a footer copyright to "registration opens" and a
+    privacy-policy revision date to "registration deadline". A wrong deadline is
+    worse than none: a bogus past registration date flips a live hackathon to
+    `registration_closed`. So anything without a label near it stays unassigned
+    and the verifier raises `missing_deadline_or_expiry` instead.
+    """
+    dates = _find_dates_with_pos(text)
+    claimed: set[int] = set()
+    out: dict[str, datetime] = {}
+    for field_name, pattern in labels:
+        for match in pattern.finditer(text):
+            best: tuple[int, int, datetime] | None = None
+            for index, (pos, dt) in enumerate(dates):
+                if index in claimed:
+                    continue
+                if pos >= match.end():
+                    distance = pos - match.end()
+                elif pos < match.start():
+                    # Dates written before their label ("Aug 10 — registration
+                    # closes") are rarer, so they must be nearer to win.
+                    distance = (match.start() - pos) * 2
+                else:
+                    continue  # date sits inside the label match itself
+                if distance > _DATE_LABEL_WINDOW:
+                    continue
+                if best is None or distance < best[0]:
+                    best = (distance, index, dt)
+            if best is not None:
+                claimed.add(best[1])
+                out[field_name] = best[2]
+                break
+    return out
 
 
 def _detect_mode(text: str) -> str | None:
@@ -132,27 +260,34 @@ def _detect_mode(text: str) -> str | None:
 
 
 def _detect_technologies(text: str) -> list[str]:
-    hits: list[str] = []
-    lower = text.lower()
-    for tech in _TECH_KEYWORDS:
-        if tech.lower() in lower and tech not in hits:
-            hits.append(tech)
-    return hits
+    return [tech for tech, pattern in _TECH_PATTERNS if pattern.search(text)]
 
 
 def _detect_prize(text: str) -> tuple[Decimal | None, str | None]:
+    """Prize amount and its currency, or `(None, None)` when unmarked.
+
+    Only an amount carrying a currency marker counts — an unlabelled number
+    near the word "prize" is far more often a team size or a rank than a pool.
+    """
     m = _PRIZE.search(text)
     if not m:
         return None, None
-    num = m.group(1).replace(",", "")
+    if m.group("sym_amt"):
+        raw, mult = m.group("sym_amt"), m.group("sym_mult")
+        currency = _CURRENCY_SYMBOLS.get(m.group("sym"), "USD")
+    elif m.group("pre_amt"):
+        raw, mult = m.group("pre_amt"), m.group("pre_mult")
+        currency = m.group("pre_code").upper()
+    else:
+        raw, mult = m.group("post_amt"), m.group("post_mult")
+        currency = m.group("post_code").upper()
     try:
-        value = Decimal(num)
+        value = Decimal(raw.replace(",", ""))
     except InvalidOperation:
         return None, None
-    suffix = (m.group(2) or "").lower()
-    if suffix == "k":
-        value *= 1000
-    return value, "USD"
+    if mult:
+        value *= _MULTIPLIERS.get(mult.lower(), 1)
+    return value, currency
 
 
 def _pick_official_url(parsed: ParsedDocument) -> str | None:
@@ -168,7 +303,6 @@ def _pick_official_url(parsed: ParsedDocument) -> str | None:
 def _rule_extract_hackathon(parsed: ParsedDocument) -> dict[str, Any]:
     text = parsed.text or ""
     title = parsed.title or _first_line(text)
-    dates = _find_dates(text)
     prize, currency = _detect_prize(text)
     team_min, team_max = 1, 1
     tm = _TEAM.search(text)
@@ -179,22 +313,10 @@ def _rule_extract_hackathon(parsed: ParsedDocument) -> dict[str, Any]:
         if ts:
             team_max = int(ts.group(1))
 
-    registration_deadline = None
-    submission_deadline = None
-    registration_open = None
-    # Heuristic: with 2+ dates, earliest open, mid registration, latest submission
-    if len(dates) >= 3:
-        ordered = sorted(dates)
-        registration_open, registration_deadline, submission_deadline = (
-            ordered[0],
-            ordered[1],
-            ordered[-1],
-        )
-    elif len(dates) == 2:
-        ordered = sorted(dates)
-        registration_deadline, submission_deadline = ordered[0], ordered[1]
-    elif len(dates) == 1:
-        submission_deadline = dates[0]
+    labelled = _label_dates(text, _HACKATHON_DATE_LABELS)
+    registration_open = labelled.get("registration_open_at")
+    registration_deadline = labelled.get("registration_deadline")
+    submission_deadline = labelled.get("submission_deadline")
 
     organizer = None
     org_m = re.search(r"(?:organized|hosted)\s+by\s+([A-Z][\w &.+-]{1,60})", text)
@@ -258,16 +380,12 @@ def _rule_extract_ai_offer(parsed: ParsedDocument) -> dict[str, Any]:
     elif offer_type == "free_tier":
         offer_value = "Free tier"
 
-    dates = _find_dates(text)
-    starts_at = dates[0] if dates else None
-    expires_at = None
-    if len(dates) >= 2:
-        expires_at = dates[-1]
-    elif dates and offer_type != "free_tier":
-        expires_at = dates[0]
-    # Permanent free tier: no expiry
-    if offer_type == "free_tier" and not re.search(r"expir|until|ends?", text, re.I):
-        expires_at = None
+    # Label-driven, same as hackathons: an offer with no stated expiry keeps a
+    # null `expires_at` (correct for a permanent free tier) rather than
+    # inheriting whatever date happened to appear last on the page.
+    labelled = _label_dates(text, _AI_OFFER_DATE_LABELS)
+    starts_at = labelled.get("starts_at")
+    expires_at = labelled.get("expires_at")
 
     provider = None
     prod = None

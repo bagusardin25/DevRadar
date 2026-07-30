@@ -63,6 +63,25 @@ class TestCreateSubmission:
         assert response.status_code == 422
         assert "application/problem+json" in response.headers["content-type"]
 
+    async def test_rejects_malformed_port_as_validation_error(self, api_client) -> None:
+        client, enqueue = api_client
+        response = await client.post(
+            "/api/v1/submissions",
+            json=_body(url="https://example.com:99999/opportunity"),
+        )
+        assert response.status_code == 422
+        assert enqueue.calls == []
+
+    async def test_rejects_oversized_idempotency_key(self, api_client) -> None:
+        client, enqueue = api_client
+        response = await client.post(
+            "/api/v1/submissions",
+            json=_body(),
+            headers={"Idempotency-Key": "x" * 201},
+        )
+        assert response.status_code == 422
+        assert enqueue.calls == []
+
     async def test_rejects_honeypot(self, api_client) -> None:
         client, enqueue = api_client
         response = await client.post(

@@ -713,7 +713,10 @@ def main() -> None:
     parser.add_argument(
         "--update",
         action="store_true",
-        help="Update prize/title/description on existing hackathon slugs (idempotent seed alone only inserts)",
+        help=(
+            "Update prize/title/description on existing hackathon slugs "
+            "(idempotent seed alone only inserts)"
+        ),
     )
     args = parser.parse_args()
     raise SystemExit(

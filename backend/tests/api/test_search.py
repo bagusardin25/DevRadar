@@ -161,13 +161,70 @@ class TestStatsAndMeta:
         await db_session.delete(offer)
         await db_session.commit()
 
-    async def test_filter_meta_shape(self, api_client) -> None:
-        response = await api_client.get("/api/v1/meta/filters")
-        assert response.status_code == 200
-        body = response.json()
-        assert "technologies" in body
-        assert "regions" in body
-        assert "eligibilityLabels" in body
-        assert "offerTypes" in body
-        assert "modes" in body
-        assert body["modes"] == ["online", "hybrid", "in_person"]
+    async def test_filter_meta_shape(self, api_client, db_session: AsyncSession) -> None:
+        suffix = uuid4().hex
+        public_tech = f"Rust-{suffix}"
+        public_tag = f"inference-{suffix}"
+        closed_tag = f"closed-{suffix}"
+        hidden_tech = f"draft-tech-{suffix}"
+        hidden_tag = f"draft-tag-{suffix}"
+        hidden_region = f"draft-region-{suffix}"
+        seeded = []
+
+        try:
+            seeded.extend(
+                [
+                    await seed_hackathon(
+                        db_session,
+                        slug=f"meta-h-{suffix[:8]}",
+                        technology=public_tech,
+                    ),
+                    await seed_ai_offer(
+                        db_session,
+                        slug=f"meta-a-{suffix[:8]}",
+                        tag=public_tag,
+                    ),
+                    await seed_ai_offer(
+                        db_session,
+                        slug=f"meta-closed-{suffix[:8]}",
+                        tag=closed_tag,
+                        status=VerificationStatus.REGISTRATION_CLOSED,
+                    ),
+                    await seed_hackathon(
+                        db_session,
+                        slug=f"meta-hidden-h-{suffix[:8]}",
+                        technology=hidden_tech,
+                        region=hidden_region,
+                        status=VerificationStatus.NEEDS_REVIEW,
+                    ),
+                    await seed_ai_offer(
+                        db_session,
+                        slug=f"meta-hidden-a-{suffix[:8]}",
+                        tag=hidden_tag,
+                        region=hidden_region,
+                        status=VerificationStatus.NEEDS_REVIEW,
+                    ),
+                ]
+            )
+            await db_session.commit()
+
+            response = await api_client.get("/api/v1/meta/filters")
+            assert response.status_code == 200
+            body = response.json()
+            assert "technologies" in body
+            assert "regions" in body
+            assert "eligibilityLabels" in body
+            assert "offerTypes" in body
+            assert "modes" in body
+            assert body["modes"] == ["online", "hybrid", "in_person"]
+            assert public_tech in body["technologies"]
+            assert public_tag in body["technologies"]
+            assert closed_tag in body["technologies"]
+            assert hidden_tech not in body["technologies"]
+            assert hidden_tag not in body["technologies"]
+            assert hidden_region not in body["regions"]
+        finally:
+            await db_session.rollback()
+            for listing in seeded:
+                await db_session.delete(listing)
+            await db_session.commit()

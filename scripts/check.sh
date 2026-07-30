@@ -10,11 +10,11 @@ cd "$ROOT"
 step() { printf '\n==> %s\n' "$1"; }
 
 # --- Frontend (same as ci.yml frontend job after npm ci) ---
-step "Frontend build (npm run build)"
-npm run build
+step "Frontend stress, build, and lint (npm run check)"
+npm run check
 
-step "Frontend lint (npm run lint)"
-npm run lint
+step "Extension stress, typecheck, and builds (npm run check)"
+(cd extension && npm run check)
 
 # --- Backend (same as ci.yml backend job after uv sync) ---
 cd backend

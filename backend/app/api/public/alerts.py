@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import APIRouter, Query, Request, Response
 from fastapi.responses import RedirectResponse
 
@@ -10,6 +12,7 @@ from app.alerts.schemas import AlertCreateRequest, AlertCreateResponse
 from app.alerts.service import AlertService
 from app.api.client_ip import client_ip
 from app.api.dependencies import DbSession
+from app.api.limits import MAX_ALERT_TOKEN_LENGTH
 from app.config import Settings
 from app.errors import ForbiddenError
 from app.submissions.security import hash_email, hash_ip
@@ -54,7 +57,10 @@ async def create_alert(
 async def confirm_alert(
     request: Request,
     session: DbSession,
-    token: str = Query(...),
+    token: Annotated[
+        str,
+        Query(min_length=1, max_length=MAX_ALERT_TOKEN_LENGTH),
+    ],
 ) -> RedirectResponse:
     settings: Settings = request.app.state.settings
     service = AlertService(session, settings)
@@ -67,7 +73,10 @@ async def confirm_alert(
 async def unsubscribe_alert(
     request: Request,
     session: DbSession,
-    token: str = Query(...),
+    token: Annotated[
+        str,
+        Query(min_length=1, max_length=MAX_ALERT_TOKEN_LENGTH),
+    ],
 ) -> dict[str, str]:
     settings: Settings = request.app.state.settings
     service = AlertService(session, settings)
@@ -79,7 +88,10 @@ async def unsubscribe_alert(
 async def unsubscribe_alert_get(
     request: Request,
     session: DbSession,
-    token: str = Query(...),
+    token: Annotated[
+        str,
+        Query(min_length=1, max_length=MAX_ALERT_TOKEN_LENGTH),
+    ],
 ) -> RedirectResponse:
     """One-click unsubscribe from email links (GET + redirect to frontend)."""
     settings: Settings = request.app.state.settings

@@ -12,6 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.api.limits import MAX_STATUS_PARAM_LENGTH
 from app.catalog.completeness import ai_offer_completeness, hackathon_completeness
 from app.catalog.enums import (
     ConnectorType,
@@ -439,20 +440,63 @@ class CatalogueService:
         )
 
     async def filter_meta(self) -> FilterMetaResponse:
+        # Filter values are public catalogue data too. Scope every child-table
+        # query through its listing so draft / needs-review rows cannot leak
+        # tags, regions, or other metadata through this unauthenticated route.
+        public_statuses = list(PUBLIC_VISIBLE_STATUSES)
         tech_rows = await self._session.execute(
             select(func.distinct(func.unnest(Hackathon.technologies)))
+            .select_from(Hackathon)
+            .join(Listing, Listing.id == Hackathon.listing_id)
+            .where(
+                Listing.kind == ListingKind.HACKATHON.value,
+                Listing.verification_status.in_(public_statuses),
+            )
+        )
+        offer_tag_rows = await self._session.execute(
+            select(func.distinct(func.unnest(AIOffer.tags)))
+            .select_from(AIOffer)
+            .join(Listing, Listing.id == AIOffer.listing_id)
+            .where(
+                Listing.kind == ListingKind.AI_OFFER.value,
+                Listing.verification_status.in_(public_statuses),
+            )
         )
         regions_h = await self._session.execute(
             select(func.distinct(func.unnest(Hackathon.eligible_countries)))
+            .select_from(Hackathon)
+            .join(Listing, Listing.id == Hackathon.listing_id)
+            .where(
+                Listing.kind == ListingKind.HACKATHON.value,
+                Listing.verification_status.in_(public_statuses),
+            )
         )
         regions_a = await self._session.execute(
             select(func.distinct(func.unnest(AIOffer.supported_regions)))
+            .select_from(AIOffer)
+            .join(Listing, Listing.id == AIOffer.listing_id)
+            .where(
+                Listing.kind == ListingKind.AI_OFFER.value,
+                Listing.verification_status.in_(public_statuses),
+            )
         )
         eligibility = await self._session.execute(
             select(func.distinct(func.unnest(Hackathon.eligibility)))
+            .select_from(Hackathon)
+            .join(Listing, Listing.id == Hackathon.listing_id)
+            .where(
+                Listing.kind == ListingKind.HACKATHON.value,
+                Listing.verification_status.in_(public_statuses),
+            )
         )
         offer_types = await self._session.execute(
             select(func.distinct(AIOffer.offer_type))
+            .select_from(AIOffer)
+            .join(Listing, Listing.id == AIOffer.listing_id)
+            .where(
+                Listing.kind == ListingKind.AI_OFFER.value,
+                Listing.verification_status.in_(public_statuses),
+            )
         )
 
         def clean(values: list[Any]) -> list[str]:
@@ -460,7 +504,9 @@ class CatalogueService:
 
         regions = clean([*regions_h.scalars().all(), *regions_a.scalars().all()])
         return FilterMetaResponse(
-            technologies=clean(list(tech_rows.scalars().all())),
+            technologies=clean(
+                [*tech_rows.scalars().all(), *offer_tag_rows.scalars().all()]
+            ),
             regions=regions,
             eligibility_labels=clean(list(eligibility.scalars().all())),
             offer_types=clean(list(offer_types.scalars().all())),
@@ -484,13 +530,20 @@ def listing_etag(listing_like: HackathonPublic | AIOfferPublic) -> str:
 def parse_status_param(raw: str | None) -> list[VerificationStatus]:
     if not raw:
         return []
+    if len(raw) > MAX_STATUS_PARAM_LENGTH:
+        raise ValidationError(
+            detail="Verification status filter is too long",
+            errors=[{"field": "status", "message": "Status filter is too long"}],
+        )
     values: list[VerificationStatus] = []
     for part in raw.split(","):
         part = part.strip()
         if not part:
             continue
         try:
-            values.append(VerificationStatus(part))
+            status = VerificationStatus(part)
+            if status not in values:
+                values.append(status)
         except ValueError:
             raise ValidationError(
                 detail=f"Unknown verification status: {part}",

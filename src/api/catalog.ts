@@ -91,6 +91,7 @@ export async function fetchAIOffers(
       q: filters.searchQuery || undefined,
       offerType: filters.offerType || undefined,
       region: filters.region || undefined,
+      tags: filters.technology || undefined,
       status: filters.verificationStatus || undefined,
       onlyFreeNoCard: filters.onlyFreeNoCard || undefined,
       cursor: options?.cursor,

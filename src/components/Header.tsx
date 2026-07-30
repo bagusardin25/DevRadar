@@ -189,8 +189,10 @@ export const Header: React.FC<HeaderProps> = ({
       <header className="w-full border-b border-[#D6D5CF] dark:border-slate-800 bg-[#F3F4EF] dark:bg-[#090C15] px-3 sm:px-4 lg:px-8 py-3 sm:py-3.5">
         <div className="max-w-6xl mx-auto flex flex-col gap-3 md:gap-4">
           <div className="flex items-center justify-between gap-3 w-full">
-            <div
-              className="flex items-center gap-2 sm:gap-3 cursor-pointer group min-w-0"
+            <button
+              type="button"
+              aria-label="Go to DevRadar hackathon catalogue"
+              className="flex items-center gap-2 sm:gap-3 group min-w-0 text-left rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5A36] focus-visible:ring-offset-2"
               onClick={() => setFilters((f) => ({ ...f, activeModule: 'hackathon' }))}
             >
               <div className="relative flex items-center justify-center w-10 h-10 rounded-2xl bg-white dark:bg-[#131A29] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] text-[#FF5A36] shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5] group-hover:scale-105 transition-transform shrink-0">
@@ -211,7 +213,7 @@ export const Header: React.FC<HeaderProps> = ({
                   Dev<span className="text-[#FF5A36]">Radar</span>
                 </span>
               </div>
-            </div>
+            </button>
 
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               <div ref={preferencesRef} className="relative">
@@ -290,10 +292,11 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           {/* Module switcher — scrollable on mobile */}
-          <div className="flex items-center gap-1 bg-white dark:bg-[#131A29] p-1.5 rounded-full border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] shadow-[3px_3px_0_0_#1C1B18] dark:shadow-[3px_3px_0_0_#D6DCE5] text-xs sm:text-sm font-extrabold w-full overflow-x-auto no-scrollbar">
+          <nav aria-label="DevRadar sections" className="flex items-center gap-1 bg-white dark:bg-[#131A29] p-1.5 rounded-full border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] shadow-[3px_3px_0_0_#1C1B18] dark:shadow-[3px_3px_0_0_#D6DCE5] text-xs sm:text-sm font-extrabold w-full overflow-x-auto no-scrollbar">
             <button
               type="button"
               onClick={() => setFilters((f) => ({ ...f, activeModule: 'hackathon' }))}
+              aria-pressed={filters.activeModule === 'hackathon'}
               className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-full transition-all whitespace-nowrap shrink-0 ${
                 filters.activeModule === 'hackathon'
                   ? 'bg-[#D23B14] text-white font-bold shadow-sm'
@@ -307,6 +310,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={() => setFilters((f) => ({ ...f, activeModule: 'ai_deal' }))}
+              aria-pressed={filters.activeModule === 'ai_deal'}
               className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-full transition-all whitespace-nowrap shrink-0 ${
                 filters.activeModule === 'ai_deal'
                   ? 'bg-[#7C3AED] text-white font-bold shadow-sm'
@@ -322,6 +326,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <button
                   type="button"
                   onClick={() => setFilters((f) => ({ ...f, activeModule: 'pipeline' }))}
+                  aria-pressed={filters.activeModule === 'pipeline'}
                   className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-full transition-all whitespace-nowrap shrink-0 ${
                     filters.activeModule === 'pipeline'
                       ? 'bg-[#059669] text-white font-bold shadow-sm'
@@ -335,6 +340,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <button
                   type="button"
                   onClick={() => setFilters((f) => ({ ...f, activeModule: 'admin_queue' }))}
+                  aria-pressed={filters.activeModule === 'admin_queue'}
                   className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-full transition-all whitespace-nowrap shrink-0 ${
                     filters.activeModule === 'admin_queue'
                       ? 'bg-[#D97706] text-white font-bold shadow-sm'
@@ -353,6 +359,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <button
                   type="button"
                   onClick={() => setFilters((f) => ({ ...f, activeModule: 'catalogue' }))}
+                  aria-pressed={filters.activeModule === 'catalogue'}
                   className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-full transition-all whitespace-nowrap shrink-0 ${
                     filters.activeModule === 'catalogue'
                       ? 'bg-[#D23B14] text-white font-bold shadow-sm'
@@ -366,6 +373,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <button
                   type="button"
                   onClick={() => setFilters((f) => ({ ...f, activeModule: 'sources' }))}
+                  aria-pressed={filters.activeModule === 'sources'}
                   className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-full transition-all whitespace-nowrap shrink-0 ${
                     filters.activeModule === 'sources'
                       ? 'bg-[#2563EB] text-white font-bold shadow-sm'
@@ -395,6 +403,7 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 onClick={onOpenAdmin}
+                aria-pressed={filters.activeModule === 'admin_queue'}
                 title="Operator login (Google OAuth)"
                 aria-label="Operator admin login"
                 className={`flex items-center gap-1.5 sm:gap-2 px-3 py-2 rounded-full transition-all whitespace-nowrap shrink-0 text-[#1C1B18] dark:text-[#D6DCE5] hover:text-[#D97706] ${
@@ -417,7 +426,7 @@ export const Header: React.FC<HeaderProps> = ({
               )}
               {accessLabel}
             </span>
-          </div>
+          </nav>
         </div>
       </header>
     </div>

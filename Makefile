@@ -6,6 +6,7 @@
 	api worker frontend \
 	sync-backend migrate lint-backend test-backend check-backend \
 	lint-frontend build-frontend check-frontend \
+	check-extension \
 	check clean health
 
 help:
@@ -21,8 +22,9 @@ help:
 	@echo "  make check-backend   lint + migrate + test          (CI backend job)"
 	@echo "  make lint-frontend   npm run lint                   (CI lint)"
 	@echo "  make build-frontend  npm run build                  (CI build)"
-	@echo "  make check-frontend  build + lint                   (CI frontend job)"
-	@echo "  make check           check-frontend + check-backend (full local CI gate)"
+	@echo "  make check-frontend  stress + build + lint          (CI frontend job)"
+	@echo "  make check-extension stress + typecheck + builds     (CI frontend job)"
+	@echo "  make check           frontend + extension + backend (full local CI gate)"
 	@echo "  make seed / seed-update / seed-sources / recheck-offers"
 	@echo "  make api / worker / frontend / health / clean"
 
@@ -92,8 +94,12 @@ lint-frontend:
 build-frontend:
 	npm run build
 
-# Same order as .github/workflows/ci.yml frontend job (after npm ci).
-check-frontend: build-frontend lint-frontend
+# Same command as .github/workflows/ci.yml frontend job (after npm ci).
+check-frontend:
+	npm run check
+
+check-extension:
+	cd extension && npm run check
 
 # Full contributor gate (infra must already be up for backend tests).
 # Delegates to scripts/check.sh so Make and the shell script stay identical.

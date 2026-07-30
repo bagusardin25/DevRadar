@@ -13,6 +13,7 @@ import {
 import type { AIDeal } from '../types';
 import { getDeadlineInfo } from '../utils/countdown';
 import { compactDescription, dedupeHighlights } from '../utils/cardSummary';
+import { formatAppDateTime } from '../utils/dateTime';
 import { ListingBadges } from './ListingBadges';
 
 /** Cards trade completeness for scannability; the modal carries the full lists. */
@@ -154,7 +155,7 @@ export const AIDealCard = memo(function AIDealCard({
             onClick={() => onSelect(deal)}
             className="btn-sharetopus-secondary text-xs py-2 px-4 font-bold"
           >
-            <span>Audit</span>
+            <span>Details</span>
             <ArrowUpRight className="w-3.5 h-3.5" />
           </button>
 
@@ -287,7 +288,7 @@ export const AIDealCard = memo(function AIDealCard({
       <div className="pt-3 border-t border-[#D6D5CF] dark:border-slate-800 flex items-center justify-between gap-x-3 gap-y-2 flex-wrap text-xs">
         <span className="text-[12px] font-mono text-[#736F66] dark:text-[#94A3B8] font-medium flex items-center gap-1">
           <Clock className="w-3.5 h-3.5" />
-          Checked {new Date(deal.lastCheckedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          Checked {formatAppDateTime(deal.lastCheckedAt, { hour: '2-digit', minute: '2-digit' })}
         </span>
 
         <div className="flex items-center gap-2 ml-auto">
@@ -311,7 +312,7 @@ export const AIDealCard = memo(function AIDealCard({
             onClick={() => onSelect(deal)}
             className="btn-sharetopus-secondary text-xs py-2 px-4 font-bold"
           >
-            <span>Audit</span>
+            <span>Details</span>
             <ArrowUpRight className="w-3.5 h-3.5" />
           </button>
 

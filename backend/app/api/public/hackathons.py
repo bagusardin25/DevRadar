@@ -6,9 +6,16 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Header, Query, Response
+from fastapi import APIRouter, Header, Path, Query, Response
 
 from app.api.dependencies import Catalogue
+from app.api.limits import (
+    MAX_CURSOR_LENGTH,
+    MAX_FILTER_VALUE_LENGTH,
+    MAX_SEARCH_QUERY_LENGTH,
+    MAX_SLUG_LENGTH,
+    MAX_STATUS_PARAM_LENGTH,
+)
 from app.catalog.enums import HackathonMode
 from app.catalog.public_schemas import HackathonCollectionResponse, HackathonPublic
 from app.catalog.search import HackathonFilters
@@ -20,22 +27,31 @@ router = APIRouter(prefix="/hackathons", tags=["Hackathons"])
 @router.get("", response_model=HackathonCollectionResponse)
 async def list_hackathons(
     service: Catalogue,
-    q: Annotated[str | None, Query(description="Full-text / fuzzy search")] = None,
+    q: Annotated[
+        str | None,
+        Query(max_length=MAX_SEARCH_QUERY_LENGTH, description="Full-text / fuzzy search"),
+    ] = None,
     mode: Annotated[HackathonMode | None, Query()] = None,
-    region: Annotated[str | None, Query()] = None,
-    eligibility: Annotated[str | None, Query()] = None,
-    technology: Annotated[str | None, Query()] = None,
+    region: Annotated[str | None, Query(max_length=MAX_FILTER_VALUE_LENGTH)] = None,
+    eligibility: Annotated[str | None, Query(max_length=MAX_FILTER_VALUE_LENGTH)] = None,
+    technology: Annotated[str | None, Query(max_length=MAX_FILTER_VALUE_LENGTH)] = None,
     status: Annotated[
         str | None,
-        Query(description="Comma-separated statuses; default verified_active,likely_active"),
+        Query(
+            max_length=MAX_STATUS_PARAM_LENGTH,
+            description="Comma-separated statuses; default verified_active,likely_active",
+        ),
     ] = None,
     deadline_before: Annotated[datetime | None, Query(alias="deadlineBefore")] = None,
     deadline_after: Annotated[datetime | None, Query(alias="deadlineAfter")] = None,
-    team_size: Annotated[int | None, Query(alias="teamSize", ge=1)] = None,
-    prize_min: Annotated[Decimal | None, Query(alias="prizeMin", ge=0)] = None,
+    team_size: Annotated[int | None, Query(alias="teamSize", ge=1, le=1000)] = None,
+    prize_min: Annotated[
+        Decimal | None,
+        Query(alias="prizeMin", ge=0, le=1_000_000_000_000),
+    ] = None,
     only_closing_soon: Annotated[bool, Query(alias="onlyClosingSoon")] = False,
     only_big_prizes: Annotated[bool, Query(alias="onlyBigPrizes")] = False,
-    cursor: Annotated[str | None, Query()] = None,
+    cursor: Annotated[str | None, Query(max_length=MAX_CURSOR_LENGTH)] = None,
     limit: Annotated[int | None, Query(ge=1, le=100)] = None,
 ) -> HackathonCollectionResponse:
     filters = HackathonFilters(
@@ -64,7 +80,7 @@ async def list_hackathons(
 
 @router.get("/{slug}", response_model=HackathonPublic)
 async def get_hackathon(
-    slug: str,
+    slug: Annotated[str, Path(min_length=1, max_length=MAX_SLUG_LENGTH)],
     service: Catalogue,
     response: Response,
     if_none_match: Annotated[str | None, Header(alias="If-None-Match")] = None,

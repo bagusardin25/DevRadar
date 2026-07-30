@@ -16,6 +16,8 @@ from typing import Annotated, Any, Self
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
+from app.api.limits import MAX_REQUEST_BODY_BYTES
+
 logger = logging.getLogger(__name__)
 
 # Known template / CI placeholders that must never ship as live production secrets.
@@ -72,6 +74,12 @@ class Settings(BaseSettings):
     fetch_timeout_seconds: float = 20.0
     fetch_max_bytes: int = 5_242_880  # 5 MiB
     fetch_max_redirects: int = 5
+
+    # Public HTTP request policy. This is enforced for both Content-Length and
+    # streamed/chunked bodies, so running Uvicorn without a reverse proxy does
+    # not leave JSON endpoints open to unbounded buffering.
+    max_request_body_bytes: int = MAX_REQUEST_BODY_BYTES
+    request_body_read_timeout_seconds: float = 15.0
 
     # Security
     # Number of proxies in front of the app. 0 ignores X-Forwarded-For (correct
@@ -164,6 +172,20 @@ class Settings(BaseSettings):
                 f"APP_ENV must be development, test, or production (got {v!r})"
             )
         return text
+
+    @field_validator("max_request_body_bytes")
+    @classmethod
+    def validate_request_body_limit(cls, v: int) -> int:
+        if v < 16_384:
+            raise ValueError("MAX_REQUEST_BODY_BYTES must be at least 16384")
+        return v
+
+    @field_validator("request_body_read_timeout_seconds")
+    @classmethod
+    def validate_request_body_read_timeout(cls, v: float) -> float:
+        if not 0.1 <= v <= 120:
+            raise ValueError("REQUEST_BODY_READ_TIMEOUT_SECONDS must be between 0.1 and 120")
+        return v
 
     @field_validator("cors_origins", "admin_google_emails", mode="before")
     @classmethod

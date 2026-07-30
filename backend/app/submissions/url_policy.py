@@ -45,7 +45,13 @@ def canonicalize_url(raw: str) -> CanonicalUrl:
     if "://" not in candidate:
         candidate = f"https://{candidate}"
 
-    parsed = urlparse(candidate)
+    try:
+        parsed = urlparse(candidate)
+    except ValueError as exc:
+        raise ValidationError(
+            detail="URL is malformed",
+            errors=[{"field": "url", "message": "Malformed URL"}],
+        ) from exc
     scheme = (parsed.scheme or "").lower()
     if scheme not in {"http", "https"}:
         raise ValidationError(
@@ -59,7 +65,14 @@ def canonicalize_url(raw: str) -> CanonicalUrl:
             errors=[{"field": "url", "message": "Userinfo is not allowed"}],
         )
 
-    host = (parsed.hostname or "").lower().rstrip(".")
+    try:
+        host = (parsed.hostname or "").lower().rstrip(".")
+        port = parsed.port
+    except ValueError as exc:
+        raise ValidationError(
+            detail="URL host or port is invalid",
+            errors=[{"field": "url", "message": "Invalid host or port"}],
+        ) from exc
     if not host:
         raise ValidationError(
             detail="URL host is required",
@@ -102,7 +115,6 @@ def canonicalize_url(raw: str) -> CanonicalUrl:
             ) from None
 
     # Drop default ports.
-    port = parsed.port
     if (scheme == "http" and port == 80) or (scheme == "https" and port == 443):
         netloc = host
     elif port:

@@ -1,14 +1,15 @@
 import type { Message } from '../shared/messages';
 import type { PageData } from '../shared/types';
 import { extract } from '../shared/extractor';
-import { getSettings } from '../shared/storage';
+import { handleApiProxy } from './apiProxy';
+import { PendingAnalysisRegistry } from './pendingAnalyses';
 
-let pendingResolve: ((data: PageData) => void) | null = null;
+const pendingAnalyses = new PendingAnalysisRegistry<PageData>();
 
-chrome.runtime.onMessage.addListener((message: Message, _sender, sendResponse) => {
-  if (message.type === 'PAGE_DATA' && pendingResolve) {
-    pendingResolve(message.data);
-    pendingResolve = null;
+chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) => {
+  if (message.type === 'PAGE_DATA') {
+    const tabId = sender.tab?.id;
+    if (tabId !== undefined) pendingAnalyses.resolve(tabId, message.data);
     return;
   }
 
@@ -59,77 +60,23 @@ async function handleAnalyze(): Promise<Message> {
 }
 
 function injectAndScrape(tabId: number): Promise<PageData> {
-  return new Promise((resolve, reject) => {
-    pendingResolve = resolve;
-
-    chrome.scripting.executeScript(
-      {
-        target: { tabId },
-        files: ['content.js'],
-      },
-      (results) => {
-        if (chrome.runtime.lastError) {
-          pendingResolve = null;
-          reject(new Error(chrome.runtime.lastError.message));
-          return;
-        }
-        if (!results || results.length === 0) {
-          pendingResolve = null;
-          reject(new Error('Content script injection failed'));
-        }
-      },
-    );
-
-    setTimeout(() => {
-      if (pendingResolve) {
-        pendingResolve = null;
-        reject(new Error('Content script timed out (10s)'));
+  const result = pendingAnalyses.start(tabId, 10_000, 'Content script timed out (10s)');
+  chrome.scripting.executeScript(
+    {
+      target: { tabId },
+      files: ['content.js'],
+    },
+    (results) => {
+      if (chrome.runtime.lastError) {
+        pendingAnalyses.reject(tabId, new Error(chrome.runtime.lastError.message));
+        return;
       }
-    }, 10_000);
-  });
-}
-
-async function handleApiProxy(
-  path: string,
-  options: { method?: string; query?: Record<string, string | number | boolean | undefined | null>; body?: unknown; headers?: Record<string, string> },
-): Promise<unknown> {
-  const settings = await getSettings();
-  const base = settings.apiBaseUrl.replace(/\/+$/, '');
-  const apiPath = path.startsWith('/') ? path : `/${path}`;
-
-  let url = `${base}/api/v1${apiPath}`;
-  if (options.query) {
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(options.query)) {
-      if (value !== undefined && value !== null && value !== '') {
-        params.set(key, String(value));
+      if (!results || results.length === 0) {
+        pendingAnalyses.reject(tabId, new Error('Content script injection failed'));
       }
-    }
-    const qs = params.toString();
-    if (qs) url += `?${qs}`;
-  }
-
-  const headers: Record<string, string> = {
-    Accept: 'application/json',
-    ...options.headers,
-  };
-  if (options.body !== undefined) {
-    headers['Content-Type'] = 'application/json';
-  }
-
-  const resp = await fetch(url, {
-    method: options.method || 'GET',
-    headers,
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
-  });
-
-  if (!resp.ok) {
-    const text = await resp.text();
-    throw new Error(`API ${resp.status}: ${text.slice(0, 200)}`);
-  }
-
-  if (resp.status === 204) return null;
-  return resp.json();
+    },
+  );
+  return result;
 }
 
 chrome.action.onClicked.addListener((tab) => {

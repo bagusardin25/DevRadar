@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Header, Request, Response, status
+from fastapi import APIRouter, Header, Path, Request, Response, status
 
 from app.api.client_ip import client_ip
 from app.api.dependencies import SubmissionSvc
+from app.api.limits import MAX_IDEMPOTENCY_KEY_LENGTH, MAX_TRACKING_ID_LENGTH
 from app.submissions.schemas import (
     SubmissionCreateRequest,
     SubmissionReceipt,
@@ -28,7 +29,10 @@ async def create_submission(
     request: Request,
     service: SubmissionSvc,
     response: Response,
-    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+    idempotency_key: Annotated[
+        str | None,
+        Header(alias="Idempotency-Key", max_length=MAX_IDEMPOTENCY_KEY_LENGTH),
+    ] = None,
 ) -> SubmissionReceipt:
     abuse = AbuseContext(
         ip_address=client_ip(request, request.app.state.settings.trusted_proxy_hops),
@@ -43,7 +47,10 @@ async def create_submission(
 
 @router.get("/{tracking_id}", response_model=SubmissionStatusPublic)
 async def get_submission_status(
-    tracking_id: str,
+    tracking_id: Annotated[
+        str,
+        Path(min_length=1, max_length=MAX_TRACKING_ID_LENGTH),
+    ],
     service: SubmissionSvc,
 ) -> SubmissionStatusPublic:
     return await service.get_public_submission_status(tracking_id)

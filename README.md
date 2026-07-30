@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="public/logomark_text.webp" alt="DevRadar Logo" width="360" />
+  <img src="public/logomark_text2.webp" alt="DevRadar Logo" width="360" />
   <h1>DevRadar</h1>
   <p><strong>Open-source developer opportunity intelligence</strong> — online hackathons & free AI offers, with multi-tier verification.</p>
 

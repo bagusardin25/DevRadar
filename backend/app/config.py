@@ -123,6 +123,16 @@ class Settings(BaseSettings):
     llm_model: str = "gpt-4o-mini"
     llm_api_key: str = ""  # or set OPENAI_API_KEY (see validator)
 
+    # Multi-provider routing (docs/LLM_MULTIPROVIDER_PLAN.md). Off by default:
+    # unset, the single-provider LLM_PROVIDER path above is used unchanged.
+    # Provider list is JSON; API keys live in the env vars it names, never in
+    # the blob itself.
+    llm_routing_enabled: bool = False
+    llm_routing_strategy: str = "weighted"  # weighted | priority
+    llm_deadline_seconds: float = 90.0  # whole failover chain, not per provider
+    llm_max_attempts: int = 4
+    llm_providers_json: str = ""
+
     # AI initial review — a CodeRabbit-style pre-review attached to the admin
     # queue for community submissions. Uses the deterministic verifier by
     # default; enriched with an LLM narrative when LLM_PROVIDER=openai + key.
@@ -248,6 +258,42 @@ class Settings(BaseSettings):
         return self
 
     @model_validator(mode="after")
+    def validate_llm_routing(self) -> Self:
+        """Reject a malformed provider list at startup, in every environment.
+
+        A structural mistake (bad JSON, unknown kind, missing model) is a deploy
+        error and must not surface later as a silent fallback to rules-only
+        extraction. A provider whose API key is unset is not structural — the
+        registry skips it with a warning.
+        """
+        if not self.llm_routing_enabled:
+            return self
+
+        if self.llm_routing_strategy not in {"weighted", "priority"}:
+            raise ValueError(
+                "LLM_ROUTING_STRATEGY must be 'weighted' or 'priority' "
+                f"(got {self.llm_routing_strategy!r})"
+            )
+        if self.llm_deadline_seconds <= 0:
+            raise ValueError("LLM_DEADLINE_SECONDS must be greater than 0")
+        if self.llm_max_attempts < 1:
+            raise ValueError("LLM_MAX_ATTEMPTS must be at least 1")
+
+        if not self.resolved_llm_providers():
+            logger.warning(
+                "LLM_ROUTING_ENABLED=true but no provider in LLM_PROVIDERS_JSON has "
+                "its API key set; extraction and review stay on their deterministic "
+                "paths."
+            )
+        return self
+
+    def resolved_llm_providers(self) -> list[str]:
+        """Names of providers that are configured *and* have a usable API key."""
+        from app.llm.registry import parse_provider_specs
+
+        return [spec.name for spec in parse_provider_specs(self.llm_providers_json)]
+
+    @model_validator(mode="after")
     def harden_production(self) -> Self:
         """Refuse unsafe defaults when APP_ENV=production.
 
@@ -307,8 +353,20 @@ class Settings(BaseSettings):
                 "OBJECT_STORAGE_SECRET_KEY must be set to a real key when using s3"
             )
 
-        if self.llm_provider == "openai" and not (self.llm_api_key or "").strip():
+        # Routing supersedes the single-provider path, so the OpenAI key is only
+        # mandatory when routing is off.
+        if (
+            not self.llm_routing_enabled
+            and self.llm_provider == "openai"
+            and not (self.llm_api_key or "").strip()
+        ):
             problems.append("LLM_API_KEY is required when LLM_PROVIDER=openai")
+
+        if self.llm_routing_enabled and not self.resolved_llm_providers():
+            problems.append(
+                "LLM_ROUTING_ENABLED=true requires at least one provider in "
+                "LLM_PROVIDERS_JSON whose api_key_env is set"
+            )
 
         if problems:
             raise ValueError(

@@ -52,7 +52,7 @@ class AIReview:
     summary: str
     concerns: list[ReviewConcern] = field(default_factory=list)
     suggested_fields: dict[str, Any] = field(default_factory=dict)
-    engine: str = "heuristic"  # "heuristic" | "openai:<model>"
+    engine: str = "heuristic"  # "heuristic" | "openai:<model>" | "router"
     model: str | None = None
     generated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     version: str = AI_REVIEW_VERSION

@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-import json
 import logging
-import re
 from dataclasses import dataclass
 from typing import Any, Protocol
 
 from app.config import Settings
+from app.llm.adapter import ChatRequest
+from app.llm.json_parse import parse_json_object as _parse_json_content
+from app.llm.router import LLMRouter
 from app.llm_usage import LLMCallUsage, LLMJsonResult
 
 logger = logging.getLogger(__name__)
@@ -92,16 +93,8 @@ def _system_prompt(listing_kind: str, schema_version: str) -> str:
     )
 
 
-def _parse_json_content(content: str) -> dict[str, object]:
-    text = content.strip()
-    # Strip accidental markdown fences
-    if text.startswith("```"):
-        text = re.sub(r"^```(?:json)?\s*", "", text)
-        text = re.sub(r"\s*```$", "", text)
-    data = json.loads(text)
-    if not isinstance(data, dict):
-        raise ValueError("LLM response is not a JSON object")
-    return data  # type: ignore[return-value]
+def _user_content(url: str, body: str) -> str:
+    return f"Source URL: {url}\n\nPage text:\n{body if body.strip() else '(empty)'}\n"
 
 
 class OpenAILLMProvider:
@@ -125,10 +118,7 @@ class OpenAILLMProvider:
 
         client = AsyncOpenAI(api_key=self._api_key, timeout=self._timeout)
         body = (request.text or "")[: request.max_chars]
-        user_content = (
-            f"Source URL: {request.url}\n\n"
-            f"Page text:\n{body if body.strip() else '(empty)'}\n"
-        )
+        user_content = _user_content(request.url, body)
         logger.info(
             "openai_extract_start",
             extra={
@@ -169,8 +159,50 @@ class OpenAILLMProvider:
         )
 
 
+class RoutedLLMProvider:
+    """Extraction across several providers, with failover and rotation.
+
+    Errors propagate: ``Extractor`` already treats a provider failure as
+    "keep the rule-based fields", which stays the right outcome once every
+    provider in the chain has been tried.
+    """
+
+    def __init__(self, router: LLMRouter) -> None:
+        self._router = router
+
+    async def extract_json(self, request: ExtractionRequest) -> LLMJsonResult:
+        body = (request.text or "")[: request.max_chars]
+        logger.info(
+            "routed_extract_start",
+            extra={
+                "listing_kind": request.listing_kind,
+                "text_chars": len(body),
+                # never log api keys or the full page body
+            },
+        )
+        result = await self._router.chat_json(
+            ChatRequest(
+                operation="extraction",
+                system=_system_prompt(request.listing_kind, request.schema_version),
+                user=_user_content(request.url, body),
+                schema_name="devradar_extraction",
+            )
+        )
+        return LLMJsonResult(payload=result.payload, usage=result.usage)
+
+
 def build_llm_provider(settings: Settings) -> LLMProvider:
-    """Build the configured LLM provider (defaults to disabled)."""
+    """Build the configured LLM provider (defaults to disabled).
+
+    Multi-provider routing wins when enabled and a provider serves extraction;
+    otherwise the single-provider path below is used unchanged.
+    """
+    from app.llm.factory import build_router
+
+    router = build_router(settings)
+    if router is not None and router.serves("extraction"):
+        return RoutedLLMProvider(router)
+
     provider = (settings.llm_provider or "disabled").lower().strip()
     if provider in {"", "disabled", "none", "off"}:
         return DisabledLLMProvider()

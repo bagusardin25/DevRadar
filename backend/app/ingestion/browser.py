@@ -55,5 +55,14 @@ BROWSER_WORKER_FORBIDDEN_ENV = frozenset(
         "LLM_API_KEY",
         "X_BEARER_TOKEN",
         "OBJECT_STORAGE_SECRET_KEY",
+        # Multi-provider routing keys. These are the defaults for the providers
+        # in docs/LLM_MULTIPROVIDER_PLAN.md; a provider entry may name any env
+        # var via "api_key_env", so a custom name has to be added here too.
+        "GROQ_API_KEY",
+        "GEMINI_API_KEY",
+        "CEREBRAS_API_KEY",
+        "OPENROUTER_API_KEY",
+        "MISTRAL_API_KEY",
+        "CLOUDFLARE_API_KEY",
     }
 )

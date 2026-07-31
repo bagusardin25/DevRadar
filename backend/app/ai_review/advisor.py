@@ -16,6 +16,7 @@ from app.ai_review.llm import (
     DisabledReviewLLM,
     ReviewLLM,
     ReviewLLMRequest,
+    RoutedReviewLLM,
     build_review_llm,
 )
 from app.ai_review.schemas import (
@@ -181,5 +182,9 @@ def build_review_advisor(settings: Settings) -> ReviewAdvisor:
     review_llm = build_review_llm(settings)
     if isinstance(review_llm, DisabledReviewLLM):
         return ReviewAdvisor(review_llm)
+    if isinstance(review_llm, RoutedReviewLLM):
+        # Which provider and model actually served the call varies per review
+        # and is recorded on the attached llm_usage, so no fixed label here.
+        return ReviewAdvisor(review_llm, engine_label="router")
     model = (settings.llm_model or "gpt-4o-mini").strip()
     return ReviewAdvisor(review_llm, engine_label=f"openai:{model}", model=model)

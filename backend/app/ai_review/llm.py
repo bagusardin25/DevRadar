@@ -9,11 +9,13 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 from dataclasses import dataclass
 from typing import Protocol
 
 from app.config import Settings
+from app.llm.adapter import ChatRequest
+from app.llm.json_parse import parse_json_object as _parse_json_content
+from app.llm.router import LLMRouter
 from app.llm_usage import LLMCallUsage, LLMJsonResult
 
 logger = logging.getLogger(__name__)
@@ -85,15 +87,16 @@ Respond with a single JSON object (no markdown) with keys:
 """.strip()
 
 
-def _parse_json_content(content: str) -> dict[str, object]:
-    text = content.strip()
-    if text.startswith("```"):
-        text = re.sub(r"^```(?:json)?\s*", "", text)
-        text = re.sub(r"\s*```$", "", text)
-    data = json.loads(text)
-    if not isinstance(data, dict):
-        raise ValueError("LLM review response is not a JSON object")
-    return data
+def _user_content(request: ReviewLLMRequest) -> str:
+    payload = {
+        "listing_kind": request.listing_kind,
+        "title": request.title,
+        "url": request.url,
+        "extracted_fields": request.extracted_fields,
+        "verification": request.verification,
+        "page_excerpt": (request.page_excerpt or "")[: request.max_chars] or "(not available)",
+    }
+    return json.dumps(payload, default=str, ensure_ascii=False)
 
 
 class OpenAIReviewLLM:
@@ -109,16 +112,7 @@ class OpenAIReviewLLM:
     async def review_json(self, request: ReviewLLMRequest) -> LLMJsonResult:
         from openai import AsyncOpenAI
 
-        excerpt = (request.page_excerpt or "")[: request.max_chars]
-        payload = {
-            "listing_kind": request.listing_kind,
-            "title": request.title,
-            "url": request.url,
-            "extracted_fields": request.extracted_fields,
-            "verification": request.verification,
-            "page_excerpt": excerpt or "(not available)",
-        }
-        user_content = json.dumps(payload, default=str, ensure_ascii=False)
+        user_content = _user_content(request)
         logger.info(
             "openai_review_start",
             extra={"model": self._model, "listing_kind": request.listing_kind},
@@ -150,8 +144,39 @@ class OpenAIReviewLLM:
         )
 
 
+class RoutedReviewLLM:
+    """Review narrative across several providers, with failover and rotation."""
+
+    def __init__(self, router: LLMRouter) -> None:
+        self._router = router
+
+    async def review_json(self, request: ReviewLLMRequest) -> LLMJsonResult:
+        logger.info(
+            "routed_review_start", extra={"listing_kind": request.listing_kind}
+        )
+        result = await self._router.chat_json(
+            ChatRequest(
+                operation="review",
+                system=_SYSTEM_PROMPT,
+                user=_user_content(request),
+                schema_name="devradar_review",
+            )
+        )
+        return LLMJsonResult(payload=result.payload, usage=result.usage)
+
+
 def build_review_llm(settings: Settings) -> ReviewLLM:
-    """Build the review LLM from shared LLM settings (defaults to disabled)."""
+    """Build the review LLM from shared LLM settings (defaults to disabled).
+
+    Multi-provider routing wins when enabled and a provider serves review;
+    otherwise the single-provider path below is used unchanged.
+    """
+    from app.llm.factory import build_router
+
+    router = build_router(settings)
+    if router is not None and router.serves("review"):
+        return RoutedReviewLLM(router)
+
     provider = (settings.llm_provider or "disabled").lower().strip()
     if provider in {"", "disabled", "none", "off"}:
         return DisabledReviewLLM()

@@ -1,4 +1,11 @@
-"""Token usage accounting and conservative OpenAI cost estimates."""
+"""Token usage accounting and conservative cost estimates.
+
+Costs stay deliberately conservative: a model or tier we have no rate for
+produces usage metrics with no cost estimate, rather than a confident wrong
+number. Free-tier providers are the one place we assert a price — zero — so
+routing extraction away from OpenAI does not turn the cost dashboard into
+nulls.
+"""
 
 from __future__ import annotations
 
@@ -22,18 +29,29 @@ class TokenPrice:
 # Source: https://developers.openai.com/api/docs/pricing (verified 2026-07-27).
 # Keep this deliberately small. Unknown models or service tiers produce usage
 # metrics without a cost estimate instead of silently applying the wrong rate.
-_OPENAI_PRICES: dict[tuple[str, str], TokenPrice] = {
-    ("gpt-4o-mini", "default"): TokenPrice(
+_PROVIDER_PRICES: dict[tuple[str, str, str], TokenPrice] = {
+    ("openai", "gpt-4o-mini", "default"): TokenPrice(
         input_per_million=Decimal("0.15"),
         cached_input_per_million=Decimal("0.075"),
         output_per_million=Decimal("0.60"),
     ),
-    ("gpt-4o-mini", "priority"): TokenPrice(
+    ("openai", "gpt-4o-mini", "priority"): TokenPrice(
         input_per_million=Decimal("0.25"),
         cached_input_per_million=Decimal("0.125"),
         output_per_million=Decimal("1.00"),
     ),
 }
+
+# Providers DevRadar uses on their free tiers (docs/LLM_MULTIPROVIDER_PLAN.md).
+# Calls routed to these cost nothing, so they price at exactly zero instead of
+# reading as "unknown". Move a provider onto a paid plan and you must add its
+# per-model rates to _PROVIDER_PRICES and drop it from this set — otherwise the
+# spend it generates stays invisible.
+_FREE_TIER_PROVIDERS = frozenset(
+    {"gemini", "groq", "cerebras", "openrouter", "mistral", "cloudflare"}
+)
+
+_ZERO = Decimal("0")
 
 
 def _non_negative_int(value: object) -> int:
@@ -48,6 +66,11 @@ def _canonical_model(model: str) -> str:
     if value == "gpt-4o-mini" or value.startswith("gpt-4o-mini-"):
         return "gpt-4o-mini"
     return value
+
+
+def _canonical_provider(provider: str) -> str:
+    value = (provider or "").strip().lower()
+    return "openai" if value in {"oai", ""} else value
 
 
 def _read_attr(value: object, name: str, default: object = None) -> object:
@@ -66,6 +89,11 @@ class LLMCallUsage:
     cached_prompt_tokens: int
     completion_tokens: int
     total_tokens: int
+    # Routing metadata — defaults describe a direct, first-try call so existing
+    # single-provider call sites and stored snapshots stay valid.
+    attempts: int = 1
+    latency_ms: int = 0
+    fallback_from: tuple[str, ...] = ()
 
     @classmethod
     def from_openai_response(
@@ -74,6 +102,7 @@ class LLMCallUsage:
         *,
         operation: str,
         requested_model: str,
+        provider: str = "openai",
     ) -> LLMCallUsage | None:
         usage = _read_attr(response, "usage")
         if usage is None:
@@ -92,7 +121,7 @@ class LLMCallUsage:
             total_tokens = prompt_tokens + completion_tokens
         return cls(
             operation=operation,
-            provider="openai",
+            provider=_canonical_provider(provider),
             model=str(_read_attr(response, "model", requested_model) or requested_model),
             service_tier=str(_read_attr(response, "service_tier", "default") or "default"),
             prompt_tokens=prompt_tokens,
@@ -109,6 +138,7 @@ class LLMCallUsage:
         operation = str(value.get("operation") or "").strip()
         if not model or not operation:
             return None
+        fallback_from = value.get("fallbackFrom")
         return cls(
             operation=operation,
             provider=str(value.get("provider") or "openai"),
@@ -118,17 +148,25 @@ class LLMCallUsage:
             cached_prompt_tokens=_non_negative_int(value.get("cachedPromptTokens")),
             completion_tokens=_non_negative_int(value.get("completionTokens")),
             total_tokens=_non_negative_int(value.get("totalTokens")),
+            attempts=max(1, _non_negative_int(value.get("attempts") or 1)),
+            latency_ms=_non_negative_int(value.get("latencyMs")),
+            fallback_from=(
+                tuple(str(item) for item in fallback_from)
+                if isinstance(fallback_from, list)
+                else ()
+            ),
         )
 
     def estimated_cost_usd(self) -> Decimal | None:
-        if self.provider.lower().strip() not in {"openai", "oai"}:
-            return None
+        provider = _canonical_provider(self.provider)
         tier = self.service_tier.lower().strip()
         if tier in {"", "standard"}:
             tier = "default"
-        price = _OPENAI_PRICES.get((_canonical_model(self.model), tier))
+        price = _PROVIDER_PRICES.get((provider, _canonical_model(self.model), tier))
         if price is None:
-            return None
+            # A known free tier costs nothing; anything else is genuinely
+            # unpriced and must not be guessed at.
+            return _ZERO if provider in _FREE_TIER_PROVIDERS else None
         cached = min(self.cached_prompt_tokens, self.prompt_tokens)
         uncached = self.prompt_tokens - cached
         cost = (
@@ -150,6 +188,9 @@ class LLMCallUsage:
             "completionTokens": self.completion_tokens,
             "totalTokens": self.total_tokens,
             "estimatedCostUsd": format(cost, "f") if cost is not None else None,
+            "attempts": self.attempts,
+            "latencyMs": self.latency_ms,
+            "fallbackFrom": list(self.fallback_from),
         }
 
 
@@ -169,6 +210,8 @@ def summarize_llm_usage(usages: Iterable[LLMCallUsage | None]) -> dict[str, Any]
         "estimated": True,
         "pricingVersion": _PRICING_VERSION,
         "pricingComplete": pricing_complete,
+        # Which providers actually served this pipeline run, in call order.
+        "providers": list(dict.fromkeys(usage.provider for usage in calls)),
         "promptTokens": sum(usage.prompt_tokens for usage in calls),
         "cachedPromptTokens": sum(usage.cached_prompt_tokens for usage in calls),
         "completionTokens": sum(usage.completion_tokens for usage in calls),

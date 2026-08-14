@@ -106,6 +106,13 @@ def test_production_rejects_memory_object_storage() -> None:
     assert "OBJECT_STORAGE_BACKEND" in str(exc.value)
 
 
+def test_review_reserve_ratio_rejects_out_of_range() -> None:
+    with pytest.raises(ValidationError):
+        _settings(llm_review_reserve_ratio=0.8)
+    with pytest.raises(ValidationError):
+        _settings(llm_review_reserve_ratio=-0.1)
+
+
 def test_production_hides_openapi_docs() -> None:
     from app.main import create_app
 

@@ -53,22 +53,43 @@ class LLMRateLimiter:
         *,
         clock: Callable[[], float] = time.time,
         margin: float = SAFETY_MARGIN,
+        reserve_ratio: float = 0.0,
     ) -> None:
         self._state = state
         self._clock = clock
         self._margin = margin
+        self._reserve = max(0.0, min(0.5, reserve_ratio))
 
-    async def try_acquire(self, spec: ProviderSpec) -> str | None:
+    def extraction_ceiling(self, spec: ProviderSpec, published: int | None) -> int | None:
+        """Daily/minute ceiling extraction may use on this provider.
+
+        Dual-role providers (extraction + review) keep ``reserve_ratio`` of the
+        effective limit for review. Extraction-only providers (Groq) are not
+        reserved — burning their last slot on extract is the point.
+        """
+        ceiling = effective_limit(published, margin=self._margin)
+        if ceiling is None:
+            return None
+        if self._reserve <= 0 or not spec.serves("review"):
+            return ceiling
+        reserved = max(1, int(ceiling * self._reserve))
+        return max(1, ceiling - reserved)
+
+    async def try_acquire(
+        self, spec: ProviderSpec, *, operation: str = ""
+    ) -> str | None:
         """Admit a call, or return the reason this provider must be skipped."""
         now = self._clock()
         limits = spec.limits
 
         # Token budgets first: they are read-only, so a rejection here does not
         # consume a request slot.
-        if await self._is_exhausted(spec.name, "tpm", limits.tpm, self._minute(now)):
-            return "tpm_exhausted"
-        if await self._is_exhausted(spec.name, "tpd", limits.tpd, self._day(now)):
-            return "tpd_exhausted"
+        tpm_reason = await self._token_block(spec, "tpm", limits.tpm, self._minute(now), operation)
+        if tpm_reason is not None:
+            return tpm_reason
+        tpd_reason = await self._token_block(spec, "tpd", limits.tpd, self._day(now), operation)
+        if tpd_reason is not None:
+            return tpd_reason
 
         rpm_limit = effective_limit(limits.rpm, margin=self._margin)
         if rpm_limit is not None:
@@ -79,6 +100,12 @@ class LLMRateLimiter:
         rpd_limit = effective_limit(limits.rpd, margin=self._margin)
         if rpd_limit is not None:
             key = self._key(spec.name, "rpd", self._day(now))
+            if operation == "extraction":
+                extract_ceiling = self.extraction_ceiling(spec, limits.rpd)
+                if extract_ceiling is not None and extract_ceiling < rpd_limit:
+                    used = await self._state.get_int(key)
+                    if used >= extract_ceiling:
+                        return "rpd_reserved"
             if await self._state.incr(key, ttl=_DAY_TTL) > rpd_limit:
                 return "rpd_exhausted"
 
@@ -112,6 +139,30 @@ class LLMRateLimiter:
             tpm_used=await self._state.get_int(self._key(spec.name, "tpm", minute)),
             tpd_used=await self._state.get_int(self._key(spec.name, "tpd", day)),
         )
+
+    async def _token_block(
+        self,
+        spec: ProviderSpec,
+        window: str,
+        limit: int | None,
+        bucket: str,
+        operation: str,
+    ) -> str | None:
+        """Skip this provider when the token window is spent (or reserved)."""
+        ceiling = effective_limit(limit, margin=self._margin)
+        if ceiling is None:
+            return None
+        extract_ceiling = (
+            self.extraction_ceiling(spec, limit)
+            if operation == "extraction"
+            else ceiling
+        )
+        used = await self._state.get_int(self._key(spec.name, window, bucket))
+        if extract_ceiling is not None and used >= extract_ceiling:
+            if extract_ceiling < ceiling:
+                return f"{window}_reserved"
+            return f"{window}_exhausted"
+        return None
 
     async def _is_exhausted(
         self, provider: str, window: str, limit: int | None, bucket: str

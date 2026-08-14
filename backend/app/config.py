@@ -138,6 +138,22 @@ class Settings(BaseSettings):
     # default; enriched with an LLM narrative when LLM_PROVIDER=openai + key.
     ai_review_enabled: bool = True
 
+    # Lanes — which call sites may spend LLM quota (app/llm/lanes.py).
+    # Discovery is off by default: one user click can enqueue up to 20 extracts.
+    llm_lane_submission: bool = True
+    llm_lane_discovery: bool = False
+    llm_lane_recheck: bool = True
+    llm_lane_crawl: bool = True
+    # Fraction of a *dual-role* provider's daily budget held for ``review`` so
+    # extraction (recheck/crawl/discovery) cannot starve admin pre-review.
+    # Extraction-only providers (e.g. Groq) are not reserved. Range 0–0.5.
+    llm_review_reserve_ratio: float = 0.20
+
+    # Scheduled online-hackathon harvest (Devpost → AI review → admin queue).
+    # Off by default in code? No: this is the OSS public-catalogue loop.
+    harvest_enabled: bool = True
+    harvest_devpost_cap: int = 20
+
     # X/Twitter
     x_bearer_token: str = ""
 
@@ -145,6 +161,13 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
+        # Multi-provider routing reads API keys from arbitrarily named env vars
+        # (GROQ_API_KEY, GEMINI_API_KEY, …) that are not fields on this model —
+        # see LLM_PROVIDERS_JSON / api_key_env. Extra OS-env vars are ignored by
+        # pydantic-settings already, but extra keys in a .env FILE are rejected
+        # unless we say so here; without this, following .env.example (which
+        # documents those keys) crashes Settings() at startup.
+        extra="ignore",
     )
 
     # --- Environment helpers -------------------------------------------------
@@ -171,6 +194,28 @@ class Settings(BaseSettings):
         """Log SQL only during local development (never in test/production)."""
         return self.is_development
 
+    def llm_lane_enabled(self, lane: object) -> bool:
+        """Whether ``lane`` may spend an LLM call (see ``app.llm.lanes``)."""
+        from app.llm.lanes import LLMLane, parse_lane
+
+        resolved = lane if isinstance(lane, LLMLane) else parse_lane(lane)
+        mapping = {
+            LLMLane.SUBMISSION: self.llm_lane_submission,
+            LLMLane.DISCOVERY: self.llm_lane_discovery,
+            LLMLane.RECHECK: self.llm_lane_recheck,
+            LLMLane.CRAWL: self.llm_lane_crawl,
+        }
+        return mapping[resolved]
+
+    def extract_mode_for(self, lane: object) -> str:
+        """Extract intensity for ``lane``: ``off`` / ``critical`` / ``gaps``."""
+        from app.llm.lanes import extract_mode_for, parse_lane
+
+        resolved = parse_lane(lane)
+        return extract_mode_for(
+            resolved, enabled=self.llm_lane_enabled(resolved)
+        ).value
+
     # --- Validators ----------------------------------------------------------
 
     @field_validator("app_env", mode="before")
@@ -195,6 +240,20 @@ class Settings(BaseSettings):
     def validate_request_body_read_timeout(cls, v: float) -> float:
         if not 0.1 <= v <= 120:
             raise ValueError("REQUEST_BODY_READ_TIMEOUT_SECONDS must be between 0.1 and 120")
+        return v
+
+    @field_validator("llm_review_reserve_ratio")
+    @classmethod
+    def validate_review_reserve_ratio(cls, v: float) -> float:
+        if not 0 <= v <= 0.5:
+            raise ValueError("LLM_REVIEW_RESERVE_RATIO must be between 0 and 0.5")
+        return v
+
+    @field_validator("harvest_devpost_cap")
+    @classmethod
+    def validate_harvest_cap(cls, v: int) -> int:
+        if not 1 <= v <= 50:
+            raise ValueError("HARVEST_DEVPOST_CAP must be between 1 and 50")
         return v
 
     @field_validator("cors_origins", "admin_google_emails", mode="before")

@@ -109,7 +109,16 @@ class TestProviderStatus:
         body = response.json()
         assert body["routingEnabled"] is True
         assert body["strategy"] == "weighted"
+        assert body["reviewReserveRatio"] == 0.2
         assert [p["name"] for p in body["providers"]] == ["groq", "openai"]
+        lanes = {lane["name"]: lane for lane in body["lanes"]}
+        assert lanes["submission"] == {
+            "name": "submission",
+            "enabled": True,
+            "extractMode": "gaps",
+        }
+        assert lanes["discovery"]["enabled"] is False
+        assert lanes["discovery"]["extractMode"] == "off"
 
     async def test_shows_per_operation_priority(self) -> None:
         state = MemoryState()

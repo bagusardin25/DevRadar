@@ -15,6 +15,7 @@ from app.ingestion.extractor import (
 )
 from app.ingestion.llm_provider import DisabledLLMProvider, EchoLLMProvider
 from app.ingestion.parser import parse_document
+from app.llm.lanes import ExtractMode
 from app.llm_usage import LLMCallUsage
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "documents"
@@ -124,6 +125,52 @@ class TestRuleExtractor:
         )
         assert result.method in {"hybrid", "llm", "rules"}
         assert result.llm_usage is usage
+
+    @pytest.mark.asyncio
+    async def test_critical_mode_skips_llm_when_title_and_deadline_exist(self) -> None:
+        parsed = _parse_fixture("hackathon_sample.html")
+        llm = EchoLLMProvider(payload={"prize_value": 1})
+        result = await Extractor(llm, extract_mode=ExtractMode.CRITICAL).extract(
+            parsed, ListingKind.HACKATHON
+        )
+        assert result.llm_attempted is False
+        assert llm.calls == []
+
+    @pytest.mark.asyncio
+    async def test_critical_mode_calls_llm_when_deadline_missing(self) -> None:
+        parsed = parse_document(
+            b"Join us online worldwide for builders",
+            url="https://fixture.example/thin",
+            content_type="text/plain",
+        )
+        llm = EchoLLMProvider(
+            payload={
+                "title": "Thin Hack",
+                "submission_deadline": "2026-12-01T00:00:00+00:00",
+            }
+        )
+        result = await Extractor(llm, extract_mode=ExtractMode.CRITICAL).extract(
+            parsed, ListingKind.HACKATHON
+        )
+        assert result.llm_attempted is True
+        assert llm.calls
+
+    @pytest.mark.asyncio
+    async def test_off_mode_never_calls_llm_even_when_critical_fields_missing(
+        self,
+    ) -> None:
+        parsed = parse_document(
+            b"Join us online worldwide for builders",
+            url="https://fixture.example/thin",
+            content_type="text/plain",
+        )
+        llm = EchoLLMProvider(payload={"title": "Should Not Land"})
+        result = await Extractor(llm, extract_mode=ExtractMode.OFF).extract(
+            parsed, ListingKind.HACKATHON
+        )
+        assert result.llm_attempted is False
+        assert llm.calls == []
+        assert result.fields.get("title") != "Should Not Land"
 
     @pytest.mark.asyncio
     async def test_deterministic_twice(self) -> None:

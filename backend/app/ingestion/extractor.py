@@ -19,6 +19,7 @@ from app.ingestion.llm_provider import (
     LLMProvider,
 )
 from app.ingestion.parser import ParsedDocument
+from app.llm.lanes import ExtractMode
 from app.llm_usage import LLMCallUsage
 
 EXTRACTOR_VERSION = "1.0.0"
@@ -447,10 +448,22 @@ def _merge_fields(
 
 
 class Extractor:
-    """Rule-first extractor; LLM only fills missing fields when enabled."""
+    """Rule-first extractor; LLM only fills missing fields when the mode allows.
 
-    def __init__(self, llm: LLMProvider | None = None) -> None:
+    ``extract_mode`` is how the *lane* (submission / discovery / recheck / crawl)
+    is allowed to spend a call. ``off`` never calls the model; ``critical`` only
+    when title/deadline is missing; ``gaps`` is the original "any useful empty
+    field" behaviour, reserved for community submissions.
+    """
+
+    def __init__(
+        self,
+        llm: LLMProvider | None = None,
+        *,
+        extract_mode: ExtractMode = ExtractMode.GAPS,
+    ) -> None:
         self._llm = llm or DisabledLLMProvider()
+        self._extract_mode = extract_mode
 
     async def extract(
         self,
@@ -480,11 +493,12 @@ class Extractor:
         merged = dict(raw_rules)
 
         # When LLM is enabled: fill empty fields only (rules already set win).
-        # Disabled provider: only rules (and tests use Echo for gap scenarios).
-        use_llm = not isinstance(self._llm, DisabledLLMProvider)
-        if use_llm and (
-            _missing_critical(kind, merged) or _has_fillable_gaps(kind, merged)
-        ):
+        # Disabled provider / extract_mode=off: only rules.
+        use_llm = (
+            self._extract_mode is not ExtractMode.OFF
+            and not isinstance(self._llm, DisabledLLMProvider)
+        )
+        if use_llm and self._should_call_llm(kind, merged):
             llm_attempted = True
             try:
                 req = ExtractionRequest(
@@ -544,6 +558,13 @@ class Extractor:
             llm_attempted=llm_attempted,
             llm_usage=llm_usage,
         )
+
+    def _should_call_llm(self, kind: ListingKind, fields: dict[str, Any]) -> bool:
+        if self._extract_mode is ExtractMode.OFF:
+            return False
+        if self._extract_mode is ExtractMode.CRITICAL:
+            return _missing_critical(kind, fields)
+        return _missing_critical(kind, fields) or _has_fillable_gaps(kind, fields)
 
 
 def _missing_critical(kind: ListingKind, fields: dict[str, Any]) -> bool:

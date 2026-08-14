@@ -38,4 +38,5 @@ def build_router(settings: Settings) -> LLMRouter | None:
         strategy=settings.llm_routing_strategy,
         deadline_seconds=settings.llm_deadline_seconds,
         max_attempts=settings.llm_max_attempts,
+        reserve_ratio=settings.llm_review_reserve_ratio,
     )

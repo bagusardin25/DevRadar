@@ -121,7 +121,7 @@ async def _process_candidate(
         content_type=doc.content_type,
     )
     kind = _listing_kind(seed.module)
-    extractor = create_extractor(settings)
+    extractor = create_extractor(settings, lane="discovery")
     extraction = await extractor.extract(parsed, kind)
 
     candidate = normalize_extraction(

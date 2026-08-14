@@ -20,6 +20,7 @@ from app.ingestion.llm_provider import create_extractor
 from app.ingestion.parser import parse_document
 from app.ingestion.ssrf import SSRFError
 from app.ingestion.storage import DocumentStorage, build_document_storage
+from app.llm.lanes import LLMLane, parse_lane
 from app.submissions.models import CommunitySubmission
 from app.worker.celery_app import celery_app
 
@@ -40,6 +41,7 @@ async def _fetch_and_store(
     listing_kind: str = "hackathon",
     run_extract: bool = True,
     include_excerpt: bool = False,
+    lane: LLMLane | str = LLMLane.CRAWL,
 ) -> dict[str, Any]:
     policy = policy or FetchPolicy()
     if etag:
@@ -74,7 +76,7 @@ async def _fetch_and_store(
     extraction: dict[str, Any] | None = None
     if run_extract:
         settings = get_settings()
-        extractor = create_extractor(settings)
+        extractor = create_extractor(settings, lane=parse_lane(lane))
         try:
             kind = ListingKind(listing_kind)
         except ValueError:
@@ -144,6 +146,7 @@ def fetch_document(self: Any, request: dict[str, Any]) -> dict[str, Any]:
             listing_kind=str(request.get("listing_kind") or "hackathon"),
             run_extract=bool(request.get("run_extract", True)),
             include_excerpt=bool(request.get("include_excerpt", False)),
+            lane=parse_lane(request.get("llm_lane"), default=LLMLane.CRAWL),
         )
     )
     result["source_id"] = request.get("source_id")
@@ -202,6 +205,7 @@ def _build_submission_fetch_request(
         "idempotency_key": submission.job_idempotency_key,
         "run_extract": True,
         "include_excerpt": True,
+        "llm_lane": LLMLane.SUBMISSION.value,
     }
 
 

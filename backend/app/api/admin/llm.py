@@ -15,6 +15,7 @@ from app.api.dependencies import AdminUserRead, get_settings_dep
 from app.catalog.schemas import CamelModel
 from app.config import Settings
 from app.llm.breaker import CircuitBreaker
+from app.llm.lanes import LLMLane
 from app.llm.limiter import LLMRateLimiter, effective_limit
 from app.llm.registry import ProviderSpec, parse_provider_specs
 from app.llm.state import KeyValueState, open_state
@@ -29,6 +30,8 @@ class ProviderWindow(CamelModel):
 
     limit: int | None = None
     effective: int | None = None
+    # Extraction may stop earlier on dual-role providers (review reserve).
+    extract_effective: int | None = None
     used: int = 0
     remaining: int | None = None
 
@@ -49,11 +52,17 @@ class ProviderStatus(CamelModel):
     tpd: ProviderWindow
 
 
-def _window(limit: int | None, used: int) -> ProviderWindow:
+def _window(
+    limit: int | None,
+    used: int,
+    *,
+    extract_ceiling: int | None = None,
+) -> ProviderWindow:
     ceiling = effective_limit(limit)
     return ProviderWindow(
         limit=limit,
         effective=ceiling,
+        extract_effective=extract_ceiling if extract_ceiling != ceiling else None,
         used=used,
         remaining=None if ceiling is None else max(0, ceiling - used),
     )
@@ -78,9 +87,17 @@ async def _status_for(
         failures=state.failures,
         trips=state.trips,
         rpm=_window(spec.limits.rpm, usage.rpm_used),
-        rpd=_window(spec.limits.rpd, usage.rpd_used),
+        rpd=_window(
+            spec.limits.rpd,
+            usage.rpd_used,
+            extract_ceiling=limiter.extraction_ceiling(spec, spec.limits.rpd),
+        ),
         tpm=_window(spec.limits.tpm, usage.tpm_used),
-        tpd=_window(spec.limits.tpd, usage.tpd_used),
+        tpd=_window(
+            spec.limits.tpd,
+            usage.tpd_used,
+            extract_ceiling=limiter.extraction_ceiling(spec, spec.limits.tpd),
+        ),
     )
 
 
@@ -92,29 +109,48 @@ async def list_llm_providers(
 ) -> dict[str, Any]:
     """Health and remaining budget for every configured provider."""
     if not settings.llm_routing_enabled:
-        return {"routingEnabled": False, "strategy": None, "providers": []}
+        return {
+            "routingEnabled": False,
+            "strategy": None,
+            "reviewReserveRatio": settings.llm_review_reserve_ratio,
+            "lanes": _lane_status(settings),
+            "providers": [],
+        }
 
     specs = parse_provider_specs(settings.llm_providers_json)
     override: KeyValueState | None = getattr(request.app.state, "llm_router_state", None)
 
     if override is not None:
-        statuses = await _collect(specs, override)
+        statuses = await _collect(specs, override, settings)
     else:
         async with open_state(settings.redis_url) as state:
-            statuses = await _collect(specs, state)
+            statuses = await _collect(specs, state, settings)
 
     return {
         "routingEnabled": True,
         "strategy": settings.llm_routing_strategy,
         "deadlineSeconds": settings.llm_deadline_seconds,
         "maxAttempts": settings.llm_max_attempts,
+        "reviewReserveRatio": settings.llm_review_reserve_ratio,
+        "lanes": _lane_status(settings),
         "providers": [status.model_dump(by_alias=True) for status in statuses],
     }
 
 
+def _lane_status(settings: Settings) -> list[dict[str, Any]]:
+    return [
+        {
+            "name": lane.value,
+            "enabled": settings.llm_lane_enabled(lane),
+            "extractMode": settings.extract_mode_for(lane),
+        }
+        for lane in LLMLane
+    ]
+
+
 async def _collect(
-    specs: list[ProviderSpec], state: KeyValueState
+    specs: list[ProviderSpec], state: KeyValueState, settings: Settings
 ) -> list[ProviderStatus]:
-    limiter = LLMRateLimiter(state)
+    limiter = LLMRateLimiter(state, reserve_ratio=settings.llm_review_reserve_ratio)
     breaker = CircuitBreaker(state)
     return [await _status_for(spec, limiter, breaker) for spec in specs]

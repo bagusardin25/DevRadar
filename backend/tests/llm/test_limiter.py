@@ -122,3 +122,47 @@ class TestTokenBudgets:
         assert usage.rpd_used == 1
         assert usage.tpm_used == 250
         assert usage.tpd_used == 250
+
+
+class TestReviewReserve:
+    async def test_extraction_stops_before_review_on_dual_role_provider(self) -> None:
+        # rpd=10 → effective 9. 20% reserve = 1 slot. Extraction ceiling = 8.
+        clock = Clock()
+        limiter = LLMRateLimiter(MemoryState(clock=clock), clock=clock, reserve_ratio=0.2)
+        gemini = make_spec("gemini", rpd=10, operations=("extraction", "review"))
+
+        for _ in range(8):
+            assert await limiter.try_acquire(gemini, operation="extraction") is None
+        assert await limiter.try_acquire(gemini, operation="extraction") == "rpd_reserved"
+        # The reserved slot is still there for the admin review path.
+        assert await limiter.try_acquire(gemini, operation="review") is None
+
+    async def test_reserve_does_not_apply_to_extraction_only_providers(self) -> None:
+        clock = Clock()
+        limiter = LLMRateLimiter(MemoryState(clock=clock), clock=clock, reserve_ratio=0.2)
+        groq = make_spec("groq", rpd=10, operations=("extraction",))
+
+        for _ in range(9):
+            assert await limiter.try_acquire(groq, operation="extraction") is None
+        assert await limiter.try_acquire(groq, operation="extraction") == "rpd_exhausted"
+
+    async def test_reserve_rejection_does_not_consume_the_held_slot(self) -> None:
+        clock = Clock()
+        limiter = LLMRateLimiter(MemoryState(clock=clock), clock=clock, reserve_ratio=0.2)
+        gemini = make_spec("gemini", rpd=10, operations=("extraction", "review"))
+
+        for _ in range(8):
+            await limiter.try_acquire(gemini, operation="extraction")
+        await limiter.try_acquire(gemini, operation="extraction")  # reserved
+
+        usage = await limiter.usage(gemini)
+        assert usage.rpd_used == 8
+
+    async def test_token_reserve_blocks_extraction_before_review(self) -> None:
+        clock = Clock()
+        limiter = LLMRateLimiter(MemoryState(clock=clock), clock=clock, reserve_ratio=0.2)
+        gemini = make_spec("gemini", tpd=1_000, operations=("extraction", "review"))
+
+        await limiter.record_tokens(gemini, 720)  # 90% of 1000 = 900; 20% of 900 = 180; ceil=720
+        assert await limiter.try_acquire(gemini, operation="extraction") == "tpd_reserved"
+        assert await limiter.try_acquire(gemini, operation="review") is None

@@ -93,6 +93,7 @@ class LLMRouter:
         client: httpx.AsyncClient | None = None,
         clock: Callable[[], float] = time.time,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+        reserve_ratio: float = 0.0,
     ) -> None:
         self._specs = list(specs)
         self._redis_url = redis_url
@@ -103,6 +104,7 @@ class LLMRouter:
         self._client = client
         self._clock = clock
         self._sleep = sleep
+        self._reserve_ratio = reserve_ratio
 
     @property
     def specs(self) -> list[ProviderSpec]:
@@ -124,7 +126,9 @@ class LLMRouter:
         attempts = 0
 
         async with self._open_state() as state, self._open_client() as client:
-            limiter = LLMRateLimiter(state, clock=self._clock)
+            limiter = LLMRateLimiter(
+                state, clock=self._clock, reserve_ratio=self._reserve_ratio
+            )
             breaker = CircuitBreaker(state, clock=self._clock)
 
             for tier in tiers:
@@ -136,7 +140,9 @@ class LLMRouter:
                         trail.append("deadline_spent")
                         raise AllProvidersFailedError(request.operation, trail)
 
-                    skip = await self._skip_reason(spec, breaker, limiter)
+                    skip = await self._skip_reason(
+                        spec, breaker, limiter, operation=request.operation
+                    )
                     if skip is not None:
                         trail.append(f"{spec.name}:{skip}")
                         continue
@@ -318,10 +324,12 @@ class LLMRouter:
         spec: ProviderSpec,
         breaker: CircuitBreaker,
         limiter: LLMRateLimiter,
+        *,
+        operation: str,
     ) -> str | None:
         if await breaker.is_open(spec.name):
             return "circuit_open"
-        return await limiter.try_acquire(spec)
+        return await limiter.try_acquire(spec, operation=operation)
 
     async def _order(
         self, state: KeyValueState, tier: list[ProviderSpec], operation: str

@@ -345,7 +345,7 @@ async def recheck_listing(
     parsed = parse_document(
         doc.body, url=doc.final_url or url, content_type=doc.content_type
     )
-    extractor = create_extractor(settings)
+    extractor = create_extractor(settings, lane="recheck")
     kind_enum = (
         ListingKind.AI_OFFER
         if listing.kind == ListingKind.AI_OFFER.value

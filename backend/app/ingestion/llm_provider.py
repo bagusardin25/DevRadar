@@ -222,8 +222,18 @@ def build_llm_provider(settings: Settings) -> LLMProvider:
     return DisabledLLMProvider()
 
 
-def create_extractor(settings: Settings) -> Any:
-    """Convenience: Extractor wired to settings LLM provider."""
-    from app.ingestion.extractor import Extractor
+def create_extractor(settings: Settings, *, lane: object = "crawl") -> Any:
+    """Extractor wired to settings, with the lane's extract intensity.
 
-    return Extractor(build_llm_provider(settings))
+    ``lane`` is ``submission`` / ``discovery`` / ``recheck`` / ``crawl``.
+    Discovery defaults to rules-only; background jobs only call the model
+    when a critical field is missing; submissions keep full gap-fill.
+    """
+    from app.ingestion.extractor import Extractor
+    from app.llm.lanes import ExtractMode, parse_lane
+
+    resolved = parse_lane(lane)
+    mode = ExtractMode(settings.extract_mode_for(resolved))
+    if mode is ExtractMode.OFF:
+        return Extractor(DisabledLLMProvider(), extract_mode=mode)
+    return Extractor(build_llm_provider(settings), extract_mode=mode)

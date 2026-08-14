@@ -1,0 +1,73 @@
+{
+  "_comment": "Golden extraction expectations for scripts/benchmark_extraction.py. Each key is a fixture in tests/fixtures/documents/. 'expected' holds the ground truth a correct extraction should recover from the page TEXT (what an LLM sees), field-by-field. How each field is compared is decided by its name in the harness (see FIELD_KINDS): dates match by instant (or by day when the golden value is date-only), numbers numerically, offer_type as one-of an accepted set, list fields by recall, urls/enums exactly, and prose fuzzily. A golden value of null means the field MUST stay empty (e.g. a permanent offer has no expiry) — inventing one scores zero.",
+  "hackathon_sample.html": {
+    "listing_kind": "hackathon",
+    "content_type": "text/html",
+    "expected": {
+      "title": "Global AI Agents Challenge 2026",
+      "organizer": "Anthropic & Vercel",
+      "mode": "online",
+      "registration_open_at": "2026-07-01",
+      "registration_deadline": "2026-08-10",
+      "submission_deadline": "2026-08-25T23:59:00Z",
+      "prize_value": 50000,
+      "prize_currency": "USD",
+      "team_min": 1,
+      "team_max": 4,
+      "technologies": ["Python", "TypeScript"],
+      "eligible_countries": ["Worldwide"],
+      "eligibility": ["Student", "Developer"]
+    }
+  },
+  "conflicting_dates.txt": {
+    "listing_kind": "hackathon",
+    "content_type": "text/plain",
+    "expected": {
+      "title": "Weekend Code Jam",
+      "organizer": "DevClub",
+      "mode": "hybrid",
+      "location": "Jakarta",
+      "registration_deadline": "2026-11-30",
+      "submission_deadline": "2026-11-01",
+      "prize_value": 5000,
+      "prize_currency": "USD",
+      "team_min": 2,
+      "team_max": 5,
+      "technologies": ["Python", "React"],
+      "official_url": "https://devclub.example/jam"
+    }
+  },
+  "expiring_credits.txt": {
+    "listing_kind": "ai_offer",
+    "content_type": "text/plain",
+    "expected": {
+      "title": "CloudLLM Developer Credits Promo",
+      "product_name": "CloudLLM",
+      "provider": "CloudLLM",
+      "offer_type": ["free_credits", "promo_code"],
+      "offer_value": "200",
+      "starts_at": "2026-09-01",
+      "expires_at": "2026-12-31T00:00:00Z",
+      "supported_regions": ["United States", "Europe"],
+      "target_users": ["startups", "students"],
+      "claim_url": "https://cloudllm.example/credits/claim",
+      "official_terms_url": "https://cloudllm.example/terms"
+    }
+  },
+  "free_tier_permanent.txt": {
+    "listing_kind": "ai_offer",
+    "content_type": "text/plain",
+    "expected": {
+      "title": "AcmeAI Free Tier",
+      "product_name": "AcmeAI Studio",
+      "provider": "AcmeAI",
+      "offer_type": ["free_tier"],
+      "offer_value": "free",
+      "expires_at": null,
+      "supported_regions": ["Worldwide"],
+      "target_users": ["developers"],
+      "claim_url": "https://acmeai.example/signup",
+      "official_terms_url": "https://acmeai.example/pricing"
+    }
+  }
+}

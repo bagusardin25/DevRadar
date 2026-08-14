@@ -1,23 +1,19 @@
-import React, { memo } from 'react';
+import { memo } from 'react';
 import {
   Trophy,
-  ShieldCheck,
   Bookmark,
   Clock,
   ArrowUpRight,
   Sparkles,
   CheckCircle2,
-  Download,
-  Calendar,
   ExternalLink,
 } from 'lucide-react';
 import type { Hackathon } from '../types';
 import { formatPrizePool } from '../utils/formatPrize';
 import { getDeadlineInfo } from '../utils/countdown';
-import { downloadICS, buildGoogleCalendarUrl, hackathonRegDeadlineEvent } from '../utils/calendar';
 import { compactDescription, dedupeHighlights } from '../utils/cardSummary';
-import { formatAppDateTime } from '../utils/dateTime';
 import { ListingBadges } from './ListingBadges';
+import { checkedOnLabel, publicSourceLabel } from '../utils/trustCopy';
 
 /** Cards trade completeness for scannability; the modal carries the full lists. */
 const MAX_CARD_TAGS = 3;
@@ -57,29 +53,8 @@ export const HackathonCard = memo(function HackathonCard({
   }).slice(0, MAX_CARD_HIGHLIGHTS);
   const visibleTags = hackathon.technologies.slice(0, MAX_CARD_TAGS);
   const hiddenTagCount = hackathon.technologies.length - visibleTags.length;
-
-  const handleDownloadMD = (e: React.MouseEvent, hackathon: Hackathon) => {
-    e.stopPropagation();
-    const dateOptions: Intl.DateTimeFormatOptions = {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZoneName: 'short',
-    };
-    const mdContent = `# ${hackathon.title}\n\n**Organizer:** ${hackathon.organizer}\n**Prize Pool:** ${formatPrizePool(hackathon)}\n**Registration Deadline:** ${formatAppDateTime(hackathon.registrationDeadline, dateOptions)}\n**Submission Deadline:** ${formatAppDateTime(hackathon.submissionDeadline, dateOptions)}\n\n## Description\n${hackathon.description}\n\n## Technologies\n${hackathon.technologies.join(', ')}\n\n## Official Link\n[${hackathon.officialUrl}](${hackathon.officialUrl})\n\n## Verification\n**Status:** ${hackathon.verificationStatus}\n**Confidence:** ${Math.round((hackathon.confidenceScore ?? 0) * 100)}%\n**Last checked:** ${hackathon.audit?.lastCheckedAt ? formatAppDateTime(hackathon.audit.lastCheckedAt, dateOptions) : 'Unknown'}\n\n> Always confirm details on the official page before relying on them.\n`;
-    
-    const blob = new Blob([mdContent], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${hackathon.title.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-rules.md`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
+  const sourceLabel = publicSourceLabel(primarySource?.tier);
+  const checkedLabel = checkedOnLabel(hackathon.lastCheckedAt || hackathon.audit?.lastCheckedAt);
 
   if (viewLayout === 'compact') {
     // The compact row is the grid card minus the prose: same badges, same scan
@@ -103,19 +78,17 @@ export const HackathonCard = memo(function HackathonCard({
               <ListingBadges
                 status={hackathon.verificationStatus}
                 completeness={hackathon.completeness}
-                extra={[
-                  {
-                    key: 'tier',
-                    label: primarySource?.tier || 'Tier ?',
-                    tone: 'slate',
-                    title: 'Source trust tier',
-                  },
-                ]}
+                extra={
+                  sourceLabel
+                    ? [{ key: 'tier', label: sourceLabel, tone: 'slate', title: 'Where we found this' }]
+                    : []
+                }
               />
-              <span className="inline-flex items-center gap-1.5 font-mono text-[12px] bg-[#F3F4EF] dark:bg-[#1A2336] px-3 py-1 rounded-full border border-[#1C1B18] dark:border-[#D6DCE5] text-[#1C1B18] dark:text-[#F8FAF9] font-extrabold shrink-0">
-                <ShieldCheck className="w-3.5 h-3.5 text-[#1C1B18] dark:text-[#F8FAF9]" />
-                <span>{Math.round(hackathon.confidenceScore * 100)}%</span>
-              </span>
+              {checkedLabel && (
+                <span className="inline-flex items-center font-mono text-[12px] text-[#736F66] dark:text-[#94A3B8] font-bold">
+                  {checkedLabel}
+                </span>
+              )}
             </div>
 
             <div className="min-w-0">
@@ -195,15 +168,6 @@ export const HackathonCard = memo(function HackathonCard({
           </button>
 
           <button
-            onClick={(e) => handleDownloadMD(e, hackathon)}
-            aria-label={`Download AI agent context for ${hackathon.title} (.md)`}
-            title="Download Context for AI Agent (.md)"
-            className="p-2 rounded-full border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] transition-all font-bold bg-white dark:bg-[#1A2336] text-[#1C1B18] dark:text-white hover:bg-[#1C1B18] hover:text-white"
-          >
-            <Download className="w-4 h-4" />
-          </button>
-
-          <button
             onClick={() => onSelect(hackathon)}
             className="btn-sharetopus-secondary text-xs py-2 px-4 font-bold"
           >
@@ -236,20 +200,18 @@ export const HackathonCard = memo(function HackathonCard({
         <ListingBadges
           status={hackathon.verificationStatus}
           completeness={hackathon.completeness}
-          extra={[
-            {
-              key: 'tier',
-              label: primarySource?.tier || 'Tier ?',
-              tone: 'slate',
-              title: 'Source trust tier',
-            },
-          ]}
+          extra={
+            sourceLabel
+              ? [{ key: 'tier', label: sourceLabel, tone: 'slate', title: 'Where we found this' }]
+              : []
+          }
         />
 
-        <div className="flex items-center gap-1.5 font-mono text-[12px] bg-[#F3F4EF] dark:bg-[#1A2336] px-3 py-1 rounded-full border border-[#1C1B18] dark:border-[#D6DCE5] text-[#1C1B18] dark:text-[#F8FAF9] font-extrabold shrink-0">
-          <ShieldCheck className="w-3.5 h-3.5 text-[#1C1B18] dark:text-[#F8FAF9]" />
-          <span>{Math.round(hackathon.confidenceScore * 100)}%</span>
-        </div>
+        {checkedLabel && (
+          <span className="font-mono text-[12px] text-[#736F66] dark:text-[#94A3B8] font-bold shrink-0">
+            {checkedLabel}
+          </span>
+        )}
       </div>
 
       {/* Main Info — the title owns the full card width. Anything laid out
@@ -335,38 +297,8 @@ export const HackathonCard = memo(function HackathonCard({
       {/* D3/D4: Calendar buttons + actions. The row wraps: without it the
           "Audit & Detail" button overflowed the card and got clipped by the
           card's own overflow-hidden. */}
-      <div className="pt-3 border-t border-[#D6D5CF] dark:border-slate-800 flex items-center justify-between gap-x-3 gap-y-2 flex-wrap text-xs">
-        {/* Hidden on narrow cards to keep the actions on one line; the detail
-            modal offers the same exports (plus submit/all-dates variants). */}
-        <div className="hidden @[26rem]:flex items-center gap-2">
-          {/* D3 & D4: Calendar export buttons (only when still open) */}
-          {deadlineInfo && deadlineInfo.urgency !== 'closed' && (
-            <>
-              <button
-                onClick={(e) => { e.stopPropagation(); downloadICS([hackathonRegDeadlineEvent(hackathon)]); }}
-                className="btn-calendar btn-calendar-ics"
-                title="Download .ics calendar file"
-              >
-                <Calendar className="w-3.5 h-3.5" />
-                <span>.ics</span>
-              </button>
-              <a
-                href={buildGoogleCalendarUrl(hackathonRegDeadlineEvent(hackathon))}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="btn-calendar btn-calendar-google"
-                title="Add to Google Calendar"
-              >
-                <Calendar className="w-3.5 h-3.5" />
-                <span>GCal</span>
-              </a>
-            </>
-          )}
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2 ml-auto flex-wrap justify-end">
+      <div className="pt-3 border-t border-[#D6D5CF] dark:border-slate-800 flex items-center justify-end gap-x-3 gap-y-2 flex-wrap text-xs">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
 
           {/* Compare Toggle */}
           <button
@@ -393,16 +325,6 @@ export const HackathonCard = memo(function HackathonCard({
             }`}
           >
             <Bookmark className="w-4 h-4" />
-          </button>
-
-          {/* Download MD */}
-          <button
-            onClick={(e) => handleDownloadMD(e, hackathon)}
-            aria-label={`Download AI agent context for ${hackathon.title} (.md)`}
-            title="Download Context for AI Agent (.md)"
-            className="p-2 rounded-full border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] transition-all font-bold bg-white dark:bg-[#1A2336] text-[#1C1B18] dark:text-white hover:bg-[#1C1B18] hover:text-white"
-          >
-            <Download className="w-4 h-4" />
           </button>
 
           {/* View Details */}

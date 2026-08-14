@@ -35,6 +35,47 @@ try {
   assert.deepEqual(parseShareIdsFromSearch('?bm=one,two,two,%5Bbad%5D'), ['one', 'two']);
   assert.deepEqual(parseShareIdsFromSearch(`?bm=${'x'.repeat(20_000)}`), []);
 
+  const countdown = await server.ssrLoadModule('/src/utils/countdown.ts');
+  const { countActiveFilters } = countdown;
+  assert.equal(
+    countActiveFilters({
+      activeModule: 'hackathon',
+      searchQuery: '',
+      mode: 'online',
+      region: '',
+      eligibility: '',
+      technology: '',
+      offerType: '',
+      verificationStatus: '',
+      onlyClosingSoon: false,
+      onlyBigPrizes: false,
+      onlyFreeNoCard: false,
+    }),
+    0,
+    'default online catalogue should not count as a filter',
+  );
+  assert.equal(
+    countActiveFilters({
+      activeModule: 'hackathon',
+      searchQuery: '',
+      mode: 'hybrid',
+      region: '',
+      eligibility: '',
+      technology: '',
+      offerType: '',
+      verificationStatus: '',
+      onlyClosingSoon: true,
+      onlyBigPrizes: false,
+      onlyFreeNoCard: false,
+    }),
+    2,
+  );
+
+  const trust = await server.ssrLoadModule('/src/utils/trustCopy.ts');
+  assert.equal(trust.offerWindow({ expiresAt: null, offerType: 'free_tier' }).kind, 'ongoing');
+  assert.equal(trust.offerWindow({ expiresAt: null, offerType: 'promo_code' }).kind, 'unknown');
+  assert.match(trust.publicStatusLabel('verified_active').label, /Checked official/);
+
   process.stdout.write('frontend adversarial storage/import checks passed\n');
 } finally {
   await server.close();

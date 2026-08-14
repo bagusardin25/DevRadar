@@ -1,6 +1,5 @@
 import { memo } from 'react';
 import { 
-  ShieldCheck, 
   Gift, 
   ExternalLink, 
   Bookmark, 
@@ -11,10 +10,9 @@ import {
   RefreshCw
 } from 'lucide-react';
 import type { AIDeal } from '../types';
-import { getDeadlineInfo } from '../utils/countdown';
 import { compactDescription, dedupeHighlights } from '../utils/cardSummary';
-import { formatAppDateTime } from '../utils/dateTime';
 import { ListingBadges } from './ListingBadges';
+import { checkedOnLabel, offerWindow } from '../utils/trustCopy';
 
 /** Cards trade completeness for scannability; the modal carries the full lists. */
 const MAX_CARD_TAGS = 3;
@@ -34,8 +32,8 @@ export const AIDealCard = memo(function AIDealCard({
   onToggleBookmark,
   viewLayout = 'grid'
 }: AIDealCardProps) {
-  // D1: Urgency countdown for deals with expiry
-  const deadlineInfo = deal.expiresAt ? getDeadlineInfo(deal.expiresAt, 'Expired') : null;
+  const windowInfo = offerWindow(deal);
+  const checkedLabel = checkedOnLabel(deal.lastCheckedAt || deal.audit?.lastCheckedAt);
 
   // The offer value gets its own slot, so drop the prose that restates it.
   const description = compactDescription(deal.description, deal.offerValue);
@@ -75,10 +73,11 @@ export const AIDealCard = memo(function AIDealCard({
                   },
                 ]}
               />
-              <span className="inline-flex items-center gap-1.5 font-mono text-[12px] bg-[#F3F4EF] dark:bg-[#1A2336] px-3 py-1 rounded-full border border-[#1C1B18] dark:border-[#D6DCE5] text-[#1C1B18] dark:text-[#F8FAF9] font-extrabold shrink-0">
-                <ShieldCheck className="w-3.5 h-3.5 text-[#1C1B18] dark:text-[#F8FAF9]" />
-                <span>{Math.round(deal.confidenceScore * 100)}%</span>
-              </span>
+              {checkedLabel && (
+                <span className="inline-flex items-center font-mono text-[12px] text-[#736F66] dark:text-[#94A3B8] font-bold">
+                  {checkedLabel}
+                </span>
+              )}
             </div>
 
             <div className="min-w-0">
@@ -103,17 +102,22 @@ export const AIDealCard = memo(function AIDealCard({
                 <Gift className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                 <span className="break-words">{deal.offerValue}</span>
               </span>
-              {deadlineInfo ? (
-                <span className={`urgency-badge urgency-${deadlineInfo.urgency}`}>
+              <span
+                className={`urgency-badge urgency-${
+                  windowInfo.kind === 'expired'
+                    ? 'closed'
+                    : windowInfo.kind === 'claim_by'
+                      ? 'warning'
+                      : 'normal'
+                }`}
+              >
+                {windowInfo.kind === 'claim_by' || windowInfo.kind === 'expired' ? (
                   <Clock className="w-3.5 h-3.5" />
-                  <span>{deadlineInfo.shortLabel}</span>
-                </span>
-              ) : (
-                <span className="urgency-badge urgency-normal">
+                ) : (
                   <RefreshCw className="w-3.5 h-3.5" />
-                  <span>Ongoing</span>
-                </span>
-              )}
+                )}
+                <span>{windowInfo.label}</span>
+              </span>
               {visibleTags.map((tag) => (
                 <span key={tag} className="px-3 py-1 rounded-full bg-[#F3F4EF] dark:bg-[#1A2336] border border-[#D6D5CF] dark:border-slate-700 text-[#4A4845] dark:text-[#CBD5E1] font-medium">
                   #{tag}
@@ -192,10 +196,11 @@ export const AIDealCard = memo(function AIDealCard({
           ]}
         />
 
-        <div className="flex items-center gap-1.5 font-mono text-[12px] bg-[#F3F4EF] dark:bg-[#1A2336] px-3 py-1 rounded-full border border-[#1C1B18] dark:border-[#D6DCE5] text-[#1C1B18] dark:text-[#F8FAF9] font-extrabold shrink-0">
-          <ShieldCheck className="w-3.5 h-3.5 text-[#1C1B18] dark:text-[#F8FAF9]" />
-          <span>{Math.round(deal.confidenceScore * 100)}%</span>
-        </div>
+        {checkedLabel && (
+          <span className="font-mono text-[12px] text-[#736F66] dark:text-[#94A3B8] font-bold shrink-0">
+            {checkedLabel}
+          </span>
+        )}
       </div>
 
       {/* Main Info — the product name owns the full card width so it never
@@ -222,17 +227,22 @@ export const AIDealCard = memo(function AIDealCard({
             <Gift className="w-3.5 h-3.5 shrink-0 mt-0.5" />
             <span className="break-words">{deal.offerValue}</span>
           </span>
-          {deadlineInfo ? (
-            <span className={`urgency-badge urgency-${deadlineInfo.urgency}`}>
+          <span
+            className={`urgency-badge urgency-${
+              windowInfo.kind === 'expired'
+                ? 'closed'
+                : windowInfo.kind === 'claim_by'
+                  ? 'warning'
+                  : 'normal'
+            }`}
+          >
+            {windowInfo.kind === 'claim_by' || windowInfo.kind === 'expired' ? (
               <Clock className="w-3.5 h-3.5" />
-              <span>{deadlineInfo.shortLabel}</span>
-            </span>
-          ) : (
-            <span className="urgency-badge urgency-normal">
+            ) : (
               <RefreshCw className="w-3.5 h-3.5" />
-              <span>Ongoing</span>
-            </span>
-          )}
+            )}
+            <span>{windowInfo.label}</span>
+          </span>
         </div>
 
         <p className="text-[13px] sm:text-sm text-[#4A4845] dark:text-[#CBD5E1] line-clamp-2 leading-relaxed">
@@ -288,7 +298,7 @@ export const AIDealCard = memo(function AIDealCard({
       <div className="pt-3 border-t border-[#D6D5CF] dark:border-slate-800 flex items-center justify-between gap-x-3 gap-y-2 flex-wrap text-xs">
         <span className="text-[12px] font-mono text-[#736F66] dark:text-[#94A3B8] font-medium flex items-center gap-1">
           <Clock className="w-3.5 h-3.5" />
-          Checked {formatAppDateTime(deal.lastCheckedAt, { hour: '2-digit', minute: '2-digit' })}
+          {checkedLabel ?? 'Check date unknown'}
         </span>
 
         <div className="flex items-center gap-2 ml-auto">

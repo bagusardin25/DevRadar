@@ -68,6 +68,8 @@ interface HeroSectionProps {
   verifiedCount?: number;
   onTriggerLiveDiscovery: () => void;
   isSearchingLive: boolean;
+  /** Live source scan is an operator tool — hide it from the public hero. */
+  showLiveDiscovery?: boolean;
 }
 
 export const HeroSection: React.FC<HeroSectionProps> = ({
@@ -77,7 +79,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   totalResults,
   verifiedCount,
   onTriggerLiveDiscovery,
-  isSearchingLive
+  isSearchingLive,
+  showLiveDiscovery = false,
 }) => {
   const [showFilters, setShowFilters] = useState(false);
   const activeFilterCount = countActiveFilters(filters);
@@ -109,13 +112,11 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   // its filter instead of re-applying a no-op.
   const presetChips = filters.activeModule === 'hackathon' ? [
     {
-      label: 'Online & Worldwide',
+      label: 'Online only',
       icon: Globe,
-      isActive: filters.mode === 'online' && filters.region === 'Worldwide',
+      isActive: filters.mode === 'online',
       toggle: () => setFilters(f =>
-        f.mode === 'online' && f.region === 'Worldwide'
-          ? { ...f, mode: 'all', region: '' }
-          : { ...f, mode: 'online', region: 'Worldwide' }
+        f.mode === 'online' ? { ...f, mode: 'all' } : { ...f, mode: 'online' }
       ),
     },
     {
@@ -172,7 +173,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   const clearAll = () => setFilters(f => ({
     ...f,
     searchQuery: '',
-    mode: 'all',
+    mode: f.activeModule === 'hackathon' ? 'online' : 'all',
     region: '',
     eligibility: '',
     technology: '',
@@ -194,23 +195,21 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         {/* Top Eyebrow Badge — benefit language, not internal pipeline jargon */}
         <div className="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-extrabold border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] bg-white dark:bg-[#131A29] text-[#1C1B18] dark:text-[#F8FAF9] shadow-[2px_2px_0_0_#1C1B18] dark:shadow-[2px_2px_0_0_#D6DCE5]">
           <span className="size-2.5 rounded-full bg-[#059669]"></span>
-          <span>Every listing verified from its official source</span>
+          <span>Online hackathons &amp; AI free tiers, checked on official pages</span>
         </div>
 
         {/* Sharetopus Headline */}
         <h1 id="catalogue-heading" className="text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-[-0.04em] text-[#1C1B18] dark:text-white leading-[1.05]">
-          Find bounties.<br />
-          Win <span className="italic text-[#D23B14] dark:text-[#FF5A36]">everywhere.</span>
+          Find online hackathons.<br />
+          Use <span className="italic text-[#D23B14] dark:text-[#FF5A36]">free AI offers.</span>
         </h1>
 
         {/* Subtitle — single line, benefit-forward */}
         <p className="text-sm sm:text-lg text-[#1C1B18] dark:text-[#F8FAF9] font-bold sm:font-extrabold max-w-2xl mx-auto leading-relaxed">
-          Hackathons, free AI credits, and model price drops. No login, no fees, no API keys.
+          Checked against official pages. No login, no fees, no API keys.
         </p>
 
-        {/* Mode selector — the pill toggles WHERE we search (catalogue vs live),
-            NOT whether we run. The actual live scan is one explicit button in the
-            search bar so users don't accidentally burn their 5/hr rate limit. */}
+        {showLiveDiscovery && (
         <div className="flex flex-col items-center gap-2 pt-2">
           <div className="inline-flex items-center gap-2 p-1.5 rounded-full bg-white dark:bg-[#131A29] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] shadow-[3px_3px_0_0_#1C1B18] dark:shadow-[3px_3px_0_0_#D6DCE5] text-xs font-bold">
             <button
@@ -251,6 +250,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             </p>
           )}
         </div>
+        )}
 
         {/* Main Search Command Bar */}
         <div className="relative max-w-3xl mx-auto">
@@ -387,7 +387,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 type="button"
                 onClick={() => setFilters(f => ({
                   ...f,
-                  mode: 'all',
+                  mode: f.activeModule === 'hackathon' ? 'online' : 'all',
                   region: '',
                   eligibility: '',
                   technology: '',
@@ -569,8 +569,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             )}
           </div>
           <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#059669]" /> Verified from source</span>
-            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#D97706]" /> Community-reported</span>
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#059669]" /> Checked official</span>
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#0284C7]" /> Likely — confirm</span>
           </div>
         </div>
 

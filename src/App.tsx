@@ -46,7 +46,7 @@ import {
   toggleId,
   waitForDiscovery,
 } from './api';
-import { MOCK_HACKATHONS, MOCK_AI_DEALS } from './data/mockData';
+import { MOCK_HACKATHONS } from './data/mockData';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -121,31 +121,30 @@ function CatalogueStatusNotice({
   if (!error) return null;
 
   return (
-    <div className="max-w-6xl mx-auto px-4 lg:px-8 pt-4">
+    <div className="max-w-6xl mx-auto px-4 lg:px-8 pt-8">
       <div
-        role="status"
-        className="sharetopus-card p-3 sm:p-4 rounded-2xl border-[1.5px] border-[#D97706] bg-[#D97706]/10 flex flex-col sm:flex-row sm:items-center gap-3 text-xs text-[#1C1B18] dark:text-[#F8FAF9]"
+        role="alert"
+        className="sharetopus-card p-8 sm:p-12 text-center rounded-[24px] border-[1.5px] border-[#D97706] bg-white dark:bg-[#131A29] space-y-3 text-[#1C1B18] dark:text-[#F8FAF9]"
       >
-        <WifiOff className="hidden sm:block w-5 h-5 text-[#D97706] shrink-0" />
-        <div className="min-w-0 flex-1">
-          <div className="font-extrabold">Live catalogue unavailable — browsing sample data</div>
-          <p className="mt-1 text-[#4A4845] dark:text-[#CBD5E1] font-semibold">
-            Search, compare, bookmark, and inspect the sample opportunities while DevRadar reconnects.
-          </p>
-          {import.meta.env.DEV && (
-            <details className="mt-2 text-[11px] font-mono text-[#736F66] dark:text-[#94A3B8]">
-              <summary className="cursor-pointer font-bold">Developer connection details</summary>
-              <p className="mt-1">{error}</p>
-              <p>Run the API at http://127.0.0.1:8000 for live listings.</p>
-            </details>
-          )}
-        </div>
+        <WifiOff className="w-10 h-10 text-[#D97706] mx-auto" />
+        <h3 className="text-lg font-extrabold">Can’t load the catalogue</h3>
+        <p className="text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 max-w-md mx-auto">
+          Listings are not shown from sample data. Retry in a moment — nothing
+          here is invented while the API is down.
+        </p>
+        {import.meta.env.DEV && (
+          <details className="text-left max-w-md mx-auto text-[11px] font-mono text-[#736F66] dark:text-[#94A3B8]">
+            <summary className="cursor-pointer font-bold">Developer connection details</summary>
+            <p className="mt-1">{error}</p>
+            <p>Run the API at http://127.0.0.1:8000 for live listings.</p>
+          </details>
+        )}
         <button
           type="button"
           onClick={onRetry}
-          className="btn-sharetopus-secondary justify-center text-xs py-2 px-4 font-bold sm:shrink-0"
+          className="btn-sharetopus-secondary justify-center text-xs py-2 px-4 font-bold"
         >
-          Retry live data
+          Retry
         </button>
       </div>
     </div>
@@ -161,47 +160,6 @@ function appendUniqueById<T extends { id: string }>(current: T[], incoming: T[])
   const next = new Map(current.map((item) => [item.id, item]));
   for (const item of incoming) next.set(item.id, item);
   return [...next.values()];
-}
-
-/** Filter mock hackathons locally when backend is offline. */
-function filterMockHackathons(items: Hackathon[], filters: FilterState): Hackathon[] {
-  return items.filter((h) => {
-    const q = filters.searchQuery.toLowerCase();
-    if (q && q.length >= 2) {
-      const searchable = `${h.title} ${h.organizer} ${h.description} ${h.technologies.join(' ')} ${h.eligibility.join(' ')} ${h.eligibleCountries.join(' ')}`.toLowerCase();
-      if (!searchable.includes(q)) return false;
-    }
-    if (filters.mode !== 'all' && h.mode !== filters.mode) return false;
-    if (filters.technology && !h.technologies.some((t) => t.toLowerCase().includes(filters.technology.toLowerCase()))) return false;
-    if (filters.eligibility && !h.eligibility.some((e) => e.toLowerCase().includes(filters.eligibility.toLowerCase()))) return false;
-    if (filters.verificationStatus && h.verificationStatus !== filters.verificationStatus) return false;
-    if (filters.onlyClosingSoon) {
-      const deadline = new Date(h.registrationDeadline);
-      const diffDays = (deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
-      if (diffDays > 14 || diffDays < 0) return false;
-    }
-    if (filters.onlyBigPrizes && h.prizeValue < 10000) return false;
-    return true;
-  });
-}
-
-/** Filter mock AI deals locally when backend is offline. */
-function filterMockAIDeals(items: AIDeal[], filters: FilterState): AIDeal[] {
-  return items.filter((d) => {
-    const q = filters.searchQuery.toLowerCase();
-    if (q && q.length >= 2) {
-      const searchable = `${d.productName} ${d.provider} ${d.description} ${d.tags.join(' ')} ${d.offerValue} ${d.targetUsers.join(' ')}`.toLowerCase();
-      if (!searchable.includes(q)) return false;
-    }
-    if (filters.offerType && d.offerType !== filters.offerType) return false;
-    if (filters.verificationStatus && d.verificationStatus !== filters.verificationStatus) return false;
-    if (filters.technology && !d.tags.some((t) => t.toLowerCase().includes(filters.technology.toLowerCase()))) return false;
-    if (filters.onlyFreeNoCard) {
-      const reqText = d.requirements.join(' ').toLowerCase();
-      if (reqText.includes('credit card')) return false;
-    }
-    return true;
-  });
 }
 
 export function App() {
@@ -238,7 +196,7 @@ export function App() {
   const [filters, setFilters] = useState<FilterState>({
     searchQuery: '',
     activeModule: 'hackathon',
-    mode: 'all',
+    mode: 'online',
     region: '',
     eligibility: '',
     technology: '',
@@ -483,26 +441,11 @@ export function App() {
             ? err.message
             : 'Failed to load catalogue';
       setCatalogueError(message);
-      // Fallback to mock data so the UI is never empty during offline dev
-      const bookmarks = loadBookmarkIds();
-      const alerts = loadAlertIds();
-      const filteredH = filterMockHackathons(MOCK_HACKATHONS, queryFilters);
-      const filteredD = filterMockAIDeals(MOCK_AI_DEALS, queryFilters);
-      const mockH = filteredH.map((h) => ({
-        ...h,
-        bookmarked: bookmarks.has(h.id),
-        alertEnabled: alerts.has(h.id),
-      }));
-      const mockD = filteredD.map((d) => ({
-        ...d,
-        bookmarked: bookmarks.has(d.id),
-        alertEnabled: alerts.has(d.id),
-      }));
-      setHackathons(mockH);
-      setHackTotal(mockH.length);
+      setHackathons([]);
+      setHackTotal(0);
       setHackNextCursor(null);
-      setAiDeals(mockD);
-      setDealTotal(mockD.length);
+      setAiDeals([]);
+      setDealTotal(0);
       setDealNextCursor(null);
       setIsOfflineMode(true);
     } finally {
@@ -673,10 +616,10 @@ export function App() {
   }, [admin, loadAdminSession]);
 
   useEffect(() => {
-    if (filters.activeModule === 'admin_queue') {
+    if (admin || filters.activeModule === 'admin_queue') {
       void loadReviewQueue();
     }
-  }, [filters.activeModule, loadReviewQueue]);
+  }, [admin, filters.activeModule, loadReviewQueue]);
 
   // After Google OAuth redirect, alert confirmation, or shared bookmark link
   useEffect(() => {
@@ -887,9 +830,9 @@ export function App() {
     await loadCatalogue();
   };
 
-  const handleReject = async (item: ReviewItem) => {
+  const handleReject = async (item: ReviewItem, reason = 'Rejected via admin UI') => {
     if (!admin) throw new Error('Not signed in');
-    await rejectReviewItem(item.id, item.version, 'Rejected via admin UI', admin.csrfToken);
+    await rejectReviewItem(item.id, item.version, reason, admin.csrfToken);
     await loadReviewQueue();
   };
 
@@ -1037,11 +980,14 @@ export function App() {
               verifiedCount={verifiedHackathonCount}
               onTriggerLiveDiscovery={() => void handleTriggerLiveDiscovery()}
               isSearchingLive={isSearchingLive}
+              showLiveDiscovery={Boolean(admin)}
             />
 
-            {catalogueStatus}
             {catalogueSummary}
 
+            {catalogueError && !catalogueLoading ? (
+              catalogueStatus
+            ) : (
             <div className="max-w-6xl mx-auto px-4 lg:px-8 pt-8">
               {catalogueLoading ? (
                 <div className="sharetopus-card p-12 text-center rounded-[24px] bg-white dark:bg-[#131A29]">
@@ -1051,9 +997,9 @@ export function App() {
               ) : displayHackathons.length === 0 ? (
                 <div className="sharetopus-card p-12 text-center rounded-[24px] space-y-3 bg-white dark:bg-[#131A29] text-[#1C1B18] dark:text-white">
                   <FilterX className="w-10 h-10 text-[#FF5A36] mx-auto" />
-                  <h3 className="text-lg font-extrabold">No Hackathons Matched Your Filter</h3>
+                  <h3 className="text-lg font-extrabold">No online hackathons matched</h3>
                   <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Try resetting filters, or wait until listings are approved in the review queue.
+                    Try showing all modes, or wait until new listings are approved.
                   </p>
                   <button
                     type="button"
@@ -1061,7 +1007,9 @@ export function App() {
                       setFilters((f) => ({
                         ...f,
                         searchQuery: '',
-                        mode: 'all',
+                        mode: 'online',
+                        region: '',
+                        eligibility: '',
                         technology: '',
                         onlyClosingSoon: false,
                         onlyBigPrizes: false,
@@ -1069,7 +1017,7 @@ export function App() {
                     }
                     className="btn-sharetopus-secondary text-xs py-2 px-4 font-bold"
                   >
-                    Reset All Filters
+                    Reset to online defaults
                   </button>
                 </div>
               ) : (
@@ -1116,6 +1064,7 @@ export function App() {
                 </div>
               )}
             </div>
+            )}
           </div>
         )}
 
@@ -1129,11 +1078,14 @@ export function App() {
               verifiedCount={verifiedDealCount}
               onTriggerLiveDiscovery={() => void handleTriggerLiveDiscovery()}
               isSearchingLive={isSearchingLive}
+              showLiveDiscovery={Boolean(admin)}
             />
 
-            {catalogueStatus}
             {catalogueSummary}
 
+            {catalogueError && !catalogueLoading ? (
+              catalogueStatus
+            ) : (
             <div className="max-w-6xl mx-auto px-4 lg:px-8 pt-8">
               {catalogueLoading ? (
                 <div className="sharetopus-card p-12 text-center rounded-[24px] bg-white dark:bg-[#131A29]">
@@ -1190,6 +1142,7 @@ export function App() {
                 </div>
               )}
             </div>
+            )}
           </div>
         )}
 

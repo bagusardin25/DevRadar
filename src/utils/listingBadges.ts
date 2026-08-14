@@ -35,18 +35,28 @@ export const COMPLETENESS_OK_SCORE = 85;
 export function statusBadge(status: VerificationStatus): ListingBadge {
   switch (status) {
     case 'verified_active':
-      return { key: 'status', label: 'VERIFIED', tone: 'green' };
+      return {
+        key: 'status',
+        label: 'Checked official',
+        tone: 'green',
+        title: 'Fetched from the official page and still looks active',
+      };
     case 'likely_active':
-      return { key: 'status', label: 'LIKELY', tone: 'blue' };
+      return {
+        key: 'status',
+        label: 'Likely — confirm',
+        tone: 'blue',
+        title: 'Looks active — confirm dates and terms on the official page',
+      };
     case 'registration_closed':
-      return { key: 'status', label: 'REG CLOSED', tone: 'amber' };
+      return { key: 'status', label: 'Reg closed', tone: 'amber' };
     case 'expired':
-      return { key: 'status', label: 'EXPIRED', tone: 'red' };
+      return { key: 'status', label: 'Ended', tone: 'red' };
     case 'cancelled':
-      return { key: 'status', label: 'CANCELLED', tone: 'red' };
+      return { key: 'status', label: 'Cancelled', tone: 'red' };
     case 'needs_review':
     default:
-      return { key: 'status', label: 'NEEDS REVIEW', tone: 'amber' };
+      return { key: 'status', label: 'Unconfirmed', tone: 'amber' };
   }
 }
 

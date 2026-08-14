@@ -144,8 +144,12 @@ export function getDeadlineInfo(
   };
 }
 
+/** Public catalogue default: online hackathons that are still open. */
+export const DEFAULT_HACKATHON_MODE = 'online';
+
 /**
  * Count the number of active (non-default) filters for the "Filters (N)" badge.
+ * `mode: online` is the product default, so it does not increment the counter.
  */
 export function countActiveFilters(filters: {
   activeModule?: string;
@@ -169,7 +173,7 @@ export function countActiveFilters(filters: {
     if (filters.offerType) count++;
     if (filters.onlyFreeNoCard) count++;
   } else {
-    if (filters.mode !== 'all') count++;
+    if (filters.mode !== 'all' && filters.mode !== DEFAULT_HACKATHON_MODE) count++;
     if (filters.eligibility) count++;
     if (filters.onlyClosingSoon) count++;
     if (filters.onlyBigPrizes) count++;

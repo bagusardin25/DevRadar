@@ -37,7 +37,93 @@ interface AdminQueueProps {
     corrections: ReviewCorrections,
     notes?: string,
   ) => Promise<void>;
-  onReject: (item: ReviewItem) => Promise<void>;
+  onReject: (item: ReviewItem, reason: string) => Promise<void>;
+}
+
+type QueueLane = 'harvest' | 'submit' | 'other';
+
+const REJECT_REASONS = [
+  'Duplicate — already in the catalogue',
+  'In-person — not an online event',
+  'Expired or registration closed',
+  'Spam or not a real opportunity',
+] as const;
+
+function queueLane(item: ReviewItem): QueueLane {
+  const snap = item.candidateSnapshot;
+  if (snap.harvest === true || snap.source === 'harvest_devpost') return 'harvest';
+  if (item.candidateType === 'community_submission') return 'submit';
+  return 'other';
+}
+
+function laneLabel(lane: QueueLane): string {
+  if (lane === 'harvest') return 'Harvest';
+  if (lane === 'submit') return 'Submit';
+  return 'Other';
+}
+
+function snapshotFields(snapshot: Record<string, unknown>): Record<string, unknown> {
+  return snapshot.fields && typeof snapshot.fields === 'object' && !Array.isArray(snapshot.fields)
+    ? (snapshot.fields as Record<string, unknown>)
+    : {};
+}
+
+function snapshotFacts(snapshot: Record<string, unknown>): {
+  mode: string;
+  prize: string;
+  deadline: string;
+  source: string;
+} {
+  const fields = snapshotFields(snapshot);
+  const directory =
+    snapshot.directory && typeof snapshot.directory === 'object' && !Array.isArray(snapshot.directory)
+      ? (snapshot.directory as Record<string, unknown>)
+      : {};
+  const modeRaw = String(fields.mode ?? snapshot.mode ?? '').replace(/_/g, ' ');
+  const prizeRaw = fields.prize_value ?? fields.prize_label ?? snapshot.prize;
+  const prize =
+    prizeRaw === null || prizeRaw === undefined || prizeRaw === ''
+      ? ''
+      : typeof prizeRaw === 'number'
+        ? `$${prizeRaw.toLocaleString('en-US')}`
+        : String(prizeRaw);
+  const deadlineRaw =
+    fields.submission_deadline ??
+    fields.registration_deadline ??
+    directory.dates ??
+    directory.timeLeft;
+  let deadline = '';
+  if (typeof deadlineRaw === 'string' && deadlineRaw) {
+    const parsed = new Date(deadlineRaw);
+    deadline = Number.isNaN(parsed.getTime())
+      ? deadlineRaw
+      : parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+  const source =
+    snapshot.harvest === true || snapshot.source === 'harvest_devpost'
+      ? 'Devpost'
+      : String(snapshot.source ?? directory.organization ?? '').trim();
+  return { mode: modeRaw, prize, deadline, source };
+}
+
+function nextHarvestHint(now = new Date()): string {
+  const slots = [0, 8, 16];
+  const next = new Date(now);
+  next.setUTCMinutes(0, 0, 0);
+  const hour = now.getUTCHours();
+  const slot = slots.find((h) => hour < h);
+  if (slot === undefined) {
+    next.setUTCDate(next.getUTCDate() + 1);
+    next.setUTCHours(0);
+  } else {
+    next.setUTCHours(slot);
+  }
+  return next.toLocaleString('en-GB', {
+    timeZone: 'Asia/Jakarta',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }) + ' WIB';
 }
 
 function snapshotTitle(snapshot: Record<string, unknown>): string {
@@ -184,53 +270,41 @@ const AIReviewPanel: React.FC<{ snapshot: Record<string, unknown> }> = ({ snapsh
         {review.summary}
       </p>
 
+      {review.concerns.length > 0 && (
+        <ul className="space-y-1.5">
+          {review.concerns.slice(0, 3).map((concern) => (
+            <li key={concern.message} className="flex items-start gap-2 text-xs font-bold text-[#1C1B18] dark:text-slate-100">
+              <span className={`mt-1.5 size-1.5 rounded-full shrink-0 ${SEVERITY_DOT[concern.severity]}`} />
+              <span>{concern.message}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
       {verification && (
         <div className="text-[10px] font-mono font-bold text-slate-600 dark:text-slate-300">
-          verify: {verification.status} · {verification.score}/100 ·{' '}
-          {verification.publishable ? 'publishable' : 'not publishable'}
+          {verification.status.replaceAll('_', ' ')}
+          {verification.score ? ` · score ${verification.score}` : ''}
         </div>
       )}
 
       {usage && (
-        <div
-          aria-label="AI usage estimate"
-          className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-[#7C3AED]/30 bg-white/70 px-3 py-2 text-[10px] font-mono font-extrabold text-slate-600 dark:bg-[#0F1624]/70 dark:text-slate-300"
-        >
-          <span>
-            {usage.calls.length === 0
-              ? 'No paid model calls'
-              : `${usage.calls.length} model call${usage.calls.length === 1 ? '' : 's'}`}
-          </span>
-          <span>{formatTokenCount(usage.totalTokens)} tokens</span>
-          <span className="text-[#7C3AED] dark:text-[#C4B5FD]">
-            {usage.estimatedCostUsd === null
-              ? 'Pricing unavailable'
-              : `${formatEstimatedUsd(usage.estimatedCostUsd)} est.`}
-          </span>
-          {usage.cachedPromptTokens > 0 && (
-            <span>{formatTokenCount(usage.cachedPromptTokens)} cached</span>
-          )}
-        </div>
-      )}
-
-      {review.concerns.length > 0 && (
-        <ul className="space-y-1.5">
-          {review.concerns.map((c, i) => (
-            <li
-              key={i}
-              className="flex items-start gap-2 text-[11px] font-bold text-[#1C1B18] dark:text-slate-200"
-            >
-              <span
-                className={`mt-1 w-2 h-2 rounded-full shrink-0 ${SEVERITY_DOT[c.severity]}`}
-                aria-hidden
-              />
-              <span>
-                <span className="uppercase text-[9px] font-mono opacity-60 mr-1">{c.severity}</span>
-                {c.message}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <details className="text-[10px] font-mono font-bold text-slate-500">
+          <summary className="cursor-pointer">Model usage</summary>
+          <div className="mt-1 flex flex-wrap gap-x-3">
+            <span>
+              {usage.calls.length === 0
+                ? 'No paid model calls'
+                : `${usage.calls.length} model call${usage.calls.length === 1 ? '' : 's'}`}
+            </span>
+            <span>{formatTokenCount(usage.totalTokens)} tokens</span>
+            <span>
+              {usage.estimatedCostUsd === null
+                ? 'Pricing unavailable'
+                : `${formatEstimatedUsd(usage.estimatedCostUsd)} est.`}
+            </span>
+          </div>
+        </details>
       )}
 
       {suggested.length > 0 && (
@@ -281,6 +355,8 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
       { title: string; description: string; kind: 'hackathon' | 'ai_offer'; officialUrl: string }
     >
   >({});
+  const [laneFilter, setLaneFilter] = useState<'all' | QueueLane>('all');
+  const [rejectFor, setRejectFor] = useState<string | null>(null);
 
   const beginFieldReview = (item: ReviewItem) => {
     const snapshot = item.candidateSnapshot;
@@ -365,17 +441,26 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
     }
   };
 
-  const runReject = async (item: ReviewItem) => {
+  const runReject = async (item: ReviewItem, reason: string) => {
     setBusyId(item.id);
     setActionError(null);
     try {
-      await onReject(item);
+      await onReject(item, reason);
+      setRejectFor(null);
     } catch (e) {
       setActionError(e instanceof Error ? e.message : 'Reject failed');
     } finally {
       setBusyId(null);
     }
   };
+
+  const laneCounts = {
+    harvest: items.filter((item) => queueLane(item) === 'harvest').length,
+    submit: items.filter((item) => queueLane(item) === 'submit').length,
+    other: items.filter((item) => queueLane(item) === 'other').length,
+  };
+  const visibleItems =
+    laneFilter === 'all' ? items : items.filter((item) => queueLane(item) === laneFilter);
 
   const shownUsage = items.map((item) => readAIUsage(item.candidateSnapshot));
   const shownTokens = shownUsage.reduce(
@@ -402,7 +487,7 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
               Verification & Review Queue
             </h2>
             <p className="text-xs text-[#1C1B18] dark:text-[#F8FAF9] font-bold">
-              Admin-only queue from the backend pipeline. Approve publishes to the public catalogue.
+              Harvest and community tips wait here. Approve publishes to the public catalogue.
             </p>
           </div>
         </div>
@@ -502,9 +587,10 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
               <ShieldCheck className="h-5 w-5" />
             </div>
           </div>
-          <h3 className="text-lg font-extrabold">Review Queue Clear!</h3>
-          <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
-            No open review items. New submissions will appear here automatically.
+          <h3 className="text-lg font-extrabold">Nothing waiting</h3>
+          <p className="text-xs font-bold text-slate-700 dark:text-slate-300 max-w-md mx-auto">
+            No open harvest or community submissions. The next online Devpost
+            harvest runs around {nextHarvestHint()} — or a visitor can Submit a URL.
           </p>
           <button type="button" onClick={onBackToRadar} className="btn-sharetopus-secondary px-4 py-2 text-xs font-bold">
             <ArrowLeft className="mr-1.5 inline h-4 w-4" />
@@ -513,10 +599,40 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
         </div>
       ) : (
         <div className="space-y-4">
-          {items.map((item) => {
+          <div className="flex flex-wrap items-center gap-2">
+            {([
+              ['all', items.length],
+              ['harvest', laneCounts.harvest],
+              ['submit', laneCounts.submit],
+              ['other', laneCounts.other],
+            ] as const).map(([key, count]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setLaneFilter(key)}
+                aria-pressed={laneFilter === key}
+                className={`px-3 py-1.5 rounded-full border-[1.5px] text-[11px] font-extrabold ${
+                  laneFilter === key
+                    ? 'bg-[#1C1B18] text-white dark:bg-white dark:text-[#1C1B18] border-[#1C1B18] dark:border-white'
+                    : 'bg-white dark:bg-[#131A29] border-[#1C1B18] dark:border-[#D6DCE5] text-[#1C1B18] dark:text-white'
+                }`}
+              >
+                {key === 'all' ? 'All' : laneLabel(key)} {count}
+              </button>
+            ))}
+          </div>
+          {visibleItems.length === 0 ? (
+            <div className="sharetopus-card p-8 text-center rounded-[24px] text-xs font-bold text-slate-600 dark:text-slate-300">
+              No {laneFilter === 'all' ? '' : `${laneLabel(laneFilter).toLowerCase()} `}
+              items in this view.
+            </div>
+          ) : null}
+          {visibleItems.map((item) => {
             const urls = snapshotUrls(item.candidateSnapshot);
             const title = snapshotTitle(item.candidateSnapshot);
             const review = readAIReview(item.candidateSnapshot);
+            const facts = snapshotFacts(item.candidateSnapshot);
+            const lane = queueLane(item);
             const suggested = Object.entries(review?.suggestedFields ?? {});
             const isEditing = editingId === item.id;
             const pendingCorrections = isEditing ? buildCorrections(item) : {};
@@ -531,14 +647,16 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-extrabold">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="px-3 py-1 rounded-full bg-[#D97706]/15 text-[#D97706] border border-[#D97706] text-[11px] font-extrabold uppercase">
-                      {item.state}
+                      {laneLabel(lane)}
                     </span>
-                    <span className="px-3 py-1 rounded-full bg-[#F3F4EF] dark:bg-[#1A2336] border border-[#1C1B18] dark:border-[#D6DCE5] text-[11px] font-extrabold">
-                      {item.candidateType}
-                    </span>
-                    <span className="text-[#1C1B18] dark:text-slate-300 font-mono text-xs">
-                      priority {item.priority} · v{item.version}
-                    </span>
+                    {review && (
+                      <span
+                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full border text-[11px] font-extrabold ${RECO_STYLE[review.recommendation].className}`}
+                      >
+                        AI {RECO_STYLE[review.recommendation].label}
+                        <span className="font-mono font-bold opacity-70">{review.confidence}</span>
+                      </span>
+                    )}
                   </div>
                   <div className="font-mono text-[#1C1B18] dark:text-slate-200 text-xs">
                     {new Date(item.createdAt).toLocaleString()}
@@ -547,7 +665,28 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
 
                 <div>
                   <h3 className="text-base font-extrabold text-[#1C1B18] dark:text-white">{title}</h3>
-                  <p className="text-xs font-bold text-slate-600 dark:text-slate-300 mt-1">{item.reason}</p>
+                  <p className="mt-1.5 flex flex-wrap gap-1.5 text-[11px] font-extrabold">
+                    {facts.source && (
+                      <span className="px-2 py-0.5 rounded-full bg-[#F3F4EF] dark:bg-[#1A2336] border border-[#1C1B18]/20">
+                        {facts.source}
+                      </span>
+                    )}
+                    {facts.mode && (
+                      <span className="px-2 py-0.5 rounded-full bg-[#FFF1EE] dark:bg-[#FF5A36]/20 border border-[#FF5A36] text-[#C2410C] dark:text-[#FF8A6B] uppercase">
+                        {facts.mode}
+                      </span>
+                    )}
+                    {facts.prize && (
+                      <span className="px-2 py-0.5 rounded-full bg-[#F8F9F4] dark:bg-[#1A2336] border border-[#1C1B18]/20">
+                        {facts.prize}
+                      </span>
+                    )}
+                    {facts.deadline && (
+                      <span className="px-2 py-0.5 rounded-full bg-[#F8F9F4] dark:bg-[#1A2336] border border-[#1C1B18]/20">
+                        Closes {facts.deadline}
+                      </span>
+                    )}
+                  </p>
                 </div>
 
                 <AIReviewPanel snapshot={item.candidateSnapshot} />
@@ -718,61 +857,75 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                  <div className="sharetopus-card p-3.5 rounded-2xl bg-[#F8F9F4] dark:bg-[#1A2336] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] space-y-2">
-                    <div className="font-extrabold text-[#1C1B18] dark:text-white font-mono text-[11px]">
-                      Target URLs
-                    </div>
-                    {urls.length === 0 ? (
-                      <p className="text-[11px] text-slate-500">No URL in snapshot</p>
-                    ) : (
-                      urls.map((url) => (
-                        <a
-                          key={url}
-                          href={url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="flex items-center gap-1.5 text-[#0284C7] dark:text-[#D6DCE5] hover:underline font-mono text-[11px] font-extrabold truncate"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5 shrink-0" />
-                          <span>{url}</span>
-                        </a>
-                      ))
-                    )}
-                  </div>
-
-                  <div className="sharetopus-card p-3.5 rounded-2xl bg-[#F8F9F4] dark:bg-[#1A2336] border-[1.5px] border-[#1C1B18] dark:border-[#D6DCE5] space-y-2">
-                    <div className="font-extrabold text-[#1C1B18] dark:text-white font-mono text-[11px]">
-                      Candidate Snapshot
-                    </div>
-                    <pre className="text-[10px] text-[#059669] dark:text-[#34D399] font-mono bg-[#090C15] p-2.5 rounded-xl border border-[#1C1B18] dark:border-[#D6DCE5] max-h-32 overflow-y-auto font-extrabold">
+                <div className="space-y-2 text-xs">
+                  {urls.length === 0 ? (
+                    <p className="text-[11px] text-slate-500">No URL in snapshot</p>
+                  ) : (
+                    urls.map((url) => (
+                      <a
+                        key={url}
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-1.5 text-[#0284C7] dark:text-[#7DD3FC] hover:underline font-mono text-[11px] font-extrabold truncate"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                        <span>{url}</span>
+                      </a>
+                    ))
+                  )}
+                  <details className="rounded-xl border border-[#1C1B18]/15 dark:border-white/15 bg-[#F8F9F4] dark:bg-[#1A2336] px-3 py-2">
+                    <summary className="cursor-pointer text-[11px] font-extrabold text-slate-600 dark:text-slate-300">
+                      Raw snapshot
+                    </summary>
+                    <pre className="mt-2 text-[10px] text-[#059669] dark:text-[#34D399] font-mono bg-[#090C15] p-2.5 rounded-xl max-h-40 overflow-auto">
                       {JSON.stringify(item.candidateSnapshot, null, 2)}
                     </pre>
-                  </div>
+                  </details>
                 </div>
 
-                <div className="pt-2 border-t border-[#D6D5CF] dark:border-slate-800 flex items-center justify-end gap-2 text-xs font-bold">
-                  {!canPublish && (
-                    <span className="mr-auto rounded-full border border-[#D97706] bg-[#D97706]/10 px-3 py-1.5 text-[10px] font-extrabold text-[#B45309] dark:text-[#FBBF24]">
-                      Missing publishable title, type, or URL
-                    </span>
-                  )}
-                  {suggested.length > 0 && (
+                {rejectFor === item.id && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {REJECT_REASONS.map((reason) => (
+                      <button
+                        key={reason}
+                        type="button"
+                        disabled={busyId === item.id}
+                        onClick={() => void runReject(item, reason)}
+                        className="px-3 py-1.5 rounded-full border border-[#FF5A36] text-[10px] font-extrabold text-[#C2410C] dark:text-[#FF8A6B] hover:bg-[#FF5A36] hover:text-white"
+                      >
+                        {reason.split(' — ')[0]}
+                      </button>
+                    ))}
                     <button
                       type="button"
-                      onClick={() =>
-                        isEditing ? setEditingId(null) : beginFieldReview(item)
-                      }
-                      disabled={busyId === item.id}
-                      className="btn-sharetopus-secondary text-xs py-2 px-4"
+                      onClick={() => setRejectFor(null)}
+                      className="px-3 py-1.5 text-[10px] font-bold text-slate-500"
                     >
-                      <Sparkles className="w-4 h-4 inline mr-1" />
-                      {isEditing ? 'Close field review' : 'Review suggested fields'}
+                      Cancel
                     </button>
+                  </div>
+                )}
+
+                <div className="pt-2 border-t border-[#D6D5CF] dark:border-slate-800 flex items-center justify-end gap-2 text-xs font-bold flex-wrap">
+                  {!canPublish && (
+                    <span className="mr-auto rounded-full border border-[#D97706] bg-[#D97706]/10 px-3 py-1.5 text-[10px] font-extrabold text-[#B45309] dark:text-[#FBBF24]">
+                      Missing title, type, or URL — edit fields first
+                    </span>
                   )}
                   <button
                     type="button"
-                    onClick={() => void runReject(item)}
+                    onClick={() =>
+                      isEditing ? setEditingId(null) : beginFieldReview(item)
+                    }
+                    disabled={busyId === item.id}
+                    className="btn-sharetopus-secondary text-xs py-2 px-4"
+                  >
+                    {isEditing ? 'Close editor' : 'Edit fields'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRejectFor((current) => (current === item.id ? null : item.id))}
                     disabled={busyId === item.id}
                     className="btn-sharetopus-secondary text-xs py-2 px-4"
                   >
@@ -781,39 +934,13 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      if (!isEditing) beginFieldReview(item);
-                      else void runApprove(item);
-                    }}
-                    disabled={busyId === item.id || (isEditing && !canPublish)}
-                    aria-label={
-                      busyId === item.id
-                        ? 'Working'
-                        : !isEditing
-                          ? 'Review publish fields'
-                          : 'Approve and publish'
-                    }
+                    onClick={() => void runApprove(item)}
+                    disabled={busyId === item.id || !canPublish}
                     className="btn-sharetopus-primary text-xs py-2 px-4 bg-[#059669] hover:bg-[#047857]"
                   >
-                    <RefreshCw className={`w-4 h-4 inline mr-1 ${busyId === item.id ? 'animate-spin' : ''}`} />
-                    <span className="text-xs">
-                      {busyId === item.id
-                        ? 'Working...'
-                        : !isEditing
-                          ? 'Review publish fields'
-                          : 'Approve & Publish'}
-                    </span>
+                    <CheckCircle2 className={`w-4 h-4 inline mr-1 ${busyId === item.id ? 'animate-spin' : ''}`} />
+                    <span>{busyId === item.id ? 'Working…' : 'Approve & publish'}</span>
                   </button>
-                  {isEditing && (
-                    <button
-                      type="button"
-                      onClick={() => setEditingId(null)}
-                      disabled={busyId === item.id}
-                      className="btn-sharetopus-secondary text-xs py-2 px-3"
-                    >
-                      Cancel edit
-                    </button>
-                  )}
                 </div>
               </div>
             );

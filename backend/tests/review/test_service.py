@@ -151,6 +151,41 @@ class TestReviewService:
                 _admin(),
             )
 
+    async def test_approve_harvest_listing_snapshot_publishes(
+        self, session: AsyncSession
+    ) -> None:
+        url = f"https://harvest.example/hack-{uuid4().hex[:6]}"
+        item = ReviewItem(
+            candidate_type=ReviewCandidateType.LISTING,
+            candidate_snapshot={
+                "title": "Harvested Online Hack",
+                "kind": "hackathon",
+                "officialUrl": url,
+                "source": "harvest_devpost",
+                "harvest": True,
+                "fields": {"mode": "online", "official_url": url, "organizer": "Org"},
+            },
+            reason="Harvest (online Devpost): AI approve (80/100)",
+            priority=45,
+            state=ReviewItemState.OPEN,
+            version=1,
+        )
+        session.add(item)
+        await session.flush()
+
+        svc = ReviewService(session)
+        result = await svc.approve_review_item(
+            item.id,
+            ApproveReviewRequest(expected_version=1, notes="Looks real"),
+            _admin(),
+        )
+        assert str(result.state) == ReviewItemState.APPROVED.value
+        assert result.listing_id is not None
+        listing = await session.get(Listing, result.listing_id)
+        assert listing is not None
+        assert listing.title == "Harvested Online Hack"
+        assert str(listing.verification_status) == VerificationStatus.VERIFIED_ACTIVE.value
+
     async def test_approve_community_submission_publishes_listing(
         self, session: AsyncSession
     ) -> None:

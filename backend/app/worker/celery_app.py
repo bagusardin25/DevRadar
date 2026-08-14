@@ -9,6 +9,7 @@ Queue separation (Task 6+):
 from __future__ import annotations
 
 from celery import Celery
+from celery.schedules import crontab
 
 from app.config import get_settings
 
@@ -23,6 +24,7 @@ celery_app = Celery(
         "app.catalog.tasks",
         "app.alerts.tasks",
         "app.discovery.tasks",
+        "app.harvest.tasks",
     ],
 )
 
@@ -45,6 +47,7 @@ celery_app.conf.update(
         "alerts.scan_matches": {"queue": "fetch"},
         "alerts.deliver_webhook": {"queue": "fetch"},
         "discovery.run_live_discovery": {"queue": "fetch"},
+        "harvest.run_online_hackathons": {"queue": "fetch"},
     },
     # Browser queue should run in a separate worker process with restricted env.
     task_annotations={
@@ -53,6 +56,7 @@ celery_app.conf.update(
         "alerts.scan_matches": {"rate_limit": "30/h"},
         # User-triggered, but still a safety valve on top of the per-IP limit.
         "discovery.run_live_discovery": {"rate_limit": "20/m"},
+        "harvest.run_online_hackathons": {"rate_limit": "6/h"},
     },
     # Optional beat schedule (enable with celery beat).
     beat_schedule={
@@ -71,6 +75,11 @@ celery_app.conf.update(
             "task": "alerts.scan_matches",
             "schedule": 3600.0,
             "kwargs": {"payload": {"lookback_hours": 48, "limit_listings": 100}},
+        },
+        # 07:00 / 15:00 / 23:00 WIB (00:00 / 08:00 / 16:00 UTC) — pagi, siang, malam.
+        "harvest-online-hackathons": {
+            "task": "harvest.run_online_hackathons",
+            "schedule": crontab(hour="0,8,16", minute=0),
         },
     },
 )

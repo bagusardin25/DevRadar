@@ -45,6 +45,7 @@ Browser (React/Vite)  →  FastAPI (/api/v1)  →  PostgreSQL
 
 - **Frontend-only** works with offline mock data; the real catalogue needs the API + Postgres.
 - **Celery worker required for automatic submission review**: without a `fetch` worker, community submissions stay queued.
+- **Celery beat required for the 3× daily online-hackathon harvest** (Devpost → AI review → admin queue; nothing goes public until you approve).
 - **Seed demo mode** (recommended first run): no OpenAI / no X keys — load curated JSON into Postgres.
 - **Object storage default** is local files under `backend/data/raw` (`OBJECT_STORAGE_BACKEND=local`). MinIO is optional if you switch to `s3`.
 
@@ -78,7 +79,9 @@ npm run dev
 
 # Terminal C — Celery fetch/review worker (--pool=solo required on Windows)
 cd backend
-uv run celery -A app.worker.celery_app worker -Q fetch -l info --pool=solo
+uv run celery -A app.worker.celery_app.celery_app worker -Q fetch -l info --pool=solo
+# Optional: Terminal D — beat (3× daily harvest + lifecycle + alerts)
+# uv run celery -A app.worker.celery_app.celery_app beat -l info
 ```
 
 ### macOS / Linux

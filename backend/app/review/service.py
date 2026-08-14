@@ -75,6 +75,16 @@ def _pick_title(snapshot: dict[str, Any], fields: dict[str, Any]) -> str:
     return ""
 
 
+def _snapshot_is_publishable(snapshot: dict[str, Any]) -> bool:
+    """True when a queue-only LISTING snapshot has kind + title + official URL."""
+    fields = snapshot.get("fields") if isinstance(snapshot.get("fields"), dict) else {}
+    return bool(
+        _resolve_listing_kind(snapshot, fields)
+        and _pick_title(snapshot, fields)
+        and _pick_url(snapshot, fields)
+    )
+
+
 def _pick_url(snapshot: dict[str, Any], fields: dict[str, Any]) -> str:
     for key in _URL_SNAPSHOT_KEYS:
         value = snapshot.get(key)
@@ -145,10 +155,14 @@ class ReviewService:
             item.candidate_snapshot = snapshot
 
         if item.listing_id is None:
-            # Community submissions arrive with no catalogue row — the admin's
-            # approval is what publishes them. Other queue-only candidate types
-            # keep the older no-op-approve behavior; there is nothing to publish.
-            if _state_value(item.candidate_type) == ReviewCandidateType.COMMUNITY_SUBMISSION.value:
+            # Queue-only items (community submit + harvest) have no catalogue
+            # row yet — the admin's approval is what publishes them. Incomplete
+            # LISTING stubs (legacy queue rows with just a title) stay a no-op.
+            ctype = _state_value(item.candidate_type)
+            if ctype == ReviewCandidateType.COMMUNITY_SUBMISSION.value or (
+                ctype == ReviewCandidateType.LISTING.value
+                and _snapshot_is_publishable(item.candidate_snapshot or {})
+            ):
                 published = await self._publish_from_snapshot(item, admin, command, now)
                 item.listing_id = published.id
         else:

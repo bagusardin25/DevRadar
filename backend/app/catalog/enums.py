@@ -95,6 +95,7 @@ class CrawlTrigger(StrEnum):
     MANUAL = "manual"
     SUBMISSION = "submission"
     LIVE_DISCOVERY = "live_discovery"
+    HARVEST = "harvest"
     RETRY = "retry"
 
 

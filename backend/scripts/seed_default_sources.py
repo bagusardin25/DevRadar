@@ -38,13 +38,16 @@ SOURCES: list[dict[str, Any]] = [
         "connector_type": ConnectorType.DEVPOST.value,
         "trust_tier": SourceTier.TIER_2.value,
         "base_url": "https://devpost.com/hackathons",
-        "notes": "Tier-2 aggregator. Fixture-friendly offline; live crawl when worker enabled.",
+        "notes": (
+            "Tier-2 aggregator. The 3× daily harvest (`harvest.run_online_hackathons`) "
+            "crawls Devpost's public online directory into the admin review queue."
+        ),
         "queries": [
             {
                 "module": "hackathon",
-                "name": "open-hackathons",
-                "query_config": {"query_text": "", "themes": ["ai", "open"]},
-                "result_cap": 40,
+                "name": "open-online-hackathons",
+                "query_config": {"query_text": "", "themes": ["ai", "open"], "online_only": True},
+                "result_cap": 20,
                 "cost_budget": 200,
             }
         ],

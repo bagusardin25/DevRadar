@@ -130,3 +130,44 @@ def test_development_exposes_openapi_docs() -> None:
     paths = {getattr(r, "path", None) for r in app.routes}
     assert "/docs" in paths
     assert "/openapi.json" in paths
+
+
+def test_harvest_sources_default() -> None:
+    settings = _settings(app_env="test")
+    assert settings.harvest_sources == ["devpost", "devfolio", "mlh", "lablab"]
+    assert settings.harvest_source_cap == 10
+    assert settings.harvest_total_cap == 40
+
+
+def test_harvest_sources_csv_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HARVEST_SOURCES", "MLH, devpost,mlh")
+    assert _settings(app_env="test").harvest_sources == ["mlh", "devpost"]
+    assert _settings(app_env="test", harvest_sources="MLH, devpost,mlh").harvest_sources == [
+        "mlh",
+        "devpost",
+    ]
+    monkeypatch.setenv("HARVEST_SOURCES", '["lablab", "Devfolio"]')
+    assert _settings(app_env="test").harvest_sources == ["lablab", "devfolio"]
+
+
+def test_harvest_sources_rejects_unknown() -> None:
+    with pytest.raises(ValidationError, match="dorahacks"):
+        _settings(app_env="test", harvest_sources="dorahacks")
+    with pytest.raises(ValidationError):
+        _settings(app_env="test", harvest_sources="devpost,hackerearth")
+
+
+def test_harvest_sources_empty() -> None:
+    assert _settings(app_env="test", harvest_sources="").harvest_sources == []
+
+
+def test_harvest_cap_bounds() -> None:
+    with pytest.raises(ValidationError):
+        _settings(app_env="test", harvest_source_cap=0)
+    with pytest.raises(ValidationError):
+        _settings(app_env="test", harvest_source_cap=51)
+    with pytest.raises(ValidationError):
+        _settings(app_env="test", harvest_total_cap=0)
+    with pytest.raises(ValidationError):
+        _settings(app_env="test", harvest_total_cap=101)
+    assert _settings(app_env="test", harvest_total_cap=100).harvest_total_cap == 100

@@ -43,6 +43,10 @@ _COMPOSE_DEFAULT_DB_MARKERS = (
 )
 
 
+#: Directories the scheduled harvest can read (see ``app.harvest.runner``).
+HARVEST_SOURCE_KEYS = ("devpost", "devfolio", "mlh", "lablab")
+
+
 class Settings(BaseSettings):
     """Application settings loaded from environment variables and .env file."""
 
@@ -153,6 +157,18 @@ class Settings(BaseSettings):
     # Off by default in code? No: this is the OSS public-catalogue loop.
     harvest_enabled: bool = True
     harvest_devpost_cap: int = 20
+    # Which directories the harvest reads, in priority order (earlier sources
+    # win cross-source duplicates). Leave a source out to switch it off.
+    harvest_sources: Annotated[list[str], NoDecode] = [
+        "devpost",
+        "devfolio",
+        "mlh",
+        "lablab",
+    ]
+    # Per-source cap for every source other than Devpost, plus a total ceiling
+    # so LLM extraction cost per run stays bounded.
+    harvest_source_cap: int = 10
+    harvest_total_cap: int = 40
 
     # Opt-in, local development only: allow resolved addresses inside
     # 198.18.0.0/15. Proxy tools in "fake-IP" DNS mode (Clash, Surge, sing-box
@@ -263,7 +279,38 @@ class Settings(BaseSettings):
             raise ValueError("HARVEST_DEVPOST_CAP must be between 1 and 50")
         return v
 
-    @field_validator("cors_origins", "admin_google_emails", mode="before")
+    @field_validator("harvest_source_cap")
+    @classmethod
+    def validate_harvest_source_cap(cls, v: int) -> int:
+        if not 1 <= v <= 50:
+            raise ValueError("HARVEST_SOURCE_CAP must be between 1 and 50")
+        return v
+
+    @field_validator("harvest_total_cap")
+    @classmethod
+    def validate_harvest_total_cap(cls, v: int) -> int:
+        if not 1 <= v <= 100:
+            raise ValueError("HARVEST_TOTAL_CAP must be between 1 and 100")
+        return v
+
+    @field_validator("harvest_sources", mode="after")
+    @classmethod
+    def validate_harvest_sources(cls, v: list[str]) -> list[str]:
+        cleaned: list[str] = []
+        for raw in v:
+            key = raw.strip().lower()
+            if not key:
+                continue
+            if key not in HARVEST_SOURCE_KEYS:
+                allowed = ", ".join(HARVEST_SOURCE_KEYS)
+                raise ValueError(
+                    f"HARVEST_SOURCES contains unknown source {raw!r}; allowed: {allowed}"
+                )
+            if key not in cleaned:
+                cleaned.append(key)
+        return cleaned
+
+    @field_validator("cors_origins", "admin_google_emails", "harvest_sources", mode="before")
     @classmethod
     def parse_comma_separated_list(cls, v: Any) -> list[str]:
         """Parse JSON arrays, comma-separated strings, or lists into list[str]."""

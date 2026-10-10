@@ -221,6 +221,7 @@ class DirectoryConnector:
         self._http_get = http_get
         self._now_fn = now
         self.blocked = False
+        self.degraded: str | None = None
 
     def now(self) -> datetime:
         return self._now_fn() if self._now_fn is not None else datetime.now(UTC)
@@ -285,7 +286,11 @@ class DirectoryConnector:
         )
         return DiscoveryPage(items=[], next_cursor=None)
 
-    def failed(self, url: str, exc: BaseException) -> DiscoveryPage:
+    def failed(
+        self, url: str, exc: BaseException, *, degrade: bool = True
+    ) -> DiscoveryPage:
+        if degrade:
+            self.degraded = f"{self.name}_directory_failed"
         logger.warning(
             f"{self.name}_directory_failed",
             extra={"url": url, "error": f"{type(exc).__name__}: {exc}"},

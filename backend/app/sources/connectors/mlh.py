@@ -146,7 +146,7 @@ class MLHConnector(DirectoryConnector):
             return self.block(url, blocked.reason)
         except Exception as exc:
             # e.g. a 404 before the next season is announced: skip this season.
-            self.failed(url, exc)
+            self.failed(url, exc, degrade=season == seasons[0])
             return DiscoveryPage(items=[], next_cursor=next_cursor)
 
         page = extract_inertia_page(page_html)
@@ -157,6 +157,8 @@ class MLHConnector(DirectoryConnector):
                 "mlh_payload_missing",
                 extra={"url": url, "found_page": page is not None},
             )
+            if season == seasons[0]:
+                self.degraded = "mlh_payload_missing"
             return DiscoveryPage(items=[], next_cursor=next_cursor)
 
         items: list[DiscoveryCandidate] = []

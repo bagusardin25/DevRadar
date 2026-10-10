@@ -402,7 +402,7 @@ async def test_lablab_row_filters(caplog: pytest.LogCaptureFixture) -> None:
     rows[0]["deletedAt"] = "2026-10-01T00:00:00.000Z"  # soft-deleted
     rows[1]["type"] = "WORKSHOP"
     rows[2]["eventType"] = "SOMETHING_NEW"  # unknown mode -> skipped
-    rows[3]["endAt"] = None  # no end date -> kept
+    rows[3]["endAt"] = "2026-12-31T00:00:00.000Z"  # still running -> kept
     rows[4]["slug"] = "../escape"
     connector = LablabConnector(fixtures=rows, now=_now)
     with caplog.at_level(logging.INFO):
@@ -410,6 +410,24 @@ async def test_lablab_row_filters(caplog: pytest.LogCaptureFixture) -> None:
     assert [item.external_id for item in page.items] == [rows[3]["id"]]
     reasons = {r.reason for r in caplog.records if r.getMessage() == "lablab_row_skipped"}
     assert reasons == {"unknown_mode", "missing_title_or_bad_slug"}
+
+
+async def test_lablab_rows_without_end_date_are_skipped(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    rows = extract_sorted_events(_read("lablab_ai_hackathons.html"))
+    assert rows is not None
+    rows = copy.deepcopy(rows)
+    for row in rows:
+        row.pop("endAt", None)  # field renamed or removed upstream
+    with caplog.at_level(logging.WARNING):
+        page = await LablabConnector(fixtures=rows, now=_now).discover(_query())
+    assert page.items == []
+    warned = [r for r in caplog.records if r.getMessage() == "lablab_rows_missing_end"]
+    assert len(warned) == 1 and warned[0].skipped > 0  # type: ignore[attr-defined]
+
+    live = await _lablab_connector(_read("lablab_ai_hackathons.html")).discover(_query())
+    assert len(live.items) == 3  # dated rows are unaffected
 
 
 @pytest.mark.parametrize("breakage", ["renamed_key", "truncated", "no_pushes", "bad_rows"])

@@ -25,6 +25,7 @@ from app.sources.connectors.base import ConnectorQuery, DiscoveryPage
 from app.sources.connectors.devfolio import DevfolioConnector
 from app.sources.connectors.devpost import DevpostConnector
 from app.sources.connectors.lablab import LablabConnector
+from app.sources.connectors.mlh import MLHConnector
 from app.sources.models import Source
 
 NOW = datetime(2026, 8, 14, 8, 15, tzinfo=UTC)
@@ -79,6 +80,15 @@ def _devfolio_row(n: int) -> dict[str, Any]:
         "starts_at": "2026-09-01T00:00:00.000Z",
         "ends_at": "2026-12-01T00:00:00.000Z",
         "hackathon_setting": {"subdomain": f"folio-{n}"},
+    }
+
+
+def _devpost_row(n: int) -> dict[str, Any]:
+    return {
+        "id": str(n),
+        "url": f"https://dp-{n}.devpost.com/",
+        "title": f"Post Event {n}",
+        "displayed_location": {"icon": "globe", "location": "Online"},
     }
 
 
@@ -183,6 +193,43 @@ async def test_runner_blocked_source_fails_its_run_and_others_continue(
     assert sources["devfolio"]["error"] is None
     statuses = [str(run.status) for run in memory.added if isinstance(run, CrawlRun)]
     assert sorted(statuses) == ["failed", "succeeded"]
+
+
+async def test_runner_degraded_sources_are_reported_as_partial_runs(
+    memory: _MemorySession,
+) -> None:
+    async def no_payload(_url: str) -> str:
+        return "<html><body>redesigned, no RSC payload</body></html>"
+
+    async def server_error(_url: str) -> Any:
+        raise RuntimeError("HTTP 500")
+
+    summary = await runner.run_online_hackathon_harvest(
+        memory,  # type: ignore[arg-type]
+        _settings(),
+        now=NOW,
+        connectors={
+            "lablab": LablabConnector(http_get=no_payload, now=_now),
+            "devfolio": DevfolioConnector(http_get=server_error, now=_now),
+            "mlh": MLHConnector(fixtures=[], now=_now),
+            "devpost": DevpostConnector(fixtures=[_devpost_row(1)], now=_now),
+        },
+        fetch_page=_fake_fetch,
+    )
+    sources = summary.as_meta()["sources"]
+    assert sources["lablab"]["error"] == "lablab_payload_missing"
+    assert sources["devfolio"]["error"] == "devfolio_directory_failed"
+    assert sources["mlh"]["error"] is None
+    assert sources["devpost"]["error"] is None
+    assert sources["devpost"]["queued"] == 1  # the healthy source still ran
+    runs = {
+        run.error_summary or "": str(run.status)
+        for run in memory.added
+        if isinstance(run, CrawlRun)
+    }
+    assert runs["lablab_payload_missing"] == "partial"
+    assert runs["devfolio_directory_failed"] == "partial"
+    assert runs[""] == "succeeded"
 
 
 async def test_runner_isolates_a_crashing_source(memory: _MemorySession) -> None:

@@ -259,6 +259,7 @@ async def run_online_hackathon_harvest(
     extractor = create_extractor(settings, lane=LLMLane.CRAWL)
     advisor = build_review_advisor(settings)
     failed_runs: set[str] = set()
+    degraded_runs: set[str] = set()
 
     try:
         known = await _known_urls(session)
@@ -279,9 +280,13 @@ async def run_online_hackathon_harvest(
                 counts.error = type(exc).__name__
                 failed_runs.add(key)
                 continue
+            degraded = getattr(client, "degraded", None)
             if getattr(client, "blocked", False):
                 counts.error = "blocked"
                 failed_runs.add(key)
+            elif degraded:
+                counts.error = str(degraded)
+                degraded_runs.add(key)
             batches[key] = batch
             counts.discovered = batch.discovered
             counts.skipped_duplicate = batch.duplicates
@@ -335,6 +340,9 @@ async def run_online_hackathon_harvest(
             if key in failed_runs:
                 run.status = CrawlRunStatus.FAILED
                 run.error_summary = (counts.error or "failed")[:500]
+            elif key in degraded_runs:
+                run.status = CrawlRunStatus.PARTIAL
+                run.error_summary = (counts.error or "degraded")[:500]
             elif counts.failed or counts.skipped_fetch:
                 run.status = CrawlRunStatus.PARTIAL
             else:

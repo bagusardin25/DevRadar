@@ -119,6 +119,7 @@ def _tech_names(row: dict[str, Any]) -> list[str]:
 class LablabConnector(DirectoryConnector):
     name = "lablab"
     connector_type = "lablab"
+    _missing_end = 0
 
     async def discover(
         self, query: ConnectorQuery, cursor: str | None = None
@@ -157,6 +158,7 @@ class LablabConnector(DirectoryConnector):
                     "found_key": _KEY in text,
                 },
             )
+            self.degraded = "lablab_payload_missing"
             return DiscoveryPage(items=[], next_cursor=None)
         return DiscoveryPage(items=self._parse_rows(rows, query), next_cursor=None)
 
@@ -167,6 +169,7 @@ class LablabConnector(DirectoryConnector):
     ) -> list[DiscoveryCandidate]:
         items: list[DiscoveryCandidate] = []
         seen: set[str] = set()
+        self._missing_end = 0
         for row in rows:
             if not isinstance(row, dict):
                 continue
@@ -177,6 +180,13 @@ class LablabConnector(DirectoryConnector):
                 continue
             seen.add(item.external_id)
             items.append(item)
+        if self._missing_end:
+            # The listing holds ~144 past events: without an end date there is
+            # no way to tell them from live ones, so they are never queued.
+            logger.warning(
+                "lablab_rows_missing_end",
+                extra={"skipped": self._missing_end, "rows": len(rows)},
+            )
         return items
 
     def _candidate_from_row(self, row: dict[str, Any]) -> DiscoveryCandidate | None:
@@ -198,6 +208,9 @@ class LablabConnector(DirectoryConnector):
             ends_raw is not None and ends_at is None
         ):
             self.skipped("bad_dates", row_id)
+            return None
+        if ends_at is None:
+            self._missing_end += 1
             return None
         if self.ended(ends_at):
             return None

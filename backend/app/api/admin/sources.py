@@ -2,17 +2,21 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import Field
 
-from app.api.dependencies import AdminUser, AdminUserRead, DbSession
+from app.api.dependencies import AdminUser, AdminUserRead, DbSession, get_settings_dep
 from app.catalog.schemas import CamelModel
+from app.config import Settings
+from app.harvest.health import harvest_source_health
 from app.sources.service import SourceService
 
 router = APIRouter(prefix="/admin/sources", tags=["Admin Sources"])
+
+SettingsDep = Annotated[Settings, Depends(get_settings_dep)]
 
 
 class SourcePublic(CamelModel):
@@ -78,6 +82,21 @@ async def create_source(
 ) -> SourcePublic:
     source = await SourceService(session).create_source(**body.model_dump())
     return _public(source)
+
+
+# Declared before ``/{source_id}`` so the path is not parsed as a UUID.
+@router.get("/harvest-health")
+async def harvest_health(
+    session: DbSession,
+    settings: SettingsDep,
+    _admin: AdminUserRead,
+) -> dict[str, Any]:
+    """Recent-run health of every harvest directory (read-only)."""
+    report = await harvest_source_health(session, enabled_keys=settings.harvest_sources)
+    return {
+        "items": [health.as_dict() for health in report],
+        "unhealthy": [health.key for health in report if not health.healthy],
+    }
 
 
 @router.get("/{source_id}")

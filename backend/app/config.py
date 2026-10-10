@@ -44,7 +44,21 @@ _COMPOSE_DEFAULT_DB_MARKERS = (
 
 
 #: Directories the scheduled harvest can read (see ``app.harvest.runner``).
-HARVEST_SOURCE_KEYS = ("devpost", "devfolio", "mlh", "lablab")
+HARVEST_SOURCE_KEYS = (
+    "devpost",
+    "devfolio",
+    "dorahacks",
+    "unstop",
+    "lablab",
+    "ethglobal",
+    "taikai",
+    "hackquest",
+    "hack2skill",
+    "hackathon_com",
+    "commudle",
+    "hackclub",
+    "mlh",
+)
 
 
 class Settings(BaseSettings):
@@ -159,12 +173,7 @@ class Settings(BaseSettings):
     harvest_devpost_cap: int = 20
     # Which directories the harvest reads, in priority order (earlier sources
     # win cross-source duplicates). Leave a source out to switch it off.
-    harvest_sources: Annotated[list[str], NoDecode] = [
-        "devpost",
-        "devfolio",
-        "mlh",
-        "lablab",
-    ]
+    harvest_sources: Annotated[list[str], NoDecode] = list(HARVEST_SOURCE_KEYS)
     # Per-source cap for every source other than Devpost, plus a total ceiling
     # so LLM extraction cost per run stays bounded.
     harvest_source_cap: int = 10

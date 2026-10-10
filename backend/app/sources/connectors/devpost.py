@@ -25,6 +25,9 @@ from app.sources.connectors.base import (
 logger = logging.getLogger(__name__)
 
 DEVPOST_API = "https://devpost.com/api/hackathons"
+# Devpost silently caps ``per_page`` at 40 (asking for 50 returns 40 rows and
+# ``meta.per_page == 40``), so never ask for more.
+DEVPOST_MAX_PER_PAGE = 40
 USER_AGENT = (
     "Mozilla/5.0 (compatible; DevRadarBot/0.2; "
     "+https://github.com/bagusardin25/DevRadar)"
@@ -71,7 +74,7 @@ def _directory_url(*, page: int, per_page: int) -> str:
             ("status[]", "open"),
             ("status[]", "upcoming"),
             ("page", str(max(1, page))),
-            ("per_page", str(max(1, min(per_page, 50)))),
+            ("per_page", str(max(1, min(per_page, DEVPOST_MAX_PER_PAGE)))),
         ]
     )
     return f"{DEVPOST_API}?{query}"
@@ -125,7 +128,7 @@ class DevpostConnector:
         self, query: ConnectorQuery, cursor: str | None
     ) -> DiscoveryPage:
         page = int(cursor or 1)
-        per_page = max(1, min(int(query.result_cap or 20), 50))
+        per_page = max(1, min(int(query.result_cap or 20), DEVPOST_MAX_PER_PAGE))
         url = _directory_url(page=page, per_page=per_page)
         try:
             payload = await self._load_directory(url)
@@ -154,10 +157,16 @@ class DevpostConnector:
             if item is not None:
                 items.append(item)
 
-        meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
+        meta_raw = payload.get("meta")
+        meta: dict[str, Any] = meta_raw if isinstance(meta_raw, dict) else {}
         total = int(meta.get("total_count") or 0)
-        fetched_through = (page - 1) * per_page + len(rows)
-        next_cursor = str(page + 1) if total and fetched_through < total else None
+        # Page arithmetic must use the page size Devpost actually served, not
+        # the one we asked for, or the last page(s) are silently skipped.
+        served = int(meta.get("per_page") or 0) or per_page
+        fetched_through = (page - 1) * served + len(rows)
+        next_cursor = (
+            str(page + 1) if rows and total and fetched_through < total else None
+        )
         return DiscoveryPage(items=items, next_cursor=next_cursor)
 
     async def _load_directory(self, url: str) -> dict[str, Any]:

@@ -49,6 +49,8 @@ logger = logging.getLogger(__name__)
 
 HARVEST_SOURCE_NAME = "Devpost (online harvest)"
 DEFAULT_CAP = 20
+# Safety bound on directory pages walked per run (40 rows per page on Devpost).
+MAX_DIRECTORY_PAGES = 25
 
 _QUEUE_STATES = (ReviewItemState.OPEN.value, ReviewItemState.IN_PROGRESS.value)
 
@@ -129,14 +131,13 @@ async def run_online_hackathon_harvest(
     advisor = build_review_advisor(settings)
 
     try:
-        page = await client.discover(
-            ConnectorQuery(module="hackathon", result_cap=limit)
-        )
-        candidates = page.items[:limit]
-        summary.discovered = len(candidates)
-        run.discovered_count = summary.discovered
-
         known = await _known_urls(session)
+        candidates, discovered, duplicates = await collect_new_candidates(
+            client, known=known, limit=limit
+        )
+        summary.discovered = discovered
+        summary.skipped_duplicate = duplicates
+        run.discovered_count = summary.discovered
 
         for hit in candidates:
             try:
@@ -188,6 +189,49 @@ async def run_online_hackathon_harvest(
 
     logger.info("harvest_completed", extra=summary.as_meta())
     return summary
+
+
+async def collect_new_candidates(
+    client: Any,
+    *,
+    known: set[str],
+    limit: int,
+    max_pages: int = MAX_DIRECTORY_PAGES,
+) -> tuple[list[DiscoveryCandidate], int, int]:
+    """Walk the directory until ``limit`` *new* events are found or it runs out.
+
+    The cap bounds how many events are fetched and reviewed per run; events
+    already in the catalogue or queue must not use it up, otherwise every run
+    re-sees the same first page and later events are never reached.
+    Returns (new candidates, rows discovered, duplicates skipped).
+    """
+    fresh: list[DiscoveryCandidate] = []
+    seen: set[str] = set()
+    discovered = duplicates = 0
+    cursor: str | None = None
+    for _ in range(max(1, max_pages)):
+        page = await client.discover(
+            ConnectorQuery(module="hackathon", result_cap=40), cursor
+        )
+        for hit in page.items:
+            discovered += 1
+            try:
+                key = canonicalize_url(hit.url).canonical
+            except Exception:
+                key = hit.url.rstrip("/").lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            if key in known:
+                duplicates += 1
+                continue
+            fresh.append(hit)
+            if len(fresh) >= limit:
+                return fresh, discovered, duplicates
+        cursor = page.next_cursor
+        if not cursor:
+            break
+    return fresh, discovered, duplicates
 
 
 async def _ingest_one(

@@ -248,3 +248,64 @@ class TestDevpostOnlineFilter:
         assert [item.title for item in page.items] == ["Online Only"]
         assert page.items[0].metadata["prize_value"] == 5000
         assert page.items[0].metadata["mode"] == "online"
+
+
+class TestDirectoryPagination:
+    async def test_next_cursor_uses_the_page_size_devpost_served(self) -> None:
+        # Devpost caps per_page at 40: 85 events = pages of 40, 40, 5.
+        calls: list[str] = []
+
+        async def fake_get(url: str) -> dict:
+            calls.append(url)
+            page = int(url.split("page=")[1].split("&")[0])
+            count = {1: 40, 2: 40, 3: 5}[page]
+            start = (page - 1) * 40
+            return {
+                "hackathons": [
+                    {
+                        "id": start + i,
+                        "title": f"Event {start + i}",
+                        "url": f"https://e{start + i}.devpost.com/",
+                        "displayed_location": {"icon": "globe", "location": "Online"},
+                    }
+                    for i in range(count)
+                ],
+                "meta": {"total_count": 85, "per_page": 40},
+            }
+
+        connector = DevpostConnector(http_get=fake_get)
+        query = ConnectorQuery(module="hackathon", result_cap=50)
+        cursor: str | None = None
+        urls: list[str] = []
+        while True:
+            page = await connector.discover(query, cursor)
+            urls += [item.url for item in page.items]
+            cursor = page.next_cursor
+            if not cursor:
+                break
+        assert len(urls) == 85
+        assert all("per_page=40" in call for call in calls)
+
+    async def test_known_events_do_not_use_up_the_cap(self) -> None:
+        from app.harvest.runner import collect_new_candidates
+
+        rows = [
+            {
+                "id": str(i),
+                "url": f"https://e{i}.devpost.com/",
+                "title": f"Event {i}",
+                "displayed_location": {"icon": "globe", "location": "Online"},
+            }
+            for i in range(100)
+        ]
+        from app.submissions.url_policy import canonicalize_url
+
+        known = {canonicalize_url(f"https://e{i}.devpost.com/").canonical for i in range(60)}
+        fresh, discovered, duplicates = await collect_new_candidates(
+            DevpostConnector(fixtures=rows), known=known, limit=20
+        )
+        assert [hit.url for hit in fresh] == [
+            f"https://e{i}.devpost.com/" for i in range(60, 80)
+        ]
+        assert duplicates == 60
+        assert discovered == 80

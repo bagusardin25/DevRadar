@@ -16,9 +16,12 @@ from app.config import Settings
 from app.db import create_engine, create_session_maker
 from app.harvest.runner import run_online_hackathon_harvest
 from app.ingestion.fetcher import FetchedDocument
+from app.ingestion.models import CrawlRun
 from app.review.models import ReviewItem
 from app.sources.connectors.base import ConnectorQuery
 from app.sources.connectors.devpost import DevpostConnector
+from app.sources.connectors.lablab import LablabConnector
+from app.sources.models import Source
 from tests.factories import seed_hackathon
 
 NOW = datetime(2026, 8, 14, 8, 15, tzinfo=UTC)
@@ -309,3 +312,73 @@ class TestDirectoryPagination:
         ]
         assert duplicates == 60
         assert discovered == 80
+
+
+LABLAB_ROW = {
+    "id": "lab-1",
+    "name": "Lablab Agents Sprint",
+    "slug": "lablab-agents-sprint",
+    "type": "HACKATHON",
+    "eventType": "ONLINE",
+    "startAt": "2026-09-01T19:00:00.000Z",
+    "endAt": "2026-12-01T19:00:00.000Z",
+    "deletedAt": None,
+    "signupActive": True,
+    "_count": {"participants": 10},
+}
+
+
+class TestMultiSourceHarvest:
+    async def test_multi_source_queues_per_source(self, session: AsyncSession) -> None:
+        async def fake_fetch(url: str, policy):
+            return _doc(url, ONLINE_HTML)
+
+        summary = await run_online_hackathon_harvest(
+            session,
+            _settings(),
+            now=NOW,
+            connectors={
+                "devpost": _connector(),
+                "lablab": LablabConnector(fixtures=[LABLAB_ROW], now=lambda: NOW),
+            },
+            fetch_page=fake_fetch,
+        )
+        assert summary.queued == 2
+        meta = summary.as_meta()
+        assert meta["sources"]["devpost"]["queued"] == 1
+        assert meta["sources"]["lablab"]["queued"] == 1
+
+        names = {
+            source.name
+            for source in (await session.execute(select(Source))).scalars().all()
+        }
+        assert {"Devpost (online harvest)", "lablab.ai (online harvest)"} <= names
+
+        snapshots = {
+            (await session.get(ReviewItem, UUID(item_id))).candidate_snapshot["source"]  # type: ignore[union-attr]
+            for item_id in summary.review_item_ids
+        }
+        assert snapshots == {"harvest_devpost", "harvest_lablab"}
+
+    async def test_blocked_source_fails_its_run_only(self, session: AsyncSession) -> None:
+        async def fake_fetch(url: str, policy):
+            return _doc(url, ONLINE_HTML)
+
+        async def waf(_url: str) -> str:
+            return "<html><head><title>Human Verification</title></head>awswaf</html>"
+
+        summary = await run_online_hackathon_harvest(
+            session,
+            _settings(),
+            now=NOW.replace(hour=16),
+            connectors={
+                "devpost": _connector(),
+                "lablab": LablabConnector(http_get=waf, now=lambda: NOW),
+            },
+            fetch_page=fake_fetch,
+        )
+        assert summary.queued == 1
+        assert summary.as_meta()["sources"]["lablab"]["error"] == "blocked"
+        runs = list((await session.execute(select(CrawlRun))).scalars().all())
+        by_status = {str(run.status) for run in runs}
+        assert "failed" in by_status

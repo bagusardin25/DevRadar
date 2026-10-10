@@ -36,7 +36,7 @@ async def _execute(*, cap: int | None) -> dict[str, Any]:
 
 @celery_app.task(name="harvest.run_online_hackathons")  # type: ignore[untyped-decorator]
 def run_online_hackathons(cap: int | None = None) -> dict[str, Any]:
-    """Discover online Devpost hackathons and queue them for admin review."""
+    """Discover online hackathons (HARVEST_SOURCES) and queue them for admin review."""
     result: dict[str, Any] = _run(_execute(cap=cap))
     logger.info("harvest_task", extra=result)
     return result

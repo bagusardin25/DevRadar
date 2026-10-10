@@ -30,13 +30,25 @@ DiscoverySourceType = Literal[
 PipelineStep = Literal["fetched", "parsed", "extracted", "verified"]
 
 
+# Caps from before the scorer was reweighted. Rows scored on either scale are
+# stored side by side, and this read model must serialize both, so each
+# component admits the larger of the two caps. A stored value over its cap
+# would otherwise 500 every list call that includes the row.
+_LEGACY_SOURCE_MAX = 20
+_LEGACY_FRESHNESS_MAX = 15
+_LEGACY_COMPLETENESS_MAX = 5
+
+
 class ScoreBreakdownPublic(CamelModel):
-    # Bounds come from the scorer so a reweighting cannot 500 every list call.
     status_and_deadline: int = Field(ge=0, le=MAX_STATUS_DEADLINE, default=0)
     keyword_match: int = Field(ge=0, le=MAX_KEYWORD, default=0)
-    source_credibility: int = Field(ge=0, le=MAX_SOURCE, default=0)
-    freshness: int = Field(ge=0, le=MAX_FRESHNESS, default=0)
-    completeness: int = Field(ge=0, le=MAX_COMPLETENESS, default=0)
+    source_credibility: int = Field(
+        ge=0, le=max(MAX_SOURCE, _LEGACY_SOURCE_MAX), default=0
+    )
+    freshness: int = Field(ge=0, le=max(MAX_FRESHNESS, _LEGACY_FRESHNESS_MAX), default=0)
+    completeness: int = Field(
+        ge=0, le=max(MAX_COMPLETENESS, _LEGACY_COMPLETENESS_MAX), default=0
+    )
 
 
 class DiscoverySourcePublic(CamelModel):

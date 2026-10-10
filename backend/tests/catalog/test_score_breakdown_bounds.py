@@ -1,7 +1,8 @@
-"""Public score breakdowns must accept everything the scorer can produce.
+"""Public score breakdowns must accept every stored scale.
 
 Seeded listings scored completeness=10 against a stale le=5 bound, so every
-catalogue list call returned 500 in production.
+catalogue list call returned 500 in production. Rows scored before the
+reweight (freshness up to 15) must keep serializing too.
 """
 
 from __future__ import annotations
@@ -32,6 +33,18 @@ def test_breakdown_at_scorer_maxima_serializes() -> None:
     public = _score_breakdown(raw)
 
     assert public.model_dump(by_alias=True) == raw
+
+
+def test_breakdown_on_pre_reweight_scale_serializes() -> None:
+    raw = {
+        "statusAndDeadline": 30,
+        "keywordMatch": 20,
+        "sourceCredibility": 20,
+        "freshness": 15,
+        "completeness": 5,
+    }
+
+    assert _score_breakdown(raw).model_dump(by_alias=True) == raw
 
 
 def test_fully_evidenced_score_round_trips_through_public_schema() -> None:

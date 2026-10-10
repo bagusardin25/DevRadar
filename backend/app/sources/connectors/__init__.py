@@ -1,8 +1,10 @@
 """Source connectors registry."""
 
 from app.sources.connectors.base import SourceConnector
+from app.sources.connectors.devfolio import DevfolioConnector
 from app.sources.connectors.devpost import DevpostConnector
 from app.sources.connectors.hackerearth import HackerEarthConnector
+from app.sources.connectors.lablab import LablabConnector
 from app.sources.connectors.mlh import MLHConnector
 from app.sources.connectors.official_site import OfficialSiteConnector
 from app.sources.connectors.rss import RSSConnector
@@ -10,6 +12,8 @@ from app.sources.connectors.x_recent_search import FakeXApiClient, XRecentSearch
 
 CONNECTOR_TYPES = {
     "devpost": DevpostConnector,
+    "devfolio": DevfolioConnector,
+    "lablab": LablabConnector,
     "mlh": MLHConnector,
     "hackerearth": HackerEarthConnector,
     "rss": RSSConnector,

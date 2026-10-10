@@ -1,0 +1,113 @@
+{
+ "result": [
+  {
+   "uuid": "d959fbb33372440883f65f9ff9054982",
+   "name": "Winter of Code 2026",
+   "slug": "winter-of-code-4",
+   "tagline": "Code. Contribute. Collaborate. Create.",
+   "starts_at": "2026-10-14T18:30:00.000Z",
+   "ends_at": "2026-11-30T18:30:00.000Z",
+   "timezone": "Asia/Calcutta",
+   "is_online": true,
+   "status": "publish",
+   "city": null,
+   "state": null,
+   "country": null,
+   "location": null,
+   "themes": [
+    {
+     "name": "No Restrictions"
+    }
+   ],
+   "hackathon_brand": null,
+   "hackathon_setting": {
+    "subdomain": "winter-of-code-4",
+    "reg_starts_at": "2026-09-09T18:30:00.000Z",
+    "reg_ends_at": "2026-10-13T18:30:00.000Z"
+   }
+  },
+  {
+   "uuid": "c84b90d65eff4ae083366fc1cc549e81",
+   "name": "hackodisha-6.0",
+   "slug": "hackodisha-6a",
+   "tagline": "Eastern India's one of the largest hackathon organized by Webwiz, NIT Rourkela.",
+   "starts_at": "2026-10-30T18:30:00.000Z",
+   "ends_at": "2026-11-01T06:30:00.000Z",
+   "timezone": "Asia/Calcutta",
+   "is_online": true,
+   "status": "publish",
+   "city": null,
+   "state": null,
+   "country": null,
+   "location": null,
+   "themes": [
+    {
+     "name": "No Restrictions"
+    }
+   ],
+   "hackathon_brand": null,
+   "hackathon_setting": {
+    "subdomain": "hackodisha-6a",
+    "reg_starts_at": "2026-09-08T18:30:00.000Z",
+    "reg_ends_at": "2026-10-30T18:29:00.000Z"
+   }
+  },
+  {
+   "uuid": "dbf09d9a260c41fdac9dabfbf738008f",
+   "name": "Q-HACK INDIA 2026",
+   "slug": "qhack-india",
+   "tagline": "The Quantum Build Challenge",
+   "starts_at": "2026-10-30T03:30:00.000Z",
+   "ends_at": "2026-10-31T14:30:00.000Z",
+   "timezone": "Asia/Calcutta",
+   "is_online": false,
+   "status": "publish",
+   "city": "Bengaluru",
+   "state": "Karnataka",
+   "country": "India",
+   "location": "Ramaiah Institute of Technology, MSRIT Post, M S R Nagar, Mathikere, Bengaluru, Karnataka, India",
+   "themes": [
+    {
+     "name": "No Restrictions"
+    }
+   ],
+   "hackathon_brand": null,
+   "hackathon_setting": {
+    "subdomain": "qhack-india",
+    "reg_starts_at": "2026-09-25T08:30:00.000Z",
+    "reg_ends_at": "2026-10-10T18:29:00.000Z"
+   }
+  },
+  {
+   "uuid": "528f2495b98b4f38ae41139390594a3a",
+   "name": "TUM Blockchain & AI Hackathon",
+   "slug": "tum",
+   "tagline": "The hackathon where Blockchain and AI meet",
+   "starts_at": "2026-10-30T09:00:00.000Z",
+   "ends_at": "2026-10-31T14:00:00.000Z",
+   "timezone": "Europe/Berlin",
+   "is_online": false,
+   "status": "publish",
+   "city": "München",
+   "state": "Bayern",
+   "country": "Germany",
+   "location": "House of Communication, Friedenstraße, Munich, Germany",
+   "themes": [
+    {
+     "name": "Blockchain"
+    },
+    {
+     "name": "AI"
+    }
+   ],
+   "hackathon_brand": null,
+   "hackathon_setting": {
+    "subdomain": "tum",
+    "reg_starts_at": "2026-06-14T22:00:00.000Z",
+    "reg_ends_at": "2026-10-29T12:00:00.000Z"
+   }
+  }
+ ],
+ "count": 4,
+ "pages": 1
+}

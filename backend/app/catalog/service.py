@@ -59,6 +59,8 @@ TIER_LABELS: dict[str, str] = {
 CONNECTOR_TO_DISCOVERY: dict[str, str] = {
     ConnectorType.DEVPOST.value: "devpost",
     ConnectorType.MLH.value: "mlh",
+    ConnectorType.DEVFOLIO.value: "official_site",
+    ConnectorType.LABLAB.value: "official_site",
     ConnectorType.HACKEREARTH.value: "official_site",
     ConnectorType.RSS.value: "official_site",
     ConnectorType.OFFICIAL_SITE.value: "official_site",

@@ -67,6 +67,8 @@ class ConnectorType(StrEnum):
 
     DEVPOST = "devpost"
     MLH = "mlh"
+    DEVFOLIO = "devfolio"
+    LABLAB = "lablab"
     HACKEREARTH = "hackerearth"
     RSS = "rss"
     OFFICIAL_SITE = "official_site"

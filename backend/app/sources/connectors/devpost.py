@@ -7,19 +7,25 @@ Devpost's public listing API — the same JSON the website uses — filtered to
 
 from __future__ import annotations
 
-import json
 import logging
 import re
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
+from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urlencode
 
-from app.ingestion.fetcher import FetchPolicy, fetch_url
 from app.sources.connectors.base import (
     ConnectorQuery,
     DiscoveryCandidate,
     DiscoveryPage,
-    FetchRequest,
+)
+from app.sources.connectors.directory_common import (
+    USER_AGENT as USER_AGENT,
+)
+from app.sources.connectors.directory_common import (
+    DirectoryConnector,
+    HttpGet,
+    SourceBlocked,
 )
 
 logger = logging.getLogger(__name__)
@@ -28,14 +34,72 @@ DEVPOST_API = "https://devpost.com/api/hackathons"
 # Devpost silently caps ``per_page`` at 40 (asking for 50 returns 40 rows and
 # ``meta.per_page == 40``), so never ask for more.
 DEVPOST_MAX_PER_PAGE = 40
-USER_AGENT = (
-    "Mozilla/5.0 (compatible; DevRadarBot/0.2; "
-    "+https://github.com/bagusardin25/DevRadar)"
-)
+DEVPOST_MAX_BYTES = 1_048_576
 
 _PRIZE_VALUE = re.compile(r"([\d,]+)")
 
-HttpGet = Callable[[str], Awaitable[dict[str, Any]]]
+_MONTHS = {
+    name: number
+    for number, name in enumerate(
+        ("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"),
+        start=1,
+    )
+}
+_MON = r"([A-Za-z]{3})[a-z]*\.?"
+_PERIOD_PATTERNS = (
+    # Dec 17, 2025 - Feb 09, 2026
+    re.compile(rf"^{_MON} (\d{{1,2}}), (\d{{4}}) - {_MON} (\d{{1,2}}), (\d{{4}})$"),
+    # Aug 21 - Oct 02, 2026
+    re.compile(rf"^{_MON} (\d{{1,2}}) - {_MON} (\d{{1,2}}), (\d{{4}})$"),
+    # Sep 03 - 25, 2026
+    re.compile(rf"^{_MON} (\d{{1,2}}) - (\d{{1,2}}), (\d{{4}})$"),
+    # Aug 29, 2026
+    re.compile(rf"^{_MON} (\d{{1,2}}), (\d{{4}})$"),
+)
+
+
+def parse_period_dates(text: object) -> tuple[str | None, str | None]:
+    """Turn Devpost's ``submission_period_dates`` into ISO UTC start/end.
+
+    Handles the four shapes Devpost serves; anything else (or an impossible /
+    reversed range) returns ``(None, None)``. Start is 00:00:00Z of the first
+    day, end is 23:59:59Z of the last day.
+    """
+    cleaned = re.sub(r"\s+", " ", str(text or "").replace("–", "-")).strip()
+    if not cleaned:
+        return None, None
+    try:
+        parts = _match_period(cleaned)
+        if parts is None:
+            return None, None
+        start = datetime(parts[0], parts[1], parts[2], tzinfo=UTC)
+        end = datetime(parts[3], parts[4], parts[5], 23, 59, 59, tzinfo=UTC)
+    except (ValueError, KeyError):
+        return None, None
+    if end < start:
+        return None, None
+    return start.strftime("%Y-%m-%dT%H:%M:%SZ"), end.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _match_period(text: str) -> tuple[int, int, int, int, int, int] | None:
+    """Return (y1, m1, d1, y2, m2, d2) for a recognised period string."""
+
+    def month(name: str) -> int:
+        return _MONTHS[name.lower()]
+
+    if m := _PERIOD_PATTERNS[0].match(text):
+        a, b, c, d, e, f = m.groups()
+        return int(c), month(a), int(b), int(f), month(d), int(e)
+    if m := _PERIOD_PATTERNS[1].match(text):
+        a, b, c, d, e = m.groups()
+        return int(e), month(a), int(b), int(e), month(c), int(d)
+    if m := _PERIOD_PATTERNS[2].match(text):
+        a, b, c, d = m.groups()
+        return int(d), month(a), int(b), int(d), month(a), int(c)
+    if m := _PERIOD_PATTERNS[3].match(text):
+        a, b, c = m.groups()
+        return int(c), month(a), int(b), int(c), month(a), int(b)
+    return None
 
 
 def is_online_listing(row: dict[str, Any]) -> bool:
@@ -80,7 +144,7 @@ def _directory_url(*, page: int, per_page: int) -> str:
     return f"{DEVPOST_API}?{query}"
 
 
-class DevpostConnector:
+class DevpostConnector(DirectoryConnector):
     name = "devpost"
     connector_type = "devpost"
 
@@ -89,9 +153,12 @@ class DevpostConnector:
         fixtures: list[dict[str, Any]] | None = None,
         *,
         http_get: HttpGet | None = None,
+        now: Callable[[], datetime] | None = None,
     ) -> None:
+        # ``now`` is accepted for a uniform constructor; Devpost's listing is
+        # already filtered to open/upcoming events server-side.
+        super().__init__(fixtures, http_get=http_get, now=now)
         self._fixtures = list(fixtures or [])
-        self._http_get = http_get
 
     async def discover(
         self, query: ConnectorQuery, cursor: str | None = None
@@ -99,9 +166,6 @@ class DevpostConnector:
         if self._fixtures:
             return self._discover_fixtures(query, cursor)
         return await self._discover_live(query, cursor)
-
-    async def fetch_detail(self, candidate: DiscoveryCandidate) -> FetchRequest:
-        return FetchRequest(url=candidate.url, metadata={"connector": self.name})
 
     def _discover_fixtures(
         self, query: ConnectorQuery, cursor: str | None
@@ -112,7 +176,7 @@ class DevpostConnector:
         # declare an in-person location are dropped so harvest tests can mix.
         filtered = [
             row
-            for row in self._fixtures
+            for row in self._fixtures or []
             if (
                 not query.query_text
                 or query.query_text.lower() in (row.get("title") or "").lower()
@@ -132,12 +196,10 @@ class DevpostConnector:
         url = _directory_url(page=page, per_page=per_page)
         try:
             payload = await self._load_directory(url)
+        except SourceBlocked as blocked:
+            return self.block(url, blocked.reason)
         except Exception as exc:
-            logger.warning(
-                "devpost_directory_failed",
-                extra={"url": url, "error": f"{type(exc).__name__}: {exc}"},
-            )
-            return DiscoveryPage(items=[], next_cursor=None)
+            return self.failed(url, exc)
 
         rows = payload.get("hackathons") if isinstance(payload, dict) else None
         if not isinstance(rows, list):
@@ -170,16 +232,7 @@ class DevpostConnector:
         return DiscoveryPage(items=items, next_cursor=next_cursor)
 
     async def _load_directory(self, url: str) -> dict[str, Any]:
-        if self._http_get is not None:
-            return await self._http_get(url)
-        policy = FetchPolicy(
-            timeout_seconds=20.0,
-            max_bytes=1_048_576,
-            allowed_content_type_prefixes=("application/json", "text/json", "text/plain"),
-            user_agent=USER_AGENT,
-        )
-        doc = await fetch_url(url, policy)
-        payload = json.loads(doc.body.decode("utf-8", errors="replace"))
+        payload = await self.load_json(url, DEVPOST_MAX_BYTES)
         if not isinstance(payload, dict):
             raise ValueError("Devpost directory did not return a JSON object")
         return payload
@@ -206,6 +259,8 @@ def _candidate_from_row(row: dict[str, Any]) -> DiscoveryCandidate | None:
         for theme in (row.get("themes") or [])
         if isinstance(theme, dict) and theme.get("name")
     ]
+    period = row.get("submission_period_dates")
+    starts_at, ends_at = parse_period_dates(period)
     return DiscoveryCandidate(
         external_id=str(row.get("id") or url),
         url=url,
@@ -215,10 +270,13 @@ def _candidate_from_row(row: dict[str, Any]) -> DiscoveryCandidate | None:
             "mode": "online",
             "organization": row.get("organization_name"),
             "open_state": row.get("open_state"),
-            "submission_period_dates": row.get("submission_period_dates"),
+            "submission_period_dates": period,
+            "starts_at": starts_at,
+            "ends_at": ends_at,
             "time_left_to_submission": row.get("time_left_to_submission"),
             "prize_value": prize,
             "themes": themes,
             "location": location_text,
+            "directory_url": url,
         },
     )

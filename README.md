@@ -33,7 +33,7 @@ Browser (React/Vite)  →  FastAPI (/api/v1)  →  PostgreSQL
                               ↓
                      Redis · Celery (fetch queue)
                               ↓
-              Connectors: official site, Devpost, MLH, RSS, X (optional)
+              Connectors: official site, Devpost, Devfolio, MLH, lablab.ai, RSS, X (optional)
 ```
 
 | Piece | Role in local dev |
@@ -45,9 +45,26 @@ Browser (React/Vite)  →  FastAPI (/api/v1)  →  PostgreSQL
 
 - **Frontend-only** works with offline mock data; the real catalogue needs the API + Postgres.
 - **Celery worker required for automatic submission review**: without a `fetch` worker, community submissions stay queued.
-- **Celery beat required for the 3× daily online-hackathon harvest** (Devpost → AI review → admin queue; nothing goes public until you approve).
+- **Celery beat required for the 3× daily online-hackathon harvest** (Devpost + Devfolio + MLH + lablab.ai → AI review → admin queue; nothing goes public until you approve).
 - **Seed demo mode** (recommended first run): no OpenAI / no X keys — load curated JSON into Postgres.
 - **Object storage default** is local files under `backend/data/raw` (`OBJECT_STORAGE_BACKEND=local`). MinIO is optional if you switch to `s3`.
+
+---
+
+## Sources
+
+The scheduled harvest reads these public hackathon directories, keeps the online (and hybrid) events and parks them in the admin review queue.
+
+| Source | Access | Open filter | Online signal | Prize | Default |
+|--------|--------|-------------|---------------|-------|---------|
+| Devpost | public JSON API | `status[]=open,upcoming` | `displayed_location.icon == globe` | yes | on |
+| Devfolio | internal JSON API (undocumented) | `filter=application_open,live,upcoming` | `is_online` | no | on |
+| MLH | Inertia JSON in the season page | `upcomingEvents` | `formatType` digital or hybrid | no | on |
+| lablab.ai | Next.js RSC payload in the page | `endAt >= now` | `eventType` ONLINE or HYBRID | no | on |
+
+Toggle with `HARVEST_SOURCES`. In-person events are never queued. CAPTCHA- or WAF-gated sources are skipped, never bypassed (DoraHacks is excluded for this reason).
+
+Caps: `HARVEST_DEVPOST_CAP` (20), `HARVEST_SOURCE_CAP` (10 for every other source) and `HARVEST_TOTAL_CAP` (40 per run). Hybrid events are queued as hybrid so an admin can judge whether remote participation is real.
 
 ---
 

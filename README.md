@@ -156,6 +156,10 @@ With `APP_ENV=production` the API **refuses** placeholder secrets and Compose DB
 
   Prefer a production env file from `backend/.env.production.example` (not the seed-demo `.env`). See [SECURITY.md](SECURITY.md#docker-build-context--deployment).
 
+### Fetches fail behind a fake-IP proxy
+
+If every fetch fails with `Resolved address blocked for <host>: 198.18.x.x`, a local proxy (Clash, Surge, sing-box TUN) is running in fake-IP DNS mode, which resolves every domain into `198.18.0.0/15`. The SSRF guard blocks that range, so the harvest finds nothing. On a **local dev machine only**, set `FETCH_ALLOW_FAKE_IP_PROXY=true` in `backend/.env`, or switch the proxy to real-IP DNS. Never enable it on a server.
+
 ---
 
 ## Modes of operation

@@ -154,6 +154,13 @@ class Settings(BaseSettings):
     harvest_enabled: bool = True
     harvest_devpost_cap: int = 20
 
+    # Opt-in, local development only: allow resolved addresses inside
+    # 198.18.0.0/15. Proxy tools in "fake-IP" DNS mode (Clash, Surge, sing-box
+    # TUN) resolve *every* domain into that range, which the SSRF guard
+    # otherwise blocks, so all fetches (including the harvest) fail. Never
+    # enable this on a server: it weakens SSRF protection for that range.
+    fetch_allow_fake_ip_proxy: bool = False
+
     # X/Twitter
     x_bearer_token: str = ""
 

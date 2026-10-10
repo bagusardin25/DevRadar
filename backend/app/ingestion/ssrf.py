@@ -10,6 +10,17 @@ from app.errors import ValidationError
 from app.submissions.url_policy import _BLOCKED_HOSTS, _METADATA_SUFFIXES, canonicalize_url
 
 _BLOCKED_LITERAL_IPS = frozenset({"169.254.169.254", "fd00:ec2::254", "0.0.0.0", "::"})
+# Benchmarking range used by fake-IP DNS proxies; see Settings.fetch_allow_fake_ip_proxy.
+_FAKE_IP_PROXY_NETWORK = ipaddress.ip_network("198.18.0.0/15")
+
+
+def _fake_ip_proxy_allowed() -> bool:
+    from app.config import get_settings
+
+    try:
+        return bool(get_settings().fetch_allow_fake_ip_proxy)
+    except Exception:
+        return False
 
 
 class SSRFError(ValidationError):
@@ -75,7 +86,9 @@ def resolve_and_validate_host(host: str) -> list[str]:
             ip = ipaddress.ip_address(addr)
         except ValueError:
             continue
-        if is_blocked_ip(ip):
+        if is_blocked_ip(ip) and not (
+            ip in _FAKE_IP_PROXY_NETWORK and _fake_ip_proxy_allowed()
+        ):
             raise SSRFError(detail=f"Resolved address blocked for {host}: {addr}")
         if addr not in resolved:
             resolved.append(addr)

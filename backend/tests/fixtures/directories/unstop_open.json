@@ -1,0 +1,853 @@
+{
+  "data": {
+    "current_page": 1,
+    "data": [
+      {
+        "id": 1767767,
+        "public_url": "hackathons/sphinx-26-hackerss-unity-1767767",
+        "title": "Sphinx 26",
+        "type": "hackathons",
+        "subtype": "online_coding_challenge",
+        "region": "offline",
+        "status": "LIVE",
+        "seo_url": "https://unstop.com/hackathons/sphinx-26-hackerss-unity-1767767",
+        "end_date": "2026-10-31T14:12:00+05:30",
+        "prizes": [],
+        "filters": [
+          {
+            "id": 422,
+            "name": "Engineering Students",
+            "type": "eligible"
+          },
+          {
+            "id": 424,
+            "name": "Postgraduate",
+            "type": "eligible"
+          },
+          {
+            "id": 426,
+            "name": "Undergraduate",
+            "type": "eligible"
+          },
+          {
+            "id": 4022,
+            "name": "Management",
+            "type": "eligible"
+          },
+          {
+            "id": 4023,
+            "name": "Medical",
+            "type": "eligible"
+          },
+          {
+            "id": 4024,
+            "name": "Law",
+            "type": "eligible"
+          },
+          {
+            "id": 4025,
+            "name": "Arts, Commerce, Sciences & Others",
+            "type": "eligible"
+          }
+        ],
+        "organisation": {
+          "id": 1705163,
+          "name": "Hackers's Unity"
+        },
+        "regnRequirements": {
+          "start_regn_dt": "2026-10-08T00:00:00+05:30",
+          "end_regn_dt": "2026-10-28T12:01:00+05:30",
+          "min_team_size": 1,
+          "max_team_size": 4
+        },
+        "short_url": "https://unstop.com/o/DYpkcgw"
+      },
+      {
+        "id": 1768744,
+        "public_url": "hackathons/blitz26-technical-coding-mookambigai-college-of-engineering-1768744",
+        "title": "Blitz'26 - Technical Coding",
+        "type": "hackathons",
+        "subtype": "online_coding_challenge",
+        "region": "online",
+        "status": "LIVE",
+        "seo_url": "https://unstop.com/hackathons/blitz26-technical-coding-mookambigai-college-of-engineering-1768744",
+        "end_date": "2026-10-24T00:00:00+05:30",
+        "prizes": [],
+        "filters": [
+          {
+            "id": 422,
+            "name": "Engineering Students",
+            "type": "eligible"
+          },
+          {
+            "id": 426,
+            "name": "Undergraduate",
+            "type": "eligible"
+          }
+        ],
+        "organisation": {
+          "id": 133690,
+          "name": "Mookambigai College of Engineering"
+        },
+        "regnRequirements": {
+          "start_regn_dt": "2026-10-10T00:00:00+05:30",
+          "end_regn_dt": "2026-10-24T00:00:00+05:30",
+          "min_team_size": 1,
+          "max_team_size": 1
+        },
+        "short_url": "https://unstop.com/o/E2Fdsb7"
+      },
+      {
+        "id": 1766434,
+        "public_url": "hackathons/threws-odyssey-2026-threws-the-research-world-1766434",
+        "title": "Threws Odyssey 2026",
+        "type": "hackathons",
+        "subtype": "online_coding_challenge",
+        "region": "online",
+        "status": "LIVE",
+        "seo_url": "https://unstop.com/hackathons/threws-odyssey-2026-threws-the-research-world-1766434",
+        "end_date": "2026-11-15T18:00:00+05:30",
+        "prizes": [
+          {
+            "rank": "Total Prize Pool",
+            "cash": 150000,
+            "currency": "fa-rupee",
+            "currencyCode": null
+          }
+        ],
+        "filters": [
+          {
+            "id": 421,
+            "name": "Experienced Professionals",
+            "type": "eligible"
+          },
+          {
+            "id": 422,
+            "name": "Engineering Students",
+            "type": "eligible"
+          },
+          {
+            "id": 424,
+            "name": "Postgraduate",
+            "type": "eligible"
+          },
+          {
+            "id": 426,
+            "name": "Undergraduate",
+            "type": "eligible"
+          },
+          {
+            "id": 679,
+            "name": "Fresher",
+            "type": "eligible"
+          },
+          {
+            "id": 4022,
+            "name": "Management",
+            "type": "eligible"
+          },
+          {
+            "id": 4023,
+            "name": "Medical",
+            "type": "eligible"
+          },
+          {
+            "id": 4024,
+            "name": "Law",
+            "type": "eligible"
+          },
+          {
+            "id": 4025,
+            "name": "Arts, Commerce, Sciences & Others",
+            "type": "eligible"
+          }
+        ],
+        "organisation": {
+          "id": 669282,
+          "name": "Threws - The Research World"
+        },
+        "regnRequirements": {
+          "start_regn_dt": "2026-10-06T00:00:00+05:30",
+          "end_regn_dt": "2026-10-31T00:00:00+05:30",
+          "min_team_size": 1,
+          "max_team_size": 4
+        },
+        "short_url": "https://unstop.com/o/Fyzspan"
+      },
+      {
+        "id": 1766226,
+        "public_url": "hackathons/keep-alive-26-iiitn-1766226",
+        "title": "Keep Alive ’26",
+        "type": "hackathons",
+        "subtype": "online_coding_challenge",
+        "region": "hybrid",
+        "status": "LIVE",
+        "seo_url": "https://unstop.com/hackathons/keep-alive-26-iiitn-1766226",
+        "end_date": "2026-10-26T19:00:00+05:30",
+        "prizes": [
+          {
+            "rank": "Winner",
+            "cash": 12000,
+            "currency": "fa-rupee",
+            "currencyCode": null
+          },
+          {
+            "rank": "1st Runner-up",
+            "cash": 7000,
+            "currency": "fa-rupee",
+            "currencyCode": null
+          },
+          {
+            "rank": "2nd Runner-up",
+            "cash": 4000,
+            "currency": "fa-rupee",
+            "currencyCode": null
+          },
+          {
+            "rank": "Sharpest RCA Award",
+            "cash": 2000,
+            "currency": "fa-rupee",
+            "currencyCode": null
+          },
+          {
+            "rank": "All finalists",
+            "cash": null,
+            "currency": "fa-rupee",
+            "currencyCode": null
+          }
+        ],
+        "filters": [
+          {
+            "id": 422,
+            "name": "Engineering Students",
+            "type": "eligible"
+          },
+          {
+            "id": 424,
+            "name": "Postgraduate",
+            "type": "eligible"
+          },
+          {
+            "id": 426,
+            "name": "Undergraduate",
+            "type": "eligible"
+          }
+        ],
+        "organisation": {
+          "id": 105898,
+          "name": "Indian Institute of Information Technology (IIIT), Nagpur"
+        },
+        "regnRequirements": {
+          "start_regn_dt": "2026-10-09T02:00:00+05:30",
+          "end_regn_dt": "2026-10-18T23:29:00+05:30",
+          "min_team_size": 3,
+          "max_team_size": 3
+        },
+        "short_url": "https://unstop.com/o/9HlDVft"
+      },
+      {
+        "id": 1768266,
+        "public_url": "hackathons/algorithmia-the-icpc-style-coding-challenge-iiitn-1768266",
+        "title": "Algorithmia - The ICPC Style Coding Challenge",
+        "type": "hackathons",
+        "subtype": "online_coding_challenge",
+        "region": "hybrid",
+        "status": "LIVE",
+        "seo_url": "https://unstop.com/hackathons/algorithmia-the-icpc-style-coding-challenge-iiitn-1768266",
+        "end_date": "2026-10-25T16:00:00+05:30",
+        "prizes": [
+          {
+            "rank": "1",
+            "cash": 15000,
+            "currency": "fa-rupee",
+            "currencyCode": null
+          },
+          {
+            "rank": "2",
+            "cash": 12000,
+            "currency": "fa-rupee",
+            "currencyCode": null
+          },
+          {
+            "rank": "3",
+            "cash": 8000,
+            "currency": "fa-rupee",
+            "currencyCode": null
+          }
+        ],
+        "filters": [
+          {
+            "id": 422,
+            "name": "Engineering Students",
+            "type": "eligible"
+          },
+          {
+            "id": 426,
+            "name": "Undergraduate",
+            "type": "eligible"
+          }
+        ],
+        "organisation": {
+          "id": 105898,
+          "name": "Indian Institute of Information Technology (IIIT), Nagpur"
+        },
+        "regnRequirements": {
+          "start_regn_dt": "2026-10-10T12:00:00+05:30",
+          "end_regn_dt": "2026-10-18T00:00:00+05:30",
+          "min_team_size": 2,
+          "max_team_size": 3
+        },
+        "short_url": "https://unstop.com/o/25xhFeX"
+      },
+      {
+        "id": 1768758,
+        "public_url": "hackathons/codersinpune-hackathon-hackwithpune-1768758",
+        "title": "CodersInPune Hackathon - HackWIthPune",
+        "type": "hackathons",
+        "subtype": "online_coding_challenge",
+        "region": "online",
+        "status": "LIVE",
+        "seo_url": "https://unstop.com/hackathons/codersinpune-hackathon-hackwithpune-1768758",
+        "end_date": "2026-11-06T05:48:23+05:30",
+        "prizes": [
+          {
+            "rank": "1st Rank",
+            "cash": null,
+            "currency": "fa-rupee",
+            "currencyCode": null
+          },
+          {
+            "rank": "2nd Rank",
+            "cash": null,
+            "currency": "fa-rupee",
+            "currencyCode": null
+          },
+          {
+            "rank": "3rd Rank",
+            "cash": null,
+            "currency": "fa-rupee",
+            "currencyCode": null
+          },
+          {
+            "rank": "All participants",
+            "cash": null,
+            "currency": "fa-rupee",
+            "currencyCode": null
+          }
+        ],
+        "filters": [
+          {
+            "id": 420,
+            "name": "All",
+            "type": "eligible"
+          }
+        ],
+        "organisation": {
+          "id": 2087234,
+          "name": "HackWithPune"
+        },
+        "regnRequirements": {
+          "start_regn_dt": "2026-10-07T00:00:00+05:30",
+          "end_regn_dt": "2026-11-05T00:00:00+05:30",
+          "min_team_size": 1,
+          "max_team_size": 4
+        },
+        "short_url": "https://unstop.com/o/Q2vZ8cj"
+      },
+      {
+        "id": 1768545,
+        "public_url": "hackathons/hack-at-bvp-80-bharati-vidyapeeths-college-of-engineering-1768545",
+        "title": "Hack@BVP 8.0",
+        "type": "hackathons",
+        "subtype": "online_coding_challenge",
+        "region": "hybrid",
+        "status": "LIVE",
+        "seo_url": "https://unstop.com/hackathons/hack-at-bvp-80-bharati-vidyapeeths-college-of-engineering-1768545",
+        "end_date": "2026-10-22T20:00:00+05:30",
+        "prizes": [
+          {
+            "rank": "Prize Pool (Cash + Goodies)",
+            "cash": null,
+            "currency": "fa-rupee",
+            "currencyCode": null
+          }
+        ],
+        "filters": [
+          {
+            "id": 420,
+            "name": "All",
+            "type": "eligible"
+          }
+        ],
+        "organisation": {
+          "id": 943045,
+          "name": "Bharati Vidyapeeth's College of Engineering"
+        },
+        "regnRequirements": {
+          "start_regn_dt": "2026-10-09T22:00:00+05:30",
+          "end_regn_dt": "2026-10-16T19:00:00+05:30",
+          "min_team_size": 2,
+          "max_team_size": 4
+        },
+        "short_url": "https://unstop.com/o/odOaLzm"
+      },
+      {
+        "id": 1760989,
+        "public_url": "hackathons/kritical-hacks-2026-igdtuw-delhi-1760989",
+        "title": "Kritical Hacks 2026",
+        "type": "hackathons",
+        "subtype": "online_coding_challenge",
+        "region": "offline",
+        "status": "LIVE",
+        "seo_url": "https://unstop.com/hackathons/kritical-hacks-2026-igdtuw-delhi-1760989",
+        "end_date": "2026-11-01T21:00:00+05:30",
+        "prizes": [
+          {
+            "rank": "Total Prize Pool",
+            "cash": 175000,
+            "currency": "fa-rupee",
+            "currencyCode": null
+          }
+        ],
+        "filters": [
+          {
+            "id": 421,
+            "name": "Experienced Professionals",
+            "type": "eligible"
+          },
+          {
+            "id": 422,
+            "name": "Engineering Students",
+            "type": "eligible"
+          },
+          {
+            "id": 424,
+            "name": "Postgraduate",
+            "type": "eligible"
+          },
+          {
+            "id": 426,
+            "name": "Undergraduate",
+            "type": "eligible"
+          },
+          {
+            "id": 679,
+            "name": "Fresher",
+            "type": "eligible"
+          },
+          {
+            "id": 4022,
+            "name": "Management",
+            "type": "eligible"
+          },
+          {
+            "id": 4023,
+            "name": "Medical",
+            "type": "eligible"
+          },
+          {
+            "id": 4024,
+            "name": "Law",
+            "type": "eligible"
+          },
+          {
+            "id": 4025,
+            "name": "Arts, Commerce, Sciences & Others",
+            "type": "eligible"
+          }
+        ],
+        "organisation": {
+          "id": 12326,
+          "name": "Indira Gandhi Delhi Technical University for Women (IGDTUW), Delhi"
+        },
+        "regnRequirements": {
+          "start_regn_dt": "2026-09-24T00:00:00+05:30",
+          "end_regn_dt": "2026-10-10T23:59:00+05:30",
+          "min_team_size": 2,
+          "max_team_size": 5
+        },
+        "short_url": "https://unstop.com/o/tL2Coan"
+      },
+      {
+        "id": 1765827,
+        "public_url": "hackathons/flashcode-tantrafiesta26-iiitn-1765827",
+        "title": "FlashCode",
+        "type": "hackathons",
+        "subtype": "online_coding_challenge",
+        "region": "offline",
+        "status": "LIVE",
+        "seo_url": "https://unstop.com/hackathons/flashcode-tantrafiesta26-iiitn-1765827",
+        "end_date": "2026-10-26T18:00:00+05:30",
+        "prizes": [
+          {
+            "rank": "1",
+            "cash": 4000,
+            "currency": "fa-rupee",
+            "currencyCode": null
+          },
+          {
+            "rank": "2",
+            "cash": 3000,
+            "currency": "fa-rupee",
+            "currencyCode": null
+          },
+          {
+            "rank": "3",
+            "cash": 2000,
+            "currency": "fa-rupee",
+            "currencyCode": null
+          }
+        ],
+        "filters": [
+          {
+            "id": 422,
+            "name": "Engineering Students",
+            "type": "eligible"
+          },
+          {
+            "id": 426,
+            "name": "Undergraduate",
+            "type": "eligible"
+          }
+        ],
+        "organisation": {
+          "id": 105898,
+          "name": "Indian Institute of Information Technology (IIIT), Nagpur"
+        },
+        "regnRequirements": {
+          "start_regn_dt": "2026-10-10T00:00:00+05:30",
+          "end_regn_dt": "2026-10-26T11:00:10+05:30",
+          "min_team_size": 1,
+          "max_team_size": 1
+        },
+        "short_url": "https://unstop.com/o/KcJDNpM"
+      },
+      {
+        "id": 1768377,
+        "public_url": "hackathons/gameforge-26-university-school-of-automation-robotics-usar-guru-gobind-singh-indraprastha-university-ggsipu-d-1768377",
+        "title": "GameForge '26",
+        "type": "hackathons",
+        "subtype": "online_coding_challenge",
+        "region": "offline",
+        "status": "LIVE",
+        "seo_url": "https://unstop.com/hackathons/gameforge-26-university-school-of-automation-robotics-usar-guru-gobind-singh-indraprastha-university-ggsipu-d-1768377",
+        "end_date": "2026-10-22T19:00:00+05:30",
+        "prizes": [
+          {
+            "rank": "Total Prize Pool",
+            "cash": 50000,
+            "currency": "fa-rupee",
+            "currencyCode": null
+          }
+        ],
+        "filters": [
+          {
+            "id": 422,
+            "name": "Engineering Students",
+            "type": "eligible"
+          },
+          {
+            "id": 424,
+            "name": "Postgraduate",
+            "type": "eligible"
+          },
+          {
+            "id": 426,
+            "name": "Undergraduate",
+            "type": "eligible"
+          },
+          {
+            "id": 4022,
+            "name": "Management",
+            "type": "eligible"
+          },
+          {
+            "id": 4025,
+            "name": "Arts, Commerce, Sciences & Others",
+            "type": "eligible"
+          }
+        ],
+        "organisation": {
+          "id": 1746797,
+          "name": "University School of Automation & Robotics (USAR) ,Guru Gobind Singh Indraprastha University (GGSIPU), Delhi"
+        },
+        "regnRequirements": {
+          "start_regn_dt": "2026-10-09T00:00:00+05:30",
+          "end_regn_dt": "2026-10-19T00:00:00+05:30",
+          "min_team_size": 1,
+          "max_team_size": 4
+        },
+        "short_url": "https://unstop.com/o/V5rPSA7"
+      },
+      {
+        "id": 1369976,
+        "public_url": "hackathons/iot-hackathon-v-prayukti25-bannari-amman-institute-of-technology-1369976",
+        "title": "IoT Hackathon",
+        "type": "hackathons",
+        "subtype": "innovation_challenge",
+        "region": "offline",
+        "status": "LIVE",
+        "seo_url": "https://unstop.com/hackathons/iot-hackathon-v-prayukti25-bannari-amman-institute-of-technology-1369976",
+        "end_date": "2025-02-08T09:00:00+05:30",
+        "prizes": [
+          {
+            "rank": "Winner",
+            "cash": 1500,
+            "currency": "fa-rupee",
+            "currencyCode": "INR"
+          },
+          {
+            "rank": "Runner Up",
+            "cash": 1000,
+            "currency": "fa-rupee",
+            "currencyCode": "INR"
+          }
+        ],
+        "filters": [
+          {
+            "id": 399,
+            "name": "College Festival",
+            "type": "category"
+          },
+          {
+            "id": 406,
+            "name": "Hackathon",
+            "type": "category"
+          },
+          {
+            "id": 422,
+            "name": "Engineering Students",
+            "type": "eligible"
+          },
+          {
+            "id": 424,
+            "name": "Postgraduate",
+            "type": "eligible"
+          },
+          {
+            "id": 426,
+            "name": "Undergraduate",
+            "type": "eligible"
+          }
+        ],
+        "organisation": {
+          "id": 122774,
+          "name": "Bannari Amman Institute of Technology"
+        },
+        "regnRequirements": {
+          "start_regn_dt": "2025-01-21T00:00:00+05:30",
+          "end_regn_dt": "2025-02-04T23:59:51+05:30",
+          "min_team_size": 2,
+          "max_team_size": 4
+        },
+        "short_url": "https://unstop.com/o/CJ8WF6K"
+      },
+      {
+        "id": 1346649,
+        "public_url": "hackathons/capture-the-flag-v-prayukti25-bannari-amman-institute-of-technology-1346649",
+        "title": "Capture the Flag",
+        "type": "hackathons",
+        "subtype": "online_coding_challenge",
+        "region": "online",
+        "status": "LIVE",
+        "seo_url": "https://unstop.com/hackathons/capture-the-flag-v-prayukti25-bannari-amman-institute-of-technology-1346649",
+        "end_date": "2025-02-08T17:00:00+05:30",
+        "prizes": [
+          {
+            "rank": "Winner",
+            "cash": 750,
+            "currency": "fa-rupee",
+            "currencyCode": "INR"
+          },
+          {
+            "rank": "Runner Up",
+            "cash": 500,
+            "currency": "fa-rupee",
+            "currencyCode": "INR"
+          }
+        ],
+        "filters": [
+          {
+            "id": 399,
+            "name": "College Festival",
+            "type": "category"
+          },
+          {
+            "id": 412,
+            "name": "Coding Challenge",
+            "type": "category"
+          },
+          {
+            "id": 422,
+            "name": "Engineering Students",
+            "type": "eligible"
+          },
+          {
+            "id": 424,
+            "name": "Postgraduate",
+            "type": "eligible"
+          },
+          {
+            "id": 426,
+            "name": "Undergraduate",
+            "type": "eligible"
+          }
+        ],
+        "organisation": {
+          "id": 122774,
+          "name": "Bannari Amman Institute of Technology"
+        },
+        "regnRequirements": {
+          "start_regn_dt": "2025-01-06T00:00:00+05:30",
+          "end_regn_dt": "2025-02-04T23:59:37+05:30",
+          "min_team_size": 2,
+          "max_team_size": 3
+        },
+        "short_url": "https://unstop.com/o/BnOjK0y"
+      },
+      {
+        "id": 910797,
+        "public_url": "hackathons/webgators-techmarathon24-dduc-du-new-delhi-910797",
+        "title": "Webgators",
+        "type": "hackathons",
+        "subtype": "innovation_challenge",
+        "region": "offline",
+        "status": "LIVE",
+        "seo_url": "https://unstop.com/hackathons/webgators-techmarathon24-dduc-du-new-delhi-910797",
+        "end_date": "2024-03-02T00:00:00+05:30",
+        "prizes": [
+          {
+            "rank": "Winner",
+            "cash": 2500,
+            "currency": "fa-rupee",
+            "currencyCode": "INR"
+          },
+          {
+            "rank": "First Runner Up",
+            "cash": 1500,
+            "currency": "fa-rupee",
+            "currencyCode": "INR"
+          },
+          {
+            "rank": "Second Runner Up",
+            "cash": 1000,
+            "currency": "fa-rupee",
+            "currencyCode": "INR"
+          }
+        ],
+        "filters": [
+          {
+            "id": 406,
+            "name": "Hackathon",
+            "type": "category"
+          },
+          {
+            "id": 412,
+            "name": "Coding Challenge",
+            "type": "category"
+          },
+          {
+            "id": 422,
+            "name": "Engineering Students",
+            "type": "eligible"
+          },
+          {
+            "id": 423,
+            "name": "MBA Students",
+            "type": "eligible"
+          },
+          {
+            "id": 424,
+            "name": "Postgraduate",
+            "type": "eligible"
+          },
+          {
+            "id": 426,
+            "name": "Undergraduate",
+            "type": "eligible"
+          }
+        ],
+        "organisation": {
+          "id": 16635,
+          "name": "Deen Dayal Upadhaya College (DDUC), University of Delhi (DU), New Delhi"
+        },
+        "regnRequirements": {
+          "start_regn_dt": "2024-02-22T00:00:00+05:30",
+          "end_regn_dt": "2024-03-02T00:00:00+05:30",
+          "min_team_size": 1,
+          "max_team_size": 2
+        },
+        "short_url": "https://unstop.com/o/FJh2xst"
+      },
+      {
+        "id": 10587,
+        "public_url": "hackathons/google-code-jam-google-10587",
+        "title": "Google Code Jam",
+        "type": "hackathons",
+        "subtype": "online_coding_challenge",
+        "region": "online",
+        "status": "LIVE",
+        "seo_url": "https://unstop.com/hackathons/google-code-jam-google-10587",
+        "end_date": "2022-04-03T23:59:00+05:30",
+        "prizes": [
+          {
+            "rank": "Winner",
+            "cash": 15000,
+            "currency": "fa-dollar",
+            "currencyCode": "USD"
+          },
+          {
+            "rank": "First Runner Up",
+            "cash": 2000,
+            "currency": "fa-dollar",
+            "currencyCode": "USD"
+          },
+          {
+            "rank": "Second Runner Up",
+            "cash": 1000,
+            "currency": "fa-dollar",
+            "currencyCode": "USD"
+          },
+          {
+            "rank": "For Positions 4th to 25th",
+            "cash": 100,
+            "currency": "fa-dollar",
+            "currencyCode": "USD"
+          }
+        ],
+        "filters": [
+          {
+            "id": 406,
+            "name": "Hackathon",
+            "type": "category"
+          },
+          {
+            "id": 430,
+            "name": "Engineering",
+            "type": "domain"
+          },
+          {
+            "id": 420,
+            "name": "All",
+            "type": "eligible"
+          }
+        ],
+        "organisation": {
+          "id": 463,
+          "name": "Google"
+        },
+        "regnRequirements": {
+          "start_regn_dt": "2022-03-01T00:00:30+05:30",
+          "end_regn_dt": "2022-03-25T23:59:00+05:30",
+          "min_team_size": 1,
+          "max_team_size": 1
+        },
+        "short_url": "https://unstop.com/o/LYupexX"
+      }
+    ],
+    "last_page": 18,
+    "per_page": 15,
+    "total": 269,
+    "next_page_url": "https://unstop.com/api/public/opportunity/search-result?&opportunity=hackathons&oppstatus=open&per_page=15&page=2"
+  }
+}

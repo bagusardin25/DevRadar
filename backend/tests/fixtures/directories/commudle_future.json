@@ -1,0 +1,91 @@
+{
+  "status": 200,
+  "message": "Request Successful",
+  "data": {
+    "total": 3,
+    "page_info": {
+      "has_previous_page": false,
+      "has_next_page": false,
+      "start_cursor": "W3sic2Vjb25kcyI6MTc5MjgxMjYwMCwibmFub3NlY29uZHMiOjB9LDE2M10",
+      "end_cursor": "W3sic2Vjb25kcyI6MTc5MTAwMDAwMCwibmFub3NlY29uZHMiOjB9LDE2MV0"
+    },
+    "page": [
+      {
+        "cursor": "W3sic2Vjb25kcyI6MTc5MjgxMjYwMCwibmFub3NlY29uZHMiOjB9LDE2M10",
+        "data": {
+          "id": 163,
+          "name": "AHGV BUILDVERSE 2026",
+          "slug": "ahgv-buildverse-2026",
+          "tagline": "AHGV BuildVerse 2026: Idea To Execution Presented by Avaroite x HackGyanVerse.",
+          "hackathon_theme": "",
+          "number_of_participants": 4000,
+          "participate_types": "team",
+          "hackathon_location_type": "hybrid",
+          "min_number_of_teammates": 2,
+          "max_number_of_teammates": 4,
+          "status": "open",
+          "start_date": "2026-10-24T04:30:00.000+01:00",
+          "end_date": "2026-10-24T12:30:00.000+01:00",
+          "community": {
+            "name": "Hackgyanverse",
+            "slug": "hackgyanverse"
+          },
+          "total_prize_amount": {
+            "INR": 0
+          },
+          "interested_members_count": 12
+        }
+      },
+      {
+        "cursor": "W3sic2Vjb25kcyI6MTc5MjIwNzgwMCwibmFub3NlY29uZHMiOjB9LDE1N10",
+        "data": {
+          "id": 157,
+          "name": "Hack Sprint",
+          "slug": "hack-sprint",
+          "tagline": "Code the Next Big Thing",
+          "hackathon_theme": "",
+          "number_of_participants": 100000,
+          "participate_types": "team",
+          "hackathon_location_type": "hybrid",
+          "min_number_of_teammates": 2,
+          "max_number_of_teammates": 4,
+          "status": "open",
+          "start_date": "2026-10-17T04:30:00.000+01:00",
+          "end_date": "2026-10-18T10:30:00.000+01:00",
+          "community": {
+            "name": "Commudle Developer Network",
+            "slug": "cdn-commudle-developer-network"
+          },
+          "total_prize_amount": {},
+          "interested_members_count": 3424
+        }
+      },
+      {
+        "cursor": "W3sic2Vjb25kcyI6MTc5MTAwMDAwMCwibmFub3NlY29uZHMiOjB9LDE2MV0",
+        "data": {
+          "id": 161,
+          "name": "Design Competition : By Paytm",
+          "slug": "paytm-ai-hackathon-design-competition",
+          "tagline": "Design Competition",
+          "hackathon_theme": "",
+          "number_of_participants": 5000,
+          "participate_types": "individual",
+          "hackathon_location_type": "hybrid",
+          "min_number_of_teammates": 1,
+          "max_number_of_teammates": 1,
+          "status": "open",
+          "start_date": "2026-10-03T05:00:00.000+01:00",
+          "end_date": "2026-10-18T13:00:00.000+01:00",
+          "community": {
+            "name": "Commudle Developer Network",
+            "slug": "cdn-commudle-developer-network"
+          },
+          "total_prize_amount": {
+            "INR": 100000
+          },
+          "interested_members_count": 1219
+        }
+      }
+    ]
+  }
+}

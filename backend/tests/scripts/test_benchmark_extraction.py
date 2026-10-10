@@ -22,6 +22,7 @@ if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
 import benchmark_extraction as bench  # noqa: E402
+
 from app.config import Settings  # noqa: E402
 
 

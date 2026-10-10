@@ -17,6 +17,13 @@ from app.catalog.enums import (
     OfferType,
     VerificationStatus,
 )
+from app.ingestion.scoring import (
+    MAX_COMPLETENESS,
+    MAX_FRESHNESS,
+    MAX_KEYWORD,
+    MAX_SOURCE,
+    MAX_STATUS_DEADLINE,
+)
 
 
 class CamelModel(BaseModel):
@@ -32,11 +39,11 @@ class CamelModel(BaseModel):
 class ScoreBreakdownSchema(CamelModel):
     """Five deterministic score components (points out of 100 components)."""
 
-    status_and_deadline: int = Field(ge=0, le=35)
-    keyword_match: int = Field(ge=0, le=25)
-    source_credibility: int = Field(ge=0, le=20)
-    freshness: int = Field(ge=0, le=15)
-    completeness: int = Field(ge=0, le=5)
+    status_and_deadline: int = Field(ge=0, le=MAX_STATUS_DEADLINE)
+    keyword_match: int = Field(ge=0, le=MAX_KEYWORD)
+    source_credibility: int = Field(ge=0, le=MAX_SOURCE)
+    freshness: int = Field(ge=0, le=MAX_FRESHNESS)
+    completeness: int = Field(ge=0, le=MAX_COMPLETENESS)
 
 
 class ListingBaseSchema(CamelModel):

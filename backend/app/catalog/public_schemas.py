@@ -16,6 +16,13 @@ from app.catalog.enums import (
     VerificationStatus,
 )
 from app.catalog.schemas import CamelModel
+from app.ingestion.scoring import (
+    MAX_COMPLETENESS,
+    MAX_FRESHNESS,
+    MAX_KEYWORD,
+    MAX_SOURCE,
+    MAX_STATUS_DEADLINE,
+)
 
 DiscoverySourceType = Literal[
     "x", "devpost", "mlh", "official_site", "reddit", "github"
@@ -24,11 +31,12 @@ PipelineStep = Literal["fetched", "parsed", "extracted", "verified"]
 
 
 class ScoreBreakdownPublic(CamelModel):
-    status_and_deadline: int = Field(ge=0, le=35, default=0)
-    keyword_match: int = Field(ge=0, le=25, default=0)
-    source_credibility: int = Field(ge=0, le=20, default=0)
-    freshness: int = Field(ge=0, le=15, default=0)
-    completeness: int = Field(ge=0, le=5, default=0)
+    # Bounds come from the scorer so a reweighting cannot 500 every list call.
+    status_and_deadline: int = Field(ge=0, le=MAX_STATUS_DEADLINE, default=0)
+    keyword_match: int = Field(ge=0, le=MAX_KEYWORD, default=0)
+    source_credibility: int = Field(ge=0, le=MAX_SOURCE, default=0)
+    freshness: int = Field(ge=0, le=MAX_FRESHNESS, default=0)
+    completeness: int = Field(ge=0, le=MAX_COMPLETENESS, default=0)
 
 
 class DiscoverySourcePublic(CamelModel):

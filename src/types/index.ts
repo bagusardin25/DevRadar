@@ -42,9 +42,9 @@ export interface VerificationAudit {
   scoreBreakdown: {
     statusAndDeadline: number; // max 35
     keywordMatch: number;      // max 25
-    sourceCredibility: number; // max 20
-    freshness: number;         // max 15
-    completeness: number;      // max 5
+    sourceCredibility: number; // max 25
+    freshness: number;         // max 5
+    completeness: number;      // max 10
   };
   checkedUrls: string[];
   pipelineStep: 'fetched' | 'parsed' | 'extracted' | 'verified';

@@ -227,3 +227,52 @@ def unreachable_review(
         engine="heuristic",
         model=None,
     )
+
+
+def blocked_page_review(
+    *,
+    title: str,
+    kind: ListingKind,
+    url: str,
+    reason: str,
+    candidate: CandidateListing | None = None,
+    listing_label: str | None = None,
+) -> AIReview:
+    """Review for a page that answered with a bot check instead of its content.
+
+    The page was not read, so nothing on it is judged: the event is neither
+    approved nor treated as gone. ``listing_label`` names the directory whose
+    listing facts were kept (e.g. "Devpost"); a human opens the link and decides.
+    """
+    kind_label = "hackathon" if kind == ListingKind.HACKATHON else "AI offer"
+    kept = (
+        f" Only the facts from the {listing_label} listing are filled in."
+        if listing_label
+        else ""
+    )
+    if candidate is not None:
+        suggested = _suggested_fields(candidate)
+    else:
+        suggested = {"title": title, "official_url": url} if title else {"official_url": url}
+    return AIReview(
+        recommendation=ReviewRecommendation.NEEDS_MORE_INFO,
+        confidence=20,
+        summary=(
+            f"The {kind_label} page answered with a bot check ({reason}) instead of "
+            f"its content, so it could not be read.{kept} A human should open the "
+            "link in a browser and confirm the details."
+        ),
+        concerns=[
+            ReviewConcern(
+                severity=_H,
+                message=(
+                    "The page is behind a bot check, so nothing on it was verified "
+                    "automatically. This does not mean the page is gone or the event "
+                    "has ended."
+                ),
+            )
+        ],
+        suggested_fields=suggested,
+        engine="heuristic",
+        model=None,
+    )

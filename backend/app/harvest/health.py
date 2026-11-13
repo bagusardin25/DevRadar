@@ -6,6 +6,8 @@ module reads each source's recent harvest ``CrawlRun`` rows and flags:
 
 - ``never_run``  — no harvest run recorded yet
 - ``blocked``    — the latest run hit a bot wall (never worked around)
+- ``pages_blocked`` — event pages in the latest run answered with a bot check;
+                   those items were queued from directory facts for a human
 - ``failing``    — ``FAILING_STREAK`` or more failed runs in a row
 - ``degraded``   — the latest run was partial (shape change, fetch errors)
 - ``silent``     — the latest run found nothing while earlier runs found rows,
@@ -116,6 +118,8 @@ def assess(
 
     if latest.status == CrawlRunStatus.FAILED.value and latest.error == "blocked":
         health.flags.append("blocked")
+    if (latest.error or "").startswith("pages_blocked"):
+        health.flags.append("pages_blocked")
     if health.consecutive_failures >= FAILING_STREAK:
         health.flags.append("failing")
     if latest.status == CrawlRunStatus.PARTIAL.value:

@@ -24,7 +24,7 @@ from app.discovery.constants import (
     STATUS_QUEUED,
     STATUS_RUNNING,
 )
-from app.discovery.http import build_fetch_policy, fetch_document
+from app.discovery.http import BlockedPage, build_fetch_policy, fetch_document_or_block
 from app.discovery.models import LiveDiscoveryRun
 from app.discovery.seeds import SeedCandidate, resolve_seed_candidates
 from app.ingestion.llm_provider import create_extractor
@@ -66,6 +66,8 @@ class DiscoverySummary:
     #: for something still waiting on a human.
     flagged_for_review: int = 0
     failed: int = 0
+    #: Seed pages that answered with a bot check: not read, not counted failed.
+    blocked: int = 0
     cost_units: int = 0
     unsupported_connectors: list[str] = field(default_factory=list)
     feeds_failed: list[str] = field(default_factory=list)
@@ -79,6 +81,7 @@ class DiscoverySummary:
             "needs_review": self.needs_review,
             "flagged_for_review": self.flagged_for_review,
             "failed": self.failed,
+            "blocked": self.blocked,
             "unsupported_connectors": self.unsupported_connectors,
             "feeds_failed": self.feeds_failed,
         }
@@ -108,8 +111,11 @@ async def _process_candidate(
     now: datetime,
     summary: DiscoverySummary,
 ) -> None:
-    doc = await fetch_document(seed.url, policy)
+    doc = await fetch_document_or_block(seed.url, policy)
     summary.cost_units += 1
+    if isinstance(doc, BlockedPage):
+        summary.blocked += 1
+        return
     if doc is None:
         summary.failed += 1
         return

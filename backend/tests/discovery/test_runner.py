@@ -56,7 +56,7 @@ class TestExecuteDiscoveryRun:
             fetched.append(url)
             return make_document(url)
 
-        monkeypatch.setattr(runner_module, "fetch_document", fake_fetch)
+        monkeypatch.setattr(runner_module, "fetch_document_or_block", fake_fetch)
         run = await make_run(session, connectors=["official_site"], cap=1)
         summary = await execute_discovery_run(session, run, settings=settings)
 
@@ -83,7 +83,7 @@ class TestExecuteDiscoveryRun:
         async def fake_fetch(url: str, policy):
             return None
 
-        monkeypatch.setattr(runner_module, "fetch_document", fake_fetch)
+        monkeypatch.setattr(runner_module, "fetch_document_or_block", fake_fetch)
         run = await make_run(session, connectors=["official_site"], cap=1)
         summary = await execute_discovery_run(session, run, settings=settings)
 
@@ -116,7 +116,7 @@ class TestExecuteDiscoveryRun:
         async def fake_fetch(url: str, policy):
             return make_document(url)
 
-        monkeypatch.setattr(runner_module, "fetch_document", fake_fetch)
+        monkeypatch.setattr(runner_module, "fetch_document_or_block", fake_fetch)
 
         first_run = await make_run(session, connectors=["official_site"], cap=1)
         first = await execute_discovery_run(session, first_run, settings=settings)

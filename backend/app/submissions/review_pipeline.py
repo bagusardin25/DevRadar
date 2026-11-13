@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # Import the full model graph so SQLAlchemy relationships resolve in the worker.
 import app.models  # noqa: F401
 from app.ai_review.advisor import build_review_advisor
-from app.ai_review.heuristic import unreachable_review
+from app.ai_review.heuristic import blocked_page_review, unreachable_review
 from app.ai_review.schemas import AIReview
 from app.catalog.enums import (
     ListingKind,
@@ -263,6 +263,15 @@ async def apply_submission_review(
         ai_review = outcome.ai_review
         verification_block = _verification_block(outcome)
         usage_summary = outcome.usage_summary
+    elif fetch_result and fetch_result.get("blocked"):
+        # Bot check: not read, and not unreachable either.
+        ai_review = blocked_page_review(
+            title=submission.claimed_title or "",
+            kind=_resolve_kind(submission.claimed_type, ""),
+            url=submission.canonical_url,
+            reason=str(fetch_result.get("block_reason") or "bot check")[:120],
+        )
+        usage_summary = summarize_llm_usage([])
     else:
         detail = None
         if fetch_result and fetch_result.get("error"):
@@ -292,6 +301,14 @@ async def apply_submission_review(
             "warnings": list(outcome.candidate.warnings),
         }
     snapshot["aiReviewedAt"] = now.astimezone(UTC).isoformat()
+    if fetch_result and fetch_result.get("blocked"):
+        snapshot["pageBlocked"] = {
+            "url": str(fetch_result.get("url") or submission.canonical_url),
+            "statusCode": fetch_result.get("status_code"),
+            "reason": fetch_result.get("block_reason"),
+            "checkedAt": now.astimezone(UTC).isoformat(),
+            "needsHumanCheck": True,
+        }
 
     # Reassign (not mutate) so SQLAlchemy flags the JSONB column dirty.
     item.candidate_snapshot = snapshot

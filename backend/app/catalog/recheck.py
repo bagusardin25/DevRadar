@@ -5,6 +5,9 @@ Safe merge policy:
 - Only overwrite string fields when extraction returns non-empty values.
 - Always bump last_checked_at and append a verification_event.
 - Works with LLM_PROVIDER=disabled (rules-only) or openai (hybrid fill).
+- A bot check (Cloudflare "Just a moment...") is recorded as blocked: nothing
+  is parsed, the verification status is left alone, a human or a later run
+  checks again. It is never worked around.
 """
 
 from __future__ import annotations
@@ -22,7 +25,7 @@ from sqlalchemy.orm import selectinload
 from app.catalog.enums import ListingKind, VerificationStatus
 from app.catalog.models import Listing
 from app.config import Settings, get_settings
-from app.ingestion.fetcher import FetchError, FetchPolicy, fetch_url
+from app.ingestion.fetcher import BotChallengeError, FetchError, FetchPolicy, fetch_url
 from app.ingestion.llm_provider import create_extractor
 from app.ingestion.models import VerificationEvent
 from app.ingestion.parser import parse_document
@@ -47,6 +50,8 @@ class RecheckItemResult:
     updated_fields: list[str] = field(default_factory=list)
     error: str | None = None
     status_code: int | None = None
+    #: The page answered with a bot check; nothing was read or changed.
+    blocked: bool = False
 
 
 @dataclass(slots=True)
@@ -55,6 +60,7 @@ class RecheckSummary:
     ok: int = 0
     failed: int = 0
     skipped: int = 0
+    blocked: int = 0
     results: list[RecheckItemResult] = field(default_factory=list)
 
 
@@ -292,6 +298,36 @@ async def recheck_listing(
 
     try:
         doc = await fetch_url(url, policy)
+    except BotChallengeError as exc:
+        listing.last_checked_at = now
+        status = VerificationStatus(str(listing.verification_status))
+        session.add(
+            VerificationEvent(
+                listing_id=listing.id,
+                event_type="official_url_recheck_blocked",
+                previous_status=status,
+                new_status=status,
+                checked_urls=[url],
+                score_breakdown={
+                    "httpStatus": exc.status_code,
+                    "blocked": exc.reason,
+                    "needsHumanCheck": True,
+                },
+                notes=(
+                    f"Recheck blocked by a bot check ({exc.reason}); page not read, "
+                    "status unchanged. Retry later or check by hand."
+                )[:500],
+            )
+        )
+        return RecheckItemResult(
+            slug=slug,
+            kind=kind,
+            ok=False,
+            url=url,
+            error=f"blocked:{exc.reason}"[:300],
+            status_code=exc.status_code,
+            blocked=True,
+        )
     except (SSRFError, FetchError, Exception) as exc:
         listing.last_checked_at = now
         session.add(
@@ -436,6 +472,8 @@ async def recheck_catalogue(
             summary.ok += 1
         elif result.error == "no_official_url":
             summary.skipped += 1
+        elif result.blocked:
+            summary.blocked += 1
         else:
             summary.failed += 1
 

@@ -8,6 +8,10 @@ deterministic verifier + AI advisor, then parked as OPEN review items for a
 human. Dedupes against the catalogue, the open queue and across sources; a
 cross-source duplicate corroborates the copy that is kept. Directory deadlines
 that moved on an already-published listing open a change review item.
+
+An event page that answers with a bot check (Cloudflare "Just a moment...") is
+never parsed and never worked around: the item is still queued, built from the
+directory listing's facts only, flagged ``pageBlocked`` for a human to check.
 """
 
 from __future__ import annotations
@@ -24,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.ai_review.advisor import build_review_advisor
+from app.ai_review.heuristic import blocked_page_review
 from app.catalog.enums import (
     ConnectorType,
     CrawlRunStatus,
@@ -36,7 +41,10 @@ from app.catalog.enums import (
 )
 from app.catalog.models import Listing
 from app.config import Settings
-from app.discovery.http import build_fetch_policy, fetch_document
+from app.discovery.http import BlockedPage, build_fetch_policy, fetch_document_or_block
+from app.ingestion.extraction_schemas import EXTRACTION_SCHEMA_VERSION
+from app.ingestion.extractor import EXTRACTOR_VERSION, ExtractionResult
+from app.ingestion.fetcher import BotChallengeError, FetchedDocument, bot_challenge_reason
 from app.ingestion.llm_provider import create_extractor
 from app.ingestion.models import CrawlRun
 from app.ingestion.normalizer import SourceContext, normalize_extraction
@@ -176,6 +184,9 @@ class SourceCounts:
     skipped_cross_source: int = 0
     skipped_offline: int = 0
     skipped_fetch: int = 0
+    #: Queued from directory facts because the event page was a bot check.
+    #: Also counted in ``queued``.
+    pages_blocked: int = 0
     failed: int = 0
     changes_flagged: int = 0
     error: str | None = None
@@ -188,6 +199,7 @@ class SourceCounts:
             "skipped_cross_source": self.skipped_cross_source,
             "skipped_offline": self.skipped_offline,
             "skipped_fetch": self.skipped_fetch,
+            "pages_blocked": self.pages_blocked,
             "failed": self.failed,
             "changes_flagged": self.changes_flagged,
             "error": self.error,
@@ -201,6 +213,7 @@ class HarvestSummary:
     skipped_duplicate: int = 0
     skipped_offline: int = 0
     skipped_fetch: int = 0
+    pages_blocked: int = 0
     failed: int = 0
     changes_flagged: int = 0
     review_item_ids: list[str] = field(default_factory=list)
@@ -214,6 +227,7 @@ class HarvestSummary:
             "skipped_duplicate": self.skipped_duplicate,
             "skipped_offline": self.skipped_offline,
             "skipped_fetch": self.skipped_fetch,
+            "pages_blocked": self.pages_blocked,
             "failed": self.failed,
             "changes_flagged": self.changes_flagged,
             "review_item_ids": list(self.review_item_ids),
@@ -328,7 +342,7 @@ async def run_online_hackathon_harvest(
     if not runs:
         return summary
 
-    fetcher = fetch_page or fetch_document
+    fetcher = fetch_page or fetch_document_or_block
     policy = build_fetch_policy(settings)
     extractor = create_extractor(settings, lane=LLMLane.CRAWL)
     advisor = build_review_advisor(settings)
@@ -415,6 +429,10 @@ async def run_online_hackathon_harvest(
                 counts.queued += 1
                 summary.review_item_ids.append(outcome[1])
                 run.fetched_count += 1
+            elif isinstance(outcome, tuple) and outcome[0] == "blocked":
+                counts.queued += 1
+                counts.pages_blocked += 1
+                summary.review_item_ids.append(outcome[1])
             elif outcome == "duplicate":
                 counts.skipped_duplicate += 1
             elif outcome == "offline":
@@ -428,13 +446,17 @@ async def run_online_hackathon_harvest(
 
         for key, run in runs.items():
             counts = summary.per_source[key]
-            run.cost_units = run.fetched_count + run.failed_count
+            run.cost_units = run.fetched_count + run.failed_count + counts.pages_blocked
             if key in failed_runs:
                 run.status = CrawlRunStatus.FAILED
                 run.error_summary = (counts.error or "failed")[:500]
             elif key in degraded_runs:
                 run.status = CrawlRunStatus.PARTIAL
                 run.error_summary = (counts.error or "degraded")[:500]
+            elif counts.pages_blocked:
+                # Read by app.harvest.health as the "pages_blocked" flag.
+                run.status = CrawlRunStatus.PARTIAL
+                run.error_summary = f"pages_blocked:{counts.pages_blocked}"
             elif counts.failed or counts.skipped_fetch:
                 run.status = CrawlRunStatus.PARTIAL
             else:
@@ -445,6 +467,7 @@ async def run_online_hackathon_harvest(
             summary.skipped_duplicate += counts.skipped_duplicate + counts.skipped_cross_source
             summary.skipped_offline += counts.skipped_offline
             summary.skipped_fetch += counts.skipped_fetch
+            summary.pages_blocked += counts.pages_blocked
             summary.failed += counts.failed
             summary.changes_flagged += counts.changes_flagged
         await session.flush()
@@ -668,6 +691,64 @@ def apply_directory_dates(
     return conflicts
 
 
+def _as_blocked(fetched: Any, url: str) -> BlockedPage | None:
+    """The fetch result as a :class:`BlockedPage` when it is a bot check."""
+    if isinstance(fetched, BlockedPage):
+        return fetched
+    if isinstance(fetched, FetchedDocument):
+        # fetch_url already refuses challenges; this guards injected fetchers.
+        reason = bot_challenge_reason(fetched.status_code, fetched.headers, fetched.body)
+        if reason is not None:
+            return BlockedPage(
+                url=fetched.final_url or url,
+                status_code=fetched.status_code,
+                reason=reason,
+            )
+    return None
+
+
+def _directory_only_extraction() -> ExtractionResult:
+    """An empty extraction for a page that was never read."""
+    return ExtractionResult(
+        schema_version=EXTRACTION_SCHEMA_VERSION,
+        extractor_version=EXTRACTOR_VERSION,
+        listing_kind=ListingKind.HACKATHON,
+        fields={},
+        method="failed",
+        errors=["page_blocked_by_bot_check"],
+    )
+
+
+def _apply_directory_facts(
+    extraction: Any, hit: DiscoveryCandidate, info: HarvestSourceInfo
+) -> list[str]:
+    """Fill fields the page did not give from the directory row.
+
+    Returns the date fields where page and directory disagree.
+    """
+    metadata = hit.metadata or {}
+    directory_mode = metadata.get("mode")
+    if not extraction.fields.get("mode") and directory_mode in (
+        HackathonMode.ONLINE.value,
+        HackathonMode.HYBRID.value,
+    ):
+        extraction.fields["mode"] = directory_mode
+        extraction.field_sources["mode"] = "directory"
+    if not extraction.fields.get("title") and hit.title:
+        extraction.fields["title"] = hit.title
+        extraction.field_sources.setdefault("title", "directory")
+    if not extraction.fields.get("prize_value") and metadata.get("prize_value"):
+        extraction.fields["prize_value"] = metadata["prize_value"]
+        extraction.field_sources.setdefault("prize_value", "directory")
+    if not extraction.fields.get("organizer") and metadata.get("organization"):
+        extraction.fields["organizer"] = metadata["organization"]
+        extraction.field_sources.setdefault("organizer", "directory")
+    if not extraction.fields.get("technologies") and metadata.get("themes"):
+        extraction.fields["technologies"] = list(metadata["themes"])
+        extraction.field_sources.setdefault("technologies", "directory")
+    return apply_directory_dates(extraction, metadata, authoritative=info.hosts_events)
+
+
 async def _ingest_one(
     session: AsyncSession,
     hit: DiscoveryCandidate,
@@ -690,44 +771,36 @@ async def _ingest_one(
     if canonical in known:
         return "duplicate"
 
-    doc = await fetcher(hit.url, policy)
-    if doc is None:
+    try:
+        fetched = await fetcher(hit.url, policy)
+    except BotChallengeError as exc:
+        fetched = BlockedPage(url=hit.url, status_code=exc.status_code, reason=exc.reason)
+    if fetched is None:
         return "fetch"
 
-    parsed = parse_document(
-        doc.body,
-        url=doc.final_url or hit.url,
-        content_type=doc.content_type,
-    )
-    extraction = await extractor.extract(parsed, ListingKind.HACKATHON)
-    directory_mode = (hit.metadata or {}).get("mode")
-    if not extraction.fields.get("mode") and directory_mode in (
-        HackathonMode.ONLINE.value,
-        HackathonMode.HYBRID.value,
-    ):
-        extraction.fields["mode"] = directory_mode
-        extraction.field_sources["mode"] = "directory"
-    if not extraction.fields.get("title") and hit.title:
-        extraction.fields["title"] = hit.title
-        extraction.field_sources.setdefault("title", "directory")
-    if not extraction.fields.get("prize_value") and hit.metadata.get("prize_value"):
-        extraction.fields["prize_value"] = hit.metadata["prize_value"]
-        extraction.field_sources.setdefault("prize_value", "directory")
-    if not extraction.fields.get("organizer") and hit.metadata.get("organization"):
-        extraction.fields["organizer"] = hit.metadata["organization"]
-        extraction.field_sources.setdefault("organizer", "directory")
-    if not extraction.fields.get("technologies") and hit.metadata.get("themes"):
-        extraction.fields["technologies"] = list(hit.metadata["themes"])
-        extraction.field_sources.setdefault("technologies", "directory")
-    date_conflicts = apply_directory_dates(
-        extraction, hit.metadata or {}, authoritative=info.hosts_events
-    )
+    blocked = _as_blocked(fetched, hit.url)
+    if blocked is None:
+        doc = fetched
+        source_url = doc.final_url or hit.url
+        parsed = parse_document(doc.body, url=source_url, content_type=doc.content_type)
+        extraction = await extractor.extract(parsed, ListingKind.HACKATHON)
+        excerpt = (parsed.text or "")[:6_000]
+    else:
+        # Bot check: nothing from the page is used, nothing is retried around it.
+        logger.warning(
+            "harvest_page_blocked",
+            extra={"source": source_key, "url": blocked.url, "reason": blocked.reason},
+        )
+        source_url = hit.url
+        extraction = _directory_only_extraction()
+        excerpt = ""
+    date_conflicts = _apply_directory_facts(extraction, hit, info)
 
     candidate = normalize_extraction(
         extraction,
         SourceContext(
             source_id=source.id,
-            source_url=doc.final_url or hit.url,
+            source_url=source_url,
             trust_tier=SourceTier.TIER_2.value,
             connector_type=info.connector_type.value,
         ),
@@ -740,60 +813,88 @@ async def _ingest_one(
     candidate.warnings.extend(f"directory_date_conflict:{name}" for name in date_conflicts)
     evidence = VerificationEvidence(
         source_tier=SourceTier.TIER_2.value,
-        link_ok=True,
+        # A blocked page was not checked. That is not a dead link either: the
+        # verifier only lowers its score and asks for review.
+        link_ok=blocked is None,
         cross_source_count=corroborating_sources(hit),
         last_checked_at=now,
         only_tier3=False,
     )
     result = verify(candidate, evidence, now=now)
-    excerpt = (parsed.text or "")[:6_000]
-    ai_review = await advisor.review(candidate, result, page_excerpt=excerpt)
-
-    item = ReviewItem(
-        candidate_type=ReviewCandidateType.LISTING,
-        candidate_snapshot={
-            "title": candidate.title,
-            "kind": candidate.kind.value,
-            "description": candidate.description,
-            "officialUrl": candidate.official_url,
-            "canonical_url": candidate.canonical_url,
-            "source": f"harvest_{source_key}",
-            "harvest": True,
-            "fields": _jsonable(candidate.fields),
-            "fieldSources": dict(candidate.field_sources),
-            "aiReview": ai_review.to_snapshot(),
-            "verification": {
-                "status": result.status.value,
-                "reasons": list(result.reasons),
-                "checks": result.checks,
-                "score": result.score.total,
-            },
-            "directory": {
-                "source": source_key,
-                "externalId": hit.external_id,
-                "organization": hit.metadata.get("organization"),
-                "dates": hit.metadata.get("submission_period_dates"),
-                "timeLeft": hit.metadata.get("time_left_to_submission"),
-                "startsAt": hit.metadata.get("starts_at"),
-                "endsAt": hit.metadata.get("ends_at"),
-                "directoryUrl": hit.metadata.get("directory_url"),
-                "registrationEndsAt": hit.metadata.get("registration_ends_at"),
-                "prizeValue": _json_scalar(hit.metadata.get("prize_value")),
-                "prizeText": hit.metadata.get("prize_text"),
-                "alsoListedOn": list(hit.metadata.get("also_listed_on") or []),
-                "dateConflicts": date_conflicts,
-            },
-            "extraction": {
-                "method": candidate.extraction_method,
-                "schemaVersion": candidate.schema_version,
-                "warnings": list(candidate.warnings),
-            },
-        },
-        reason=(
+    if blocked is None:
+        ai_review = await advisor.review(candidate, result, page_excerpt=excerpt)
+        reason = (
             f"Harvest (online {info.label}): AI "
             f"{ai_review.recommendation.value.replace('_', ' ')} "
             f"({ai_review.confidence}/100)"
-        )[:500],
+        )
+    else:
+        result.reasons.append("page_blocked_by_bot_check")
+        result.checks["page_blocked"] = blocked.reason
+        ai_review = blocked_page_review(
+            title=candidate.title,
+            kind=ListingKind.HACKATHON,
+            url=hit.url,
+            reason=blocked.reason,
+            candidate=candidate,
+            listing_label=info.label,
+        )
+        reason = (
+            f"Harvest (online {info.label}): event page blocked by a bot check, "
+            "needs a human check"
+        )
+
+    snapshot: dict[str, Any] = {
+        "title": candidate.title,
+        "kind": candidate.kind.value,
+        "description": candidate.description,
+        "officialUrl": candidate.official_url,
+        "canonical_url": candidate.canonical_url,
+        "source": f"harvest_{source_key}",
+        "harvest": True,
+        "fields": _jsonable(candidate.fields),
+        "fieldSources": dict(candidate.field_sources),
+        "aiReview": ai_review.to_snapshot(),
+        "verification": {
+            "status": result.status.value,
+            "reasons": list(result.reasons),
+            "checks": result.checks,
+            "score": result.score.total,
+        },
+        "directory": {
+            "source": source_key,
+            "externalId": hit.external_id,
+            "organization": hit.metadata.get("organization"),
+            "dates": hit.metadata.get("submission_period_dates"),
+            "timeLeft": hit.metadata.get("time_left_to_submission"),
+            "startsAt": hit.metadata.get("starts_at"),
+            "endsAt": hit.metadata.get("ends_at"),
+            "directoryUrl": hit.metadata.get("directory_url"),
+            "registrationEndsAt": hit.metadata.get("registration_ends_at"),
+            "prizeValue": _json_scalar(hit.metadata.get("prize_value")),
+            "prizeText": hit.metadata.get("prize_text"),
+            "alsoListedOn": list(hit.metadata.get("also_listed_on") or []),
+            "dateConflicts": date_conflicts,
+        },
+        "extraction": {
+            "method": candidate.extraction_method,
+            "schemaVersion": candidate.schema_version,
+            "warnings": list(candidate.warnings),
+        },
+    }
+    if blocked is not None:
+        snapshot["pageBlocked"] = {
+            "url": blocked.url,
+            "statusCode": blocked.status_code,
+            "reason": blocked.reason,
+            "checkedAt": now.astimezone(UTC).isoformat(),
+            "needsHumanCheck": True,
+        }
+
+    item = ReviewItem(
+        candidate_type=ReviewCandidateType.LISTING,
+        candidate_snapshot=snapshot,
+        reason=reason[:500],
         priority=_PRIORITY.get(ai_review.recommendation.value, 50),
         state=ReviewItemState.OPEN,
         source_id=source.id,
@@ -801,7 +902,7 @@ async def _ingest_one(
     session.add(item)
     await session.flush()
     known.add(canonical)
-    return ("queued", str(item.id))
+    return ("blocked" if blocked is not None else "queued", str(item.id))
 
 
 @dataclass(slots=True)

@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from app.config import Settings
+from app.config import HARVEST_SOURCE_KEYS, Settings
 
 
 def _settings(**kwargs: object) -> Settings:
@@ -134,7 +134,8 @@ def test_development_exposes_openapi_docs() -> None:
 
 def test_harvest_sources_default() -> None:
     settings = _settings(app_env="test")
-    assert settings.harvest_sources == ["devpost", "devfolio", "mlh", "lablab"]
+    assert settings.harvest_sources == list(HARVEST_SOURCE_KEYS)
+    assert settings.harvest_sources[:2] == ["devpost", "devfolio"]
     assert settings.harvest_source_cap == 10
     assert settings.harvest_total_cap == 40
 
@@ -151,8 +152,8 @@ def test_harvest_sources_csv_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_harvest_sources_rejects_unknown() -> None:
-    with pytest.raises(ValidationError, match="dorahacks"):
-        _settings(app_env="test", harvest_sources="dorahacks")
+    with pytest.raises(ValidationError, match="hackerrank"):
+        _settings(app_env="test", harvest_sources="hackerrank")
     with pytest.raises(ValidationError):
         _settings(app_env="test", harvest_sources="devpost,hackerearth")
 

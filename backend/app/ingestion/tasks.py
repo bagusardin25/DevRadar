@@ -15,7 +15,7 @@ from app.catalog.enums import ListingKind, SubmissionState
 from app.config import Settings, get_settings
 from app.db import create_engine, create_session_maker
 from app.ingestion.browser import should_use_browser
-from app.ingestion.fetcher import FetchError, FetchPolicy, fetch_url
+from app.ingestion.fetcher import BotChallengeError, FetchError, FetchPolicy, fetch_url
 from app.ingestion.llm_provider import create_extractor
 from app.ingestion.parser import parse_document
 from app.ingestion.ssrf import SSRFError
@@ -51,6 +51,21 @@ async def _fetch_and_store(
 
     try:
         doc = await fetch_url(url, policy)
+    except BotChallengeError as exc:
+        # Recorded, never worked around; the challenge body is not stored.
+        logger.warning(
+            "fetch_blocked",
+            extra={"url": url, "status": exc.status_code, "reason": exc.reason},
+        )
+        return {
+            "ok": False,
+            "blocked": True,
+            "needs_human_check": True,
+            "block_reason": exc.reason,
+            "status_code": exc.status_code,
+            "error": f"Blocked by a bot check ({exc.reason}); the page was not read",
+            "url": url,
+        }
     except (SSRFError, FetchError) as exc:
         logger.info("fetch_failed", extra={"url": url, "error": str(exc)})
         return {
@@ -253,7 +268,12 @@ def fetch_submission(self: Any, submission_id: str) -> dict[str, Any]:
         result = result if isinstance(result, dict) else dict(result)
         fetch_error = str(result.get("error") or "")[:1000]
         retries = int(getattr(self.request, "retries", 0) or 0)
-        if not result.get("ok") and retries < int(self.max_retries or 0):
+        # A bot check will not clear in seconds: hand it to a human, don't hammer.
+        if (
+            not result.get("ok")
+            and not result.get("blocked")
+            and retries < int(self.max_retries or 0)
+        ):
             _run(
                 _mark_submission_state(
                     submission_id,

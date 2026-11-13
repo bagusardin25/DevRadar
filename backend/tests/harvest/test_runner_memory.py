@@ -124,8 +124,12 @@ def _no_database(monkeypatch: pytest.MonkeyPatch) -> None:
     async def known_urls(_session: Any) -> set[str]:
         return set()
 
+    async def known_listings(_session: Any) -> dict[str, runner.KnownListing]:
+        return {}
+
     monkeypatch.setattr(runner, "_ensure_harvest_source", ensure_source)
     monkeypatch.setattr(runner, "_known_urls", known_urls)
+    monkeypatch.setattr(runner, "_known_listings", known_listings)
 
 
 async def _fake_fetch(url: str, policy: Any) -> FetchedDocument:
@@ -292,12 +296,12 @@ async def test_runner_with_no_sources_is_a_noop(memory: _MemorySession) -> None:
 
 
 async def test_runner_rejects_unknown_source_keys(memory: _MemorySession) -> None:
-    with pytest.raises(ValueError, match="dorahacks"):
+    with pytest.raises(ValueError, match="hackerrank"):
         await runner.run_online_hackathon_harvest(
             memory,  # type: ignore[arg-type]
             _settings(),
             now=NOW,
-            connectors={"dorahacks": LablabConnector(fixtures=[], now=_now)},
+            connectors={"hackerrank": LablabConnector(fixtures=[], now=_now)},
         )
 
 

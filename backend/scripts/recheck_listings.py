@@ -68,11 +68,13 @@ async def run(
         if r.ok:
             fields = ",".join(r.updated_fields) if r.updated_fields else "-"
             print(f"OK   {r.slug:40} method={r.method:12} fields={fields} url={r.url[:60]}")
+        elif r.blocked:
+            print(f"BLOCKED {r.slug:37} bot check, status unchanged; check by hand: {r.url}")
         else:
             print(f"FAIL {r.slug:40} err={r.error}")
     print(
         f"Done scanned={summary.scanned} ok={summary.ok} "
-        f"failed={summary.failed} skipped={summary.skipped}"
+        f"failed={summary.failed} skipped={summary.skipped} blocked={summary.blocked}"
     )
     return 0 if summary.failed == 0 else 2
 

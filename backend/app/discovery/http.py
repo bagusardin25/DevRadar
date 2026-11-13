@@ -8,9 +8,16 @@ detail fetches (individual opportunity pages).
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 
 from app.config import Settings
-from app.ingestion.fetcher import FetchedDocument, FetchError, FetchPolicy, fetch_url
+from app.ingestion.fetcher import (
+    BotChallengeError,
+    FetchedDocument,
+    FetchError,
+    FetchPolicy,
+    fetch_url,
+)
 from app.ingestion.ssrf import SSRFError
 
 logger = logging.getLogger(__name__)
@@ -33,6 +40,19 @@ ALLOWED_CONTENT_TYPE_PREFIXES = (
 )
 
 
+@dataclass(frozen=True, slots=True)
+class BlockedPage:
+    """A page that answered with a bot check (e.g. Cloudflare "Just a moment...").
+
+    It is neither content nor a dead link: the page was not read, so nothing
+    about the event changes. Retry later, or let a human open it.
+    """
+
+    url: str
+    status_code: int
+    reason: str
+
+
 def build_fetch_policy(settings: Settings) -> FetchPolicy:
     """Fetch policy shared by feed and detail requests."""
     return FetchPolicy(
@@ -44,14 +64,23 @@ def build_fetch_policy(settings: Settings) -> FetchPolicy:
     )
 
 
-async def fetch_document(url: str, policy: FetchPolicy) -> FetchedDocument | None:
-    """Fetch a URL, returning None when the response is unusable.
+async def fetch_document_or_block(
+    url: str, policy: FetchPolicy
+) -> FetchedDocument | BlockedPage | None:
+    """Fetch a URL; a bot check comes back as :class:`BlockedPage`.
 
-    A single dead link must never fail the whole discovery run, so blocked,
-    timed-out and error responses are logged and skipped.
+    ``None`` still means unusable (dead link, timeout, SSRF refusal, error
+    status). A bot check is reported apart from those so callers can keep what
+    they already know about the page instead of dropping it.
     """
     try:
         doc = await fetch_url(url, policy)
+    except BotChallengeError as exc:
+        logger.warning(
+            "discovery_fetch_blocked",
+            extra={"url": url, "status": exc.status_code, "reason": exc.reason},
+        )
+        return BlockedPage(url=url, status_code=exc.status_code, reason=exc.reason)
     except (SSRFError, FetchError) as exc:
         logger.info(
             "discovery_fetch_rejected",
@@ -74,6 +103,16 @@ async def fetch_document(url: str, policy: FetchPolicy) -> FetchedDocument | Non
         )
         return None
     return doc
+
+
+async def fetch_document(url: str, policy: FetchPolicy) -> FetchedDocument | None:
+    """Fetch a URL, returning None when the response is unusable.
+
+    A single dead link must never fail the whole discovery run, so blocked,
+    timed-out and error responses are logged and skipped.
+    """
+    result = await fetch_document_or_block(url, policy)
+    return result if isinstance(result, FetchedDocument) else None
 
 
 def decode_body(doc: FetchedDocument) -> str:

@@ -20,7 +20,13 @@ from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from app.ingestion.fetcher import FetchedDocument, FetchError, FetchPolicy, fetch_url
+from app.ingestion.fetcher import (
+    BotChallengeError,
+    FetchedDocument,
+    FetchError,
+    FetchPolicy,
+    fetch_url,
+)
 from app.sources.connectors.base import (
     ConnectorQuery,
     DiscoveryCandidate,
@@ -78,6 +84,8 @@ def bot_wall_reason(text: str) -> str | None:
 
 def block_reason_for_error(exc: BaseException) -> str | None:
     """Return a block reason when ``exc`` is a WAF-style HTTP failure."""
+    if isinstance(exc, BotChallengeError):
+        return exc.reason
     match = _BLOCK_STATUS.search(str(exc))
     if match and isinstance(exc, FetchError):
         return f"http_{match.group(1)}"
